@@ -1,8 +1,6 @@
-typescript
-import NextAuth from "next-auth"
 import KeycloakProvider from "next-auth/providers/keycloak"
 import { JWT } from "next-auth/jwt"
-import { Session, User, SessionStrategy } from "next-auth"
+import { NextAuth, Session, User, SessionStrategy } from "next-auth"
 
 export const authOptions = {
     providers: [
@@ -22,7 +20,7 @@ export const authOptions = {
         },
         async session({ session, token }: { session: Session; token: JWT }) {
             if (session.user) {
-                (session.user as User & { id?: string }).id = token.id
+                (session.user as User & { id?: string }).id = String(token.id)
             }
             return session
         }
