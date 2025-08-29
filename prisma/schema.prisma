@@ -12,6 +12,11 @@ model Account {
   balance   Decimal
   interest  Boolean
   type      AccountType
+  users     User[]
+  bankAccounts BankAccount[]
+  helpAccounts HelpAccount[]
+  transactions1 Transaction[] @relation("Account1")
+  transactions2 Transaction[] @relation("Account2")
 }
 
 model User {
@@ -22,6 +27,11 @@ model User {
   keycloak_id String   @unique
   accountId   Int
   account     Account  @relation(fields: [accountId], references: [id])
+  roles       Role[]
+  responsibleHelpAccounts HelpAccount[] @relation("responsible")
+  advancesFrom Advances[] @relation("FromUser")
+  advancesReviewed Advances[] @relation("Reviewer")
+  mails       Mail[]
 }
 
 model Role {
@@ -52,7 +62,7 @@ model HelpAccount {
   id            Int      @id @default(autoincrement())
   name          String
   responsibleId Int?
-  responsible   User?     @relation(fields: [responsibleId], references: [id])
+  responsible   User?     @relation("responsible", fields: [responsibleId], references: [id])
   accountId     Int
   account       Account  @relation(fields: [accountId], references: [id])
 }
@@ -64,6 +74,7 @@ model Household {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   state       householdState @default(draft)
+  costCenters CostCenter[]
 }
 
 model CostCenter {
@@ -78,6 +89,8 @@ model CostCenter {
   costs_actual      Decimal @default(0)
   householdId       Int
   household         Household @relation(fields: [householdId], references: [id])
+  transactions      Transaction[]
+  transactionBulks  TransactionBulk[]
 }
 
 model Transaction {
@@ -89,11 +102,11 @@ model Transaction {
   reference           String?
   account1Negative    Boolean @default(false)
   accountId1          Int
-  account1            Account  @relation(fields: [accountId1], references: [id])
+  account1            Account  @relation("Account1", fields: [accountId1], references: [id])
   account1ValueAfter  Decimal
   account2Negative    Boolean? @default(false)
   accountId2          Int?
-  account2            Account? @relation(fields: [accountId2], references: [id])
+  account2            Account? @relation("Account2", fields: [accountId2], references: [id])
   account2ValueAfter  Decimal?
   costCenterId        Int?
   costCenter          CostCenter? @relation(fields: [costCenterId], references: [id])
@@ -101,6 +114,7 @@ model Transaction {
   attachment          Attachment? @relation(fields: [attachmentId], references: [id])
   transactionBulkId   Int?
   transactionBulk     TransactionBulk? @relation(fields: [transactionBulkId], references: [id])
+  advances           Advances[]
 }
 
 model TransactionBulk {
@@ -115,6 +129,7 @@ model TransactionBulk {
   costCenter      CostCenter? @relation(fields: [costCenterId], references: [id])
   attachmentId    Int?
   attachment      Attachment? @relation(fields: [attachmentId], references: [id])
+  transactions    Transaction[]
 }
 
 model Advances {
@@ -123,11 +138,11 @@ model Advances {
   date          DateTime @default(now())
   description   String
   userId        Int
-  user          User     @relation(fields: [userId], references: [id])
+  user          User     @relation("FromUser", fields: [userId], references: [id])
   transactionId Int?
   transaction   Transaction? @relation(fields: [transactionId], references: [id])
   reviewerId    Int?
-  reviewer      User?     @relation(fields: [reviewerId], references: [id])
+  reviewer      User?     @relation("Reviewer", fields: [reviewerId], references: [id])
   state         advanceState @default(open)
 }
 
@@ -136,6 +151,8 @@ model Attachment {
   name       String
   mimeType   String
   data       Bytes
+  transactions Transaction[]
+  transactionBulks TransactionBulk[]
 }
 
 model Mail {
