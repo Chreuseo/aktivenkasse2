@@ -67,6 +67,7 @@ model HelpAccount {
   accountId     Int
   account       Account  @relation(fields: [accountId], references: [id])
   members       HelpAccountMember[]
+    advances      Advances[]
 }
 
 model HelpAccountMember {
@@ -150,6 +151,8 @@ model Advances {
   description   String
   userId        Int
   user          User     @relation("FromUser", fields: [userId], references: [id])
+  helpAccountId Int?
+  helpAccount   HelpAccount? @relation(fields: [helpAccountId], references: [id])
   transactionId Int?
   transaction   Transaction? @relation(fields: [transactionId], references: [id])
   reviewerId    Int?
