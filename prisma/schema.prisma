@@ -67,6 +67,15 @@ model HelpAccount {
   account       Account  @relation(fields: [accountId], references: [id])
 }
 
+model HelpAccountMember {
+  helpAccountId Int
+  userId        Int
+  helpAccount   HelpAccount @relation(fields: [helpAccountId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
+
+  @@id([helpAccountId, userId])
+}
+
 model Household {
   id          Int      @id @default(autoincrement())
   name        String
