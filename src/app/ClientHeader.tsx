@@ -72,7 +72,7 @@ export default function ClientHeader() {
                                 <span>{item}</span>
                                 <span className="transition-transform group-hover:rotate-180">▼</span>
                             </button>
-                            <ul className={`absolute ... ${submenuOpen[item] ? 'block' : 'hidden'} ...`}>
+                            <ul className={`absolute menu-dropdown ${submenuOpen[item] ? 'block' : 'hidden'} ...`}>
                                 {submenuLinks[item]?.map((link: SubmenuLink) => (
                                     <li key={link.href} className="px-4 py-2 hover:bg-gray-600">
                                         <Link href={link.href}>{link.label}</Link>
