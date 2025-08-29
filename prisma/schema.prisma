@@ -28,6 +28,7 @@ model User {
   accountId   Int
   account     Account  @relation(fields: [accountId], references: [id])
   roles       Role[]
+  helpAccounts HelpAccountMember[]
   responsibleHelpAccounts HelpAccount[] @relation("responsible")
   advancesFrom Advances[] @relation("FromUser")
   advancesReviewed Advances[] @relation("Reviewer")
@@ -65,6 +66,7 @@ model HelpAccount {
   responsible   User?     @relation("responsible", fields: [responsibleId], references: [id])
   accountId     Int
   account       Account  @relation(fields: [accountId], references: [id])
+  members       HelpAccountMember[]
 }
 
 model HelpAccountMember {
