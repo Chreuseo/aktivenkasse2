@@ -14,7 +14,7 @@ const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
     Benutzer: [
         {label: 'Übersicht', href: '/users' },
         {label: 'Neuer Benutzer', href: '/users/new' },
-        {label: 'Rollen', href: '/roles' }
+        {label: 'Rollen', href: '/users/roles' }
     ],
     Bankkonten: [
         { label: 'Übersicht', href: '/bank-accounts' },
