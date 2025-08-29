@@ -1,35 +1,35 @@
 # Menüstruktur
 
 * Allgemein
-    - Übersicht
-    - Transaktionen
+    * Übersicht
+    * Transaktionen
 * Benutzer
-    - Übersicht
-    - Neuanlage
-    - Rollen
+    * Übersicht
+    * Neuanlage
+    * Rollen
 * Bankkonten
-    - Übersicht
-    - Neuanlage
+    * Übersicht
+    * Neuanlage
 * Hilfskonten
-    - Übersicht
-    - Neuanlage
-    - Funktionen
+    * Übersicht
+    * Neuanlage
+    * Funktionen
 * Haushaltsplan
-    - Aktueller Haushalt
-    - Übersicht
-    - Neuanlage
-    - Haushaltsabschluss
+    * Aktueller Haushalt
+    * Übersicht
+    * Neuanlage
+    * Haushaltsabschluss
 * Transaktionen
-    - Auslage
-    - Auslagenübersicht
-    - Letzte
-    - Neuanlage
-    - Sammeltransaktion
+    * Auslage
+    * Auslagenübersicht
+    * Letzte
+    * Neuanlage
+    * Sammeltransaktion
 * Prozesse
-    - Mailversand
-    - Exporte
-    - geplante Aufgaben
+    * Mailversand
+    * Exporte
+    * geplante Aufgaben
 * Mein Konto
-    - Übersicht
-    - Stammdaten ändern
-    - Logout
+    * Übersicht
+    * Stammdaten ändern
+    * Logout
