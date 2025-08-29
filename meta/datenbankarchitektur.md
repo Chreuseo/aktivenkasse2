@@ -25,6 +25,7 @@ Bankkonto
 
 Hilfskonto
     * Name
+    * -> Verantwortlicher
     * -> Konto
 
 
@@ -32,6 +33,20 @@ Konto
     * Betrag
     * Zinsrechnung
     * Typ
+
+Haushalt
+    * Name
+    * Status (Enum Entwurf, laufend, abgeschlossen)
+    * aktueller Haushalt
+    * berechnet am
+
+Kostenstellen
+    * Name
+    * -> Haushalt
+    * Einnahmen geplant
+    * Ausgaben geplant
+    * Einnahmen real
+    * Ausgaben real 
 
 Mail
     * Datum
@@ -61,6 +76,7 @@ Auslagen
     * Datum
     * Wertstellung
     * Betreff
+    * Hilfskonto
     * Referenz
     * Betrag
     * bearbeitender Nutzer
