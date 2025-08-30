@@ -8,68 +8,68 @@ generator client {
 }
 
 model LedgerAccount {
-  id               Int       @id @default(autoincrement())
-  balance          Decimal
-  interest         Boolean
-  type             AccountType
-  users            User[]
-  bankAccounts     BankAccount[]
-  helpAccounts     HelpAccount[]
-  transactions1    Transaction[] @relation("Account1")
-  transactions2    Transaction[] @relation("Account2")
+  id            Int           @id @default(autoincrement())
+  balance       Decimal
+  interest      Boolean
+  type          AccountType
+  users         User[]
+  bankAccounts  BankAccount[]
+  helpAccounts  HelpAccount[]
+  transactions1 Transaction[] @relation("Account1")
+  transactions2 Transaction[] @relation("Account2")
 }
 
 model User {
-  id          Int      @id @default(autoincrement())
-  first_name  String
-  last_name   String
-  mail        String   @unique
-  keycloak_id String   @unique
-  accountId   Int
-  account     LedgerAccount  @relation(fields: [accountId], references: [id])
-  roles       Role[]
-  helpAccounts HelpAccountMember[]
-  responsibleHelpAccounts HelpAccount[] @relation("responsible")
-  advancesFrom Advances[] @relation("FromUser")
-  advancesReviewed Advances[] @relation("Reviewer")
-  mails       Mail[]
+  id                      Int                 @id @default(autoincrement())
+  first_name              String
+  last_name               String
+  mail                    String              @unique
+  keycloak_id             String              @unique
+  accountId               Int
+  account                 LedgerAccount       @relation(fields: [accountId], references: [id])
+  roles                   Role[]
+  helpAccounts            HelpAccountMember[]
+  responsibleHelpAccounts HelpAccount[]       @relation("responsible")
+  advancesFrom            Advances[]          @relation("FromUser")
+  advancesReviewed        Advances[]          @relation("Reviewer")
+  mails                   Mail[]
 
   // NextAuth relations
-  accounts    Account[]
-  sessions    Session[]
+  accounts Account[]
+  sessions Session[]
 }
 
 model Role {
-  id              Int    @id @default(autoincrement())
-  name            String? @unique
-  keycloak_id     String? @unique
-  userId          Int?
-  user            User?   @relation(fields: [userId], references: [id])
-  household       AuthorizationType
-  userAuth        AuthorizationType
-  help_accounts   AuthorizationType
-  bank_accounts   AuthorizationType
-  transactions    AuthorizationType
-  advances        AuthorizationType
+  id            Int               @id @default(autoincrement())
+  name          String?           @unique
+  keycloak_id   String?           @unique
+  userId        Int?
+  user          User?             @relation(fields: [userId], references: [id])
+  household     AuthorizationType
+  userAuth      AuthorizationType
+  help_accounts AuthorizationType
+  bank_accounts AuthorizationType
+  transactions  AuthorizationType
+  advances      AuthorizationType
 }
 
 model BankAccount {
-  id          Int      @id @default(autoincrement())
-  name        String
-  bank        String
-  iban        String   @unique
-  bic         String?
-  accountId   Int
-  account     LedgerAccount  @relation(fields: [accountId], references: [id])
+  id        Int           @id @default(autoincrement())
+  name      String
+  bank      String
+  iban      String        @unique
+  bic       String?
+  accountId Int
+  account   LedgerAccount @relation(fields: [accountId], references: [id])
 }
 
 model HelpAccount {
-  id            Int      @id @default(autoincrement())
+  id            Int                 @id @default(autoincrement())
   name          String
   responsibleId Int?
-  responsible   User?     @relation("responsible", fields: [responsibleId], references: [id])
+  responsible   User?               @relation("responsible", fields: [responsibleId], references: [id])
   accountId     Int
-  account       LedgerAccount  @relation(fields: [accountId], references: [id])
+  account       LedgerAccount       @relation(fields: [accountId], references: [id])
   members       HelpAccountMember[]
   advances      Advances[]
 }
@@ -84,92 +84,92 @@ model HelpAccountMember {
 }
 
 model Household {
-  id          Int      @id @default(autoincrement())
+  id          Int            @id @default(autoincrement())
   name        String
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
   state       householdState @default(draft)
   costCenters CostCenter[]
 }
 
 model CostCenter {
-  id                Int      @id @default(autoincrement())
+  id                Int               @id @default(autoincrement())
   name              String
   description       String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   earnings_expected Decimal
   costs_expected    Decimal
-  earnings_actual   Decimal @default(0)
-  costs_actual      Decimal @default(0)
+  earnings_actual   Decimal           @default(0)
+  costs_actual      Decimal           @default(0)
   householdId       Int
-  household         Household @relation(fields: [householdId], references: [id])
+  household         Household         @relation(fields: [householdId], references: [id])
   transactions      Transaction[]
   transactionBulks  TransactionBulk[]
 }
 
 model Transaction {
-  id                  Int      @id @default(autoincrement())
-  amount              Decimal
-  date                DateTime @default(now())
-  date_valued         DateTime?
-  description         String
-  reference           String?
-  account1Negative    Boolean @default(false)
-  accountId1          Int
-  account1            LedgerAccount  @relation("Account1", fields: [accountId1], references: [id])
-  account1ValueAfter  Decimal
-  account2Negative    Boolean? @default(false)
-  accountId2          Int?
-  account2            LedgerAccount? @relation("Account2", fields: [accountId2], references: [id])
-  account2ValueAfter  Decimal?
-  costCenterId        Int?
-  costCenter          CostCenter? @relation(fields: [costCenterId], references: [id])
-  attachmentId        Int?
-  attachment          Attachment? @relation(fields: [attachmentId], references: [id])
-  transactionBulkId   Int?
-  transactionBulk     TransactionBulk? @relation(fields: [transactionBulkId], references: [id])
+  id                 Int              @id @default(autoincrement())
+  amount             Decimal
+  date               DateTime         @default(now())
+  date_valued        DateTime?
+  description        String
+  reference          String?
+  account1Negative   Boolean          @default(false)
+  accountId1         Int
+  account1           LedgerAccount    @relation("Account1", fields: [accountId1], references: [id])
+  account1ValueAfter Decimal
+  account2Negative   Boolean?         @default(false)
+  accountId2         Int?
+  account2           LedgerAccount?   @relation("Account2", fields: [accountId2], references: [id])
+  account2ValueAfter Decimal?
+  costCenterId       Int?
+  costCenter         CostCenter?      @relation(fields: [costCenterId], references: [id])
+  attachmentId       Int?
+  attachment         Attachment?      @relation(fields: [attachmentId], references: [id])
+  transactionBulkId  Int?
+  transactionBulk    TransactionBulk? @relation(fields: [transactionBulkId], references: [id])
   advances           Advances[]
 }
 
 model TransactionBulk {
-  id              Int      @id @default(autoincrement())
-  date            DateTime @default(now())
-  date_valued     DateTime?
-  description     String
-  reference       String?
-  account1Negative Boolean @default(false)
-  accountId1      Int
-  costCenterId    Int?
-  costCenter      CostCenter? @relation(fields: [costCenterId], references: [id])
-  attachmentId    Int?
-  attachment      Attachment? @relation(fields: [attachmentId], references: [id])
-  transactions    Transaction[]
+  id               Int           @id @default(autoincrement())
+  date             DateTime      @default(now())
+  date_valued      DateTime?
+  description      String
+  reference        String?
+  account1Negative Boolean       @default(false)
+  accountId1       Int
+  costCenterId     Int?
+  costCenter       CostCenter?   @relation(fields: [costCenterId], references: [id])
+  attachmentId     Int?
+  attachment       Attachment?   @relation(fields: [attachmentId], references: [id])
+  transactions     Transaction[]
 }
 
 model Advances {
-  id            Int      @id @default(autoincrement())
+  id            Int          @id @default(autoincrement())
   amount        Decimal
-  date          DateTime @default(now())
+  date          DateTime     @default(now())
   description   String
   userId        Int
-  user          User     @relation("FromUser", fields: [userId], references: [id])
+  user          User         @relation("FromUser", fields: [userId], references: [id])
   helpAccountId Int?
   helpAccount   HelpAccount? @relation(fields: [helpAccountId], references: [id])
   transactionId Int?
   transaction   Transaction? @relation(fields: [transactionId], references: [id])
   reviewerId    Int?
-  reviewer      User?     @relation("Reviewer", fields: [reviewerId], references: [id])
+  reviewer      User?        @relation("Reviewer", fields: [reviewerId], references: [id])
   state         advanceState @default(open)
 }
 
 model Attachment {
-  id         Int      @id @default(autoincrement())
-  name       String
-  mimeType   String
-  data       Bytes
-  transactions Transaction[]
+  id               Int               @id @default(autoincrement())
+  name             String
+  mimeType         String
+  data             Bytes
+  transactions     Transaction[]
   transactionBulks TransactionBulk[]
 }
 
@@ -186,7 +186,7 @@ model Account {
   scope             String?
   id_token          String? @db.Text
   session_state     String?
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -196,7 +196,7 @@ model Session {
   sessionToken String   @unique
   userId       Int
   expires      DateTime
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -213,7 +213,7 @@ model Mail {
   body        String
   sentAt      DateTime @default(now())
   userId      Int?
-  user        User?     @relation(fields: [userId], references: [id])
+  user        User?    @relation(fields: [userId], references: [id])
   addressedTo String
   attachment  String?
 }
