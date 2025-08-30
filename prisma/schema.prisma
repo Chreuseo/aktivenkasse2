@@ -19,14 +19,18 @@ model LedgerAccount {
   transactions2 Transaction[] @relation("Account2")
 }
 
+// prisma/schema.prisma (nur das angepasste User-Model)
 model User {
   id                      Int                 @id @default(autoincrement())
-  first_name              String
-  last_name               String
+  name                    String?
+  first_name              String?
   mail                    String?             @unique
-  keycloak_id             String              @unique
-  accountId               Int
-  account                 LedgerAccount       @relation(fields: [accountId], references: [id])
+  email                   String?             @unique
+  image                   String?
+  emailVerified           DateTime?
+  keycloak_id             String?             @unique
+  accountId               Int?
+  account                 LedgerAccount?      @relation(fields: [accountId], references: [id])
   roles                   Role[]
   helpAccounts            HelpAccountMember[]
   responsibleHelpAccounts HelpAccount[]       @relation("responsible")
