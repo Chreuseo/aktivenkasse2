@@ -18,7 +18,38 @@ if (!KEYCLOAK_CLIENT_ID || !KEYCLOAK_CLIENT_SECRET || !KEYCLOAK_ISSUER || !NEXTA
 }
 
 const issuerBase = KEYCLOAK_ISSUER.replace(/\/$/, "");
-const wellKnown = `${issuerBase}/.well-known/openid-configuration`;
+const wellKnown = `${issuerBase}/typescript
+// Datei: src/middleware.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getToken } from 'next-auth/jwt';
+
+export async function middleware(req: NextRequest) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+
+  if (!token) {
+    if (req.nextUrl.pathname.startsWith('/api')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const url = req.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
+}
+
+// Passe die Matcher an die zu schützenden Pfade an
+export const config = {
+  matcher: [
+    '/dashboard/:path*',
+    '/settings/:path*',
+    '/api/protected/:path*'
+  ],
+};.well-known/openid-configuration`;
 
 try {
   const res = await fetch(wellKnown);

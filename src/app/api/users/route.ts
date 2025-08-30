@@ -11,8 +11,8 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Fehlende Felder" }, { status: 400 });
         }
 
-        // Zuerst ein Konto anlegen
-        const account = await prisma.account.create({
+        // Zuerst ein LedgerAccount anlegen (Domain-Modell)
+        const account = await prisma.ledgerAccount.create({
             data: {
                 balance: 0,
                 interest: false,
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
             },
         });
 
-        // Dann den User anlegen
+        // Dann den User anlegen und auf das LedgerAccount verweisen
         const user = await prisma.user.create({
             data: {
                 first_name,
