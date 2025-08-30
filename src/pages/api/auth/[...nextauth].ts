@@ -1,4 +1,5 @@
 // typescript
+import type { NextApiRequest, NextApiResponse } from "next";
 import NextAuth, { NextAuthOptions } from "next-auth";
 import KeycloakProvider from "next-auth/providers/keycloak";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
@@ -7,105 +8,93 @@ import prisma from "@/lib/prisma";
 const {
   KEYCLOAK_CLIENT_ID,
   KEYCLOAK_CLIENT_SECRET,
-  KEYCLOAK_ISSUER,
+  KEYCLOAK_ISSUER: RAW_ISSUER,
   NEXTAUTH_SECRET,
 } = process.env;
 
-if (!KEYCLOAK_CLIENT_ID || !KEYCLOAK_CLIENT_SECRET || !KEYCLOAK_ISSUER || !NEXTAUTH_SECRET) {
-  throw new Error(
-    "Missing required env vars: KEYCLOAK_CLIENT_ID, KEYCLOAK_CLIENT_SECRET, KEYCLOAK_ISSUER, NEXTAUTH_SECRET"
-  );
+function sanitizeIssuer(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const first = raw.split(/\s+/)[0].trim(); // entfernt versehentlich eingefügten Text
+  if (!first) return null;
+  return first.replace(/\/$/, ""); // entferne trailing slash
 }
 
-const issuerBase = KEYCLOAK_ISSUER.replace(/\/$/, "");
-const wellKnown = `${issuerBase}/typescript
-// Datei: src/middleware.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-
-export async function middleware(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-
-  if (!token) {
-    if (req.nextUrl.pathname.startsWith('/api')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const url = req.nextUrl.clone();
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
+async function validateDiscovery(issuerBase: string) {
+  const wellKnown = `${issuerBase}/.well-known/openid-configuration`;
+  let res: Response;
+  try {
+    res = await fetch(wellKnown);
+  } catch (e: any) {
+    throw new Error(`Failed to fetch ${wellKnown}: ${String(e)}`);
   }
-
-  return NextResponse.next();
-}
-
-// Passe die Matcher an die zu schützenden Pfade an
-export const config = {
-  matcher: [
-    '/dashboard/:path*',
-    '/settings/:path*',
-    '/api/protected/:path*'
-  ],
-};.well-known/openid-configuration`;
-
-try {
-  const res = await fetch(wellKnown);
   if (!res.ok) {
     const body = await res.text().then((t) => t.slice(0, 400));
-    throw new Error(`OIDC discovery returned ${res.status} for ${wellKnown}: ${body}`);
+    throw new Error(`OIDC discovery returned ${res.status}: ${body}`);
   }
   const ct = res.headers.get("content-type") || "";
   if (!ct.includes("application/json")) {
     const body = await res.text().then((t) => t.slice(0, 400));
-    throw new Error(`OIDC discovery did not return JSON for ${wellKnown}. content-type=${ct} body=${body}`);
+    throw new Error(`OIDC discovery did not return JSON (content-type=${ct}) body=${body}`);
   }
-  // optional: parse once to ensure valid JSON
-  await res.json();
-} catch (e: any) {
-  // klare Fehlermeldung im Server-Log, verhindert späteres OPError aus openid-client
-  throw new Error(`Failed to fetch Keycloak OIDC discovery at ${wellKnown}: ${e?.message ?? String(e)}`);
+  await res.json(); // parse zur Validierung
 }
 
-const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
-  providers: [
-    KeycloakProvider({
-      clientId: KEYCLOAK_CLIENT_ID,
-      clientSecret: KEYCLOAK_CLIENT_SECRET,
-      issuer: issuerBase,
-    }),
-  ],
-  secret: NEXTAUTH_SECRET,
-  session: {
-    strategy: "database",
-  },
-  callbacks: {
-    async session({ session, user }) {
-      if (session.user) {
-        (session.user as any).id = user.id;
-      }
-      return session;
-    },
-    async signIn({ user, account }) {
-      try {
-        if (account?.provider === "keycloak" && account.providerAccountId) {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { keycloak_id: account.providerAccountId },
-          });
+function buildAuthOptions(issuerBase: string): NextAuthOptions {
+  return {
+    adapter: PrismaAdapter(prisma),
+    providers: [
+      KeycloakProvider({
+        clientId: KEYCLOAK_CLIENT_ID!,
+        clientSecret: KEYCLOAK_CLIENT_SECRET!,
+        issuer: issuerBase,
+      }),
+    ],
+    secret: NEXTAUTH_SECRET,
+    session: { strategy: "database" },
+    callbacks: {
+      async session({ session, user }) {
+        if (session.user) (session.user as any).id = user.id;
+        return session;
+      },
+      async signIn({ user, account }) {
+        try {
+          if (account?.provider === "keycloak" && account.providerAccountId) {
+            await prisma.user.update({
+              where: { id: Number(user.id) },
+              data: { keycloak_id: account.providerAccountId },
+            });
+          }
+        } catch {
+          // Nicht blockierend — Fehler loggen optional
         }
-      } catch {
-        // Nicht blockierend
-      }
-      return true;
+        return true;
+      },
     },
-  },
-  pages: {
-    signIn: "/auth/signin",
-  },
-};
+    pages: { signIn: "/auth/signin" },
+  };
+}
 
-export default NextAuth(authOptions);
+export default async function auth(req: NextApiRequest, res: NextApiResponse) {
+  if (!KEYCLOAK_CLIENT_ID || !KEYCLOAK_CLIENT_SECRET || !RAW_ISSUER || !NEXTAUTH_SECRET) {
+    console.error("Missing required env vars for NextAuth.");
+    return res.status(500).json({ error: "Missing required server environment variables." });
+  }
+
+  const issuer = sanitizeIssuer(RAW_ISSUER);
+  if (!issuer) {
+    console.error("KEYCLOAK_ISSUER seems empty or invalid.");
+    return res.status(500).json({ error: "Invalid KEYCLOAK_ISSUER." });
+  }
+
+  try {
+    await validateDiscovery(issuer);
+  } catch (e: any) {
+    console.error("Keycloak OIDC discovery failed:", e);
+    return res.status(500).json({
+      error: `Failed to fetch Keycloak OIDC discovery at ${issuer}: ${e?.message ?? String(e)}`,
+    });
+  }
+
+  const authOptions = buildAuthOptions(issuer);
+  return NextAuth(req, res, authOptions);
+}
