@@ -23,7 +23,7 @@ model User {
   id                      Int                 @id @default(autoincrement())
   first_name              String
   last_name               String
-  mail                    String              @unique
+  mail                    String?             @unique
   keycloak_id             String              @unique
   accountId               Int
   account                 LedgerAccount       @relation(fields: [accountId], references: [id])
@@ -33,10 +33,6 @@ model User {
   advancesFrom            Advances[]          @relation("FromUser")
   advancesReviewed        Advances[]          @relation("Reviewer")
   mails                   Mail[]
-
-  // NextAuth relations
-  accounts Account[]
-  sessions Session[]
 }
 
 model Role {
@@ -171,32 +167,6 @@ model Attachment {
   data             Bytes
   transactions     Transaction[]
   transactionBulks TransactionBulk[]
-}
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            Int
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       Int
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
