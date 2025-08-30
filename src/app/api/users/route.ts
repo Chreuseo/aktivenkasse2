@@ -1,3 +1,4 @@
+// src/app/api/users/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
@@ -11,17 +12,17 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Fehlende Felder" }, { status: 400 });
         }
 
-        // Zuerst ein LedgerAccount anlegen (Domain-Modell)
-        const account = await prisma.ledgerAccount.create({
+        // Zuerst ein Account anlegen (Domain-Modell)
+        const account = await prisma.Account.create({
             data: {
                 balance: 0,
-                interest: false,
+                interest: true,
                 type: "user",
             },
         });
 
-        // Dann den User anlegen und auf das LedgerAccount verweisen
-        const user = await prisma.user.create({
+        // Dann den User anlegen und auf das Account verweisen
+        const user = await prisma.User.create({
             data: {
                 first_name,
                 last_name,
