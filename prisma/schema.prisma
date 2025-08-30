@@ -7,16 +7,16 @@ generator client {
   provider = "prisma-client-js"
 }
 
-model Account {
-  id        Int      @id @default(autoincrement())
-  balance   Decimal
-  interest  Boolean
-  type      AccountType
-  users     User[]
-  bankAccounts BankAccount[]
-  helpAccounts HelpAccount[]
-  transactions1 Transaction[] @relation("Account1")
-  transactions2 Transaction[] @relation("Account2")
+model LedgerAccount {
+  id               Int       @id @default(autoincrement())
+  balance          Decimal
+  interest         Boolean
+  type             AccountType
+  users            User[]
+  bankAccounts     BankAccount[]
+  helpAccounts     HelpAccount[]
+  transactions1    Transaction[] @relation("Account1")
+  transactions2    Transaction[] @relation("Account2")
 }
 
 model User {
@@ -26,7 +26,7 @@ model User {
   mail        String   @unique
   keycloak_id String   @unique
   accountId   Int
-  account     Account  @relation(fields: [accountId], references: [id])
+  account     LedgerAccount  @relation(fields: [accountId], references: [id])
   roles       Role[]
   helpAccounts HelpAccountMember[]
   responsibleHelpAccounts HelpAccount[] @relation("responsible")
@@ -34,9 +34,9 @@ model User {
   advancesReviewed Advances[] @relation("Reviewer")
   mails       Mail[]
 
-    // NextAuth relations
-    accounts    AccountAuth[]
-    sessions    Session[]
+  // NextAuth relations
+  accounts    Account[]
+  sessions    Session[]
 }
 
 model Role {
@@ -60,7 +60,7 @@ model BankAccount {
   iban        String   @unique
   bic         String?
   accountId   Int
-  account     Account  @relation(fields: [accountId], references: [id])
+  account     LedgerAccount  @relation(fields: [accountId], references: [id])
 }
 
 model HelpAccount {
@@ -69,9 +69,9 @@ model HelpAccount {
   responsibleId Int?
   responsible   User?     @relation("responsible", fields: [responsibleId], references: [id])
   accountId     Int
-  account       Account  @relation(fields: [accountId], references: [id])
+  account       LedgerAccount  @relation(fields: [accountId], references: [id])
   members       HelpAccountMember[]
-    advances      Advances[]
+  advances      Advances[]
 }
 
 model HelpAccountMember {
@@ -118,11 +118,11 @@ model Transaction {
   reference           String?
   account1Negative    Boolean @default(false)
   accountId1          Int
-  account1            Account  @relation("Account1", fields: [accountId1], references: [id])
+  account1            LedgerAccount  @relation("Account1", fields: [accountId1], references: [id])
   account1ValueAfter  Decimal
   account2Negative    Boolean? @default(false)
   accountId2          Int?
-  account2            Account? @relation("Account2", fields: [accountId2], references: [id])
+  account2            LedgerAccount? @relation("Account2", fields: [accountId2], references: [id])
   account2ValueAfter  Decimal?
   costCenterId        Int?
   costCenter          CostCenter? @relation(fields: [costCenterId], references: [id])
@@ -173,7 +173,7 @@ model Attachment {
   transactionBulks TransactionBulk[]
 }
 
-model AccountAuth {
+model Account {
   id                String  @id @default(cuid())
   userId            Int
   type              String
