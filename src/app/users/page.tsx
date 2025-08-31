@@ -46,6 +46,7 @@ export default function UsersOverview() {
             <th>Mailadresse</th>
             <th>Kontostand</th>
             <th>Infomail</th>
+            <th>Details</th>
           </tr>
         </thead>
         <tbody>
@@ -60,6 +61,14 @@ export default function UsersOverview() {
                   Infomail
                 </button>
                 {/* TODO: Infomail Funktion */}
+              </td>
+              <td>
+                <button
+                  style={{ padding: "0.3rem 0.8rem", fontSize: "0.95rem" }}
+                  onClick={() => window.location.href = `/users/${u.id}`}
+                >
+                  Details
+                </button>
               </td>
             </tr>
           ))}
