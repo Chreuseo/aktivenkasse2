@@ -37,6 +37,10 @@ async function validateDiscovery(issuerBase: string) {
   await res.json();
 }
 
+function decode(token: string) {
+  return JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+}
+
 function buildAuthOptions(issuerBase: string): NextAuthOptions {
   return {
     providers: [
@@ -51,34 +55,30 @@ function buildAuthOptions(issuerBase: string): NextAuthOptions {
       strategy: "jwt",
       maxAge: 30 * 24 * 60 * 60, // 30 Tage
     },
-    jwt: {
-      // Optional: zusätzliche Einstellungen möglich
-    },
+    jwt: {},
     callbacks: {
-      async jwt({ token, user, account }) {
-        // Beim ersten Sign-In: user ist gesetzt
-        if (user) {
-          // user.id oder user.sub übernehmen, falls vorhanden
-          token.id = (user as any).id ?? (user as any).sub ?? token.id;
-        }
-        // Keycloak Account-Info übernehmen
-        if (account?.provider === "keycloak") {
-          if (account.providerAccountId) token.keycloak_id = account.providerAccountId;
-          if (account.access_token) token.accessToken = account.access_token;
-          if (account.id_token) token.idToken = account.id_token;
-          if (account.expires_at) token.providerExpiresAt = account.expires_at;
+      async jwt({ token, user, account, profile }) {
+        if (account && account.access_token) {
+          const decoded = decode(account.access_token);
+          // Rollen aus realm_access und resource_access übernehmen
+          token.user = {
+            ...user,
+            sub: decoded.sub,
+            roles: decoded.realm_access?.roles || [],
+            realm_access: decoded.realm_access || {},
+            resource_access: decoded.resource_access || {},
+            preferred_username: decoded.preferred_username,
+            email: decoded.email,
+            name: decoded.name,
+            given_name: decoded.given_name,
+            family_name: decoded.family_name,
+            email_verified: decoded.email_verified,
+          };
         }
         return token;
       },
-
       async session({ session, token }) {
-        if (session.user) {
-          (session.user as any).id = token.id;
-          (session.user as any).keycloak_id = token.keycloak_id;
-        }
-        // Optional: Keycloak-Token an den Client weiterreichen
-        (session as any).accessToken = token.accessToken;
-        (session as any).idToken = token.idToken;
+        session.user = token.user;
         return session;
       },
     },
