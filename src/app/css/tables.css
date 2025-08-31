@@ -78,6 +78,22 @@
   text-align: center;
 }
 
+/* kompakte Tabelle */
+.kc-table.compact th,
+.kc-table.compact td {
+    padding: 0.5rem 0;
+    font-size: 0.85rem;
+}
+.kc-table.compact select {
+  font-size: 0.85rem;
+  min-width: 60px;
+  padding: 0.15em 0.4em;
+}
+.kc-table.compact .button {
+  font-size: 0.85em;
+  padding: 0.2em 0.5em;
+}
+
 /* responsive */
 @media (max-width: 900px) {
   .kc-table th:nth-child(4),
