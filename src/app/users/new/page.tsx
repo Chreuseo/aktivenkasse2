@@ -1,9 +1,11 @@
 "use client";
 
+import { useSession } from "next-auth/react";
 import { useState } from "react";
 import "../../css/forms.css";
 
 export default function NewUserPage() {
+    const { data: session } = useSession();
     const [formData, setFormData] = useState({
         first_name: "",
         last_name: "",
@@ -11,6 +13,14 @@ export default function NewUserPage() {
     });
 
     const [message, setMessage] = useState("");
+
+    // Token aus Session extrahieren
+    function getToken() {
+        return (session?.user && typeof session.user === 'object' && (session.user as any).token)
+            || (session?.token as string)
+            || (session?.accessToken as string)
+            || "";
+    }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -21,9 +31,13 @@ export default function NewUserPage() {
         setMessage("");
 
         try {
+            const token = getToken();
             const res = await fetch("/api/users", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
                 body: JSON.stringify(formData),
             });
 

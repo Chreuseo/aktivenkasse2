@@ -59,8 +59,8 @@ function buildAuthOptions(issuerBase: string): NextAuthOptions {
     callbacks: {
       async jwt({ token, user, account, profile }) {
         if (account && account.access_token) {
+          token.accessToken = account.access_token; // JWT speichern
           const decoded = decode(account.access_token);
-          // Rollen aus realm_access und resource_access übernehmen
           token.user = {
             ...user,
             sub: decoded.sub,
@@ -79,6 +79,7 @@ function buildAuthOptions(issuerBase: string): NextAuthOptions {
       },
       async session({ session, token }) {
         session.user = token.user;
+        session.token = token.accessToken; // JWT ins Session-Objekt
         return session;
       },
     },

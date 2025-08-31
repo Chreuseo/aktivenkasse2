@@ -1,7 +1,7 @@
 import React from "react";
 import prisma from "@/lib/prisma";
-import "../../css/tables.css";
-import "../../css/infobox.css";
+import "@/app/css/tables.css";
+import "@/app/css/infobox.css";
 
 // Typ für Transaktionen
 interface Transaction {

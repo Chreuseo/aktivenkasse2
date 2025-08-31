@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import "@/app/css/tables.css";
+import { useSession } from "next-auth/react";
 
 type User = {
   id: number;
@@ -12,16 +13,31 @@ type User = {
 };
 
 export default function UsersOverview() {
+  const { data: session } = useSession();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log("Session:", session); // Session-Daten im Browser loggen
+    function getToken() {
+      return (session?.token as string)
+        || (session?.user && typeof session.user === 'object' && (session.user as any).token)
+        || "";
+    }
     async function load() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("/api/users");
+        const token = getToken();
+        console.log("JWT für /api/users:", token);
+        const res = await fetch("/api/users", {
+          method: "GET",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            "Content-Type": "application/json",
+          },
+        });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error || "Fehler beim Laden");
         setUsers(json);
@@ -32,7 +48,7 @@ export default function UsersOverview() {
       }
     }
     load();
-  }, []);
+  }, [session]);
 
   return (
     <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>

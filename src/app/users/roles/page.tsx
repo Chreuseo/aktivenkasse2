@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import "@/app/css/tables.css";
 
 type AuthorizationType = 'none' | 'read_own' | 'read_all' | 'write_all';
@@ -8,6 +9,7 @@ type Role = {
   id: number;
   name: string | null;
   keycloak_id: string | null;
+  userId?: number; // ergänzt für DB-Kompatibilität
   household: AuthorizationType;
   userAuth: AuthorizationType;
   help_accounts: AuthorizationType;
@@ -26,6 +28,7 @@ const AUTH_OPTION_NAMES: Record<AuthorizationType, string> = {
 };
 
 export default function RolesPage() {
+  const { data: session } = useSession();
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -33,11 +36,24 @@ export default function RolesPage() {
   const [users, setUsers] = useState<{id: number, first_name: string, last_name: string, mail: string}[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
+  // Token aus Session extrahieren
+  function getToken() {
+    // Token kann je nach NextAuth-Callback unter session.token oder session.user.token liegen
+    return (session?.token as string)
+      || (session?.user && typeof session.user === 'object' && (session.user as any).token)
+      || "";
+  }
+
   async function load() {
     setLoading(true);
     setMsg(null);
     try {
-      const res = await fetch('/api/roles');
+      const token = getToken();
+      const res = await fetch('/api/roles', {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || 'Fehler');
       setRoles(json);
@@ -48,7 +64,12 @@ export default function RolesPage() {
 
   async function loadUsers() {
     try {
-      const res = await fetch('/api/users');
+      const token = getToken();
+      const res = await fetch('/api/users', {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       const json = await res.json();
       if (res.ok && Array.isArray(json)) setUsers(json);
     } catch {}
@@ -57,15 +78,16 @@ export default function RolesPage() {
   useEffect(() => {
     load();
     loadUsers();
-  }, []);
+  }, [session]);
 
   async function updateRoleField(id: number, updates: Partial<Role>) {
     setLoading(true);
     setMsg(null);
     try {
+      const token = getToken();
       const res = await fetch('/api/roles', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ id, ...updates }),
       });
       const json = await res.json();
@@ -82,9 +104,10 @@ export default function RolesPage() {
     setLoading(true);
     setMsg(null);
     try {
+      const token = getToken();
       const res = await fetch('/api/roles', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ name: newName.trim() }),
       });
       const json = await res.json();
@@ -106,9 +129,10 @@ export default function RolesPage() {
       if (!user) throw new Error('Nutzer nicht gefunden');
       // Rollennamen: user_{id}_{first_name}_{last_name}
       const roleName = `user_${user.id}_${user.first_name}_${user.last_name}`;
+      const token = getToken();
       const res = await fetch('/api/roles', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ name: roleName, userId: user.id }),
       });
       const json = await res.json();
@@ -163,12 +187,12 @@ export default function RolesPage() {
             <th>Name</th>
             <th>Keycloak ID</th>
             <th>Nutzer</th>
-            <th>Household</th>
-            <th>User Auth</th>
-            <th>Help Accounts</th>
-            <th>Bank Accounts</th>
-            <th>Transactions</th>
-            <th>Advances</th>
+            <th>Haushalt</th>
+            <th>Nutzerverwaltung</th>
+            <th>Hilfskonten</th>
+            <th>Bankkonten</th>
+            <th>Buchungen</th>
+            <th>Auslagen</th>
             <th>Löschen</th>
           </tr>
         </thead>
