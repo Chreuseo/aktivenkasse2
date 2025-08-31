@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { ResourceType, AuthorizationType } from "@/app/types/authorization";
+import { validateUserPermissions } from "@/services/authService";
 
 function resolveEnv(...keys: string[]) {
   for (const k of keys) {
@@ -114,12 +116,48 @@ async function createKeycloakRole(token: string, name: string) {
   return { id: role.id, name: role.name };
 }
 
-export async function GET() {
+// Hilfsfunktion: Token und UserId extrahieren
+function extractTokenAndUserId(req: Request): { token: string | null, userId: string | null, jwt: any } {
+  const auth = req.headers.get("authorization") || req.headers.get("Authorization");
+  let token: string | null = null;
+  let userId: string | null = null;
+  let jwt: any = null;
+  if (auth) {
+    const match = auth.match(/^Bearer (.+)$/);
+    if (match) {
+      token = match[1];
+      try {
+        jwt = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString());
+        userId = jwt.sub || jwt.userId || null;
+      } catch {}
+    }
+  }
+  return { token, userId, jwt };
+}
+
+// Berechtigungsprüfung über authService
+async function checkUserManagementPermission(req: Request, requiredPermission: AuthorizationType): Promise<{ allowed: boolean, error?: string }> {
+  const { token, userId, jwt } = extractTokenAndUserId(req);
+  if (!token) return { allowed: false, error: "Kein Token" };
+  if (!userId) return { allowed: false, error: "Keine UserId im Token" };
+  const result = await validateUserPermissions({
+    userId,
+    resource: ResourceType.userAuth,
+    requiredPermission,
+    jwt,
+  });
+  return { allowed: !!result.allowed, error: result.error };
+}
+
+export async function GET(req: Request) {
+  // Rechteprüfung: userAuth/read_all
+  const perm = await checkUserManagementPermission(req, AuthorizationType.read_all);
+  if (!perm.allowed) {
+    return NextResponse.json({ error: "Keine Berechtigung für Rollen-Lesen" }, { status: 403 });
+  }
   try {
     const token = await getKeycloakToken();
     const kcRoles = await fetchKeycloakRoles(token);
-    const kcIds = kcRoles.map(r => r.id);
-
     // ensure roles from keycloak exist in DB (create with default enums = 'none')
     for (const kr of kcRoles) {
       const exists = await prisma.role.findUnique({ where: { keycloak_id: kr.id } });
@@ -138,7 +176,6 @@ export async function GET() {
         });
       }
     }
-
     // return all roles from DB
     const dbRoles = await prisma.role.findMany();
     return NextResponse.json(dbRoles);
@@ -149,6 +186,11 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  // Rechteprüfung: userAuth/write_all
+  const perm = await checkUserManagementPermission(req, AuthorizationType.write_all);
+  if (!perm.allowed) {
+    return NextResponse.json({ error: "Keine Berechtigung für Rollen-Anlegen" }, { status: 403 });
+  }
   try {
     const body = await req.json();
     const name: string = (body?.name || "").trim();
@@ -203,6 +245,11 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
+  // Rechteprüfung: userAuth/write_all
+  const perm = await checkUserManagementPermission(req, AuthorizationType.write_all);
+  if (!perm.allowed) {
+    return NextResponse.json({ error: "Keine Berechtigung für Rollen-Ändern" }, { status: 403 });
+  }
   try {
     const body = await req.json();
     const id = Number(body?.id || 0);
@@ -233,6 +280,11 @@ export async function PUT(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  // Rechteprüfung: userAuth/write_all
+  const perm = await checkUserManagementPermission(req, AuthorizationType.write_all);
+  if (!perm.allowed) {
+    return NextResponse.json({ error: "Keine Berechtigung für Rollen-Löschen" }, { status: 403 });
+  }
   try {
     const body = await req.json();
     const id = Number(body?.id || 0);

@@ -149,9 +149,10 @@ export default function RolesPage() {
     setLoading(true);
     setMsg(null);
     try {
+      const token = getToken();
       const res = await fetch('/api/roles', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ id }),
       });
       const json = await res.json();
