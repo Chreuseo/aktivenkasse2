@@ -182,3 +182,27 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Fehler beim Anlegen des Nutzers", detail: error?.message }, { status: 500 });
     }
 }
+
+export async function GET() {
+    try {
+        const users = await prisma.user.findMany({
+            include: {
+                account: {
+                    select: { balance: true }
+                }
+            }
+        });
+        // Nur relevante Felder zurückgeben
+        const result = users.map(u => ({
+            id: u.id,
+            first_name: u.first_name,
+            last_name: u.last_name,
+            mail: u.mail,
+            balance: u.account?.balance ?? 0
+        }));
+        return NextResponse.json(result);
+    } catch (error: any) {
+        console.error(error);
+        return NextResponse.json({ error: "Fehler beim Laden der Nutzer", detail: error?.message }, { status: 500 });
+    }
+}
