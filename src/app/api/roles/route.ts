@@ -68,7 +68,11 @@ async function fetchKeycloakRoles(token: string) {
     throw new Error(`Keycloak roles fetch failed: ${res.status} ${txt}`);
   }
   const roles = await res.json();
-  return Array.isArray(roles) ? roles.map((r: any) => ({ id: r.id, name: r.name })) : [];
+  // Filter nach Präfix
+  return Array.isArray(roles)
+    ? roles.filter((r: any) => typeof r.name === 'string' && r.name.startsWith('aktivenkasse_'))
+        .map((r: any) => ({ id: r.id, name: r.name }))
+    : [];
 }
 
 async function createKeycloakRole(token: string, name: string) {
@@ -83,11 +87,14 @@ async function createKeycloakRole(token: string, name: string) {
   if (!baseRaw || !realm) throw new Error("Missing KEYCLOAK_BASE_URL or KEYCLOAK_REALM");
   const base = normalizeBaseUrl(baseRaw);
 
+  // Präfix hinzufügen, falls nicht vorhanden
+  const roleName = name.startsWith('aktivenkasse_') ? name : `aktivenkasse_${name}`;
+
   // versuche erstellen
   const createRes = await fetch(`${base}/admin/realms/${realm}/roles`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name: roleName }),
   });
 
   if (createRes.status !== 201 && createRes.status !== 409) {
@@ -96,7 +103,7 @@ async function createKeycloakRole(token: string, name: string) {
   }
 
   // hole die Role nach Namen (sowohl neu als auch vorhanden)
-  const getRes = await fetch(`${base}/admin/realms/${realm}/roles/${encodeURIComponent(name)}`, {
+  const getRes = await fetch(`${base}/admin/realms/${realm}/roles/${encodeURIComponent(roleName)}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!getRes.ok) {
