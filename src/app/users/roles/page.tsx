@@ -23,6 +23,8 @@ export default function RolesPage() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
+  const [users, setUsers] = useState<{id: number, first_name: string, last_name: string, mail: string}[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -37,7 +39,18 @@ export default function RolesPage() {
     } finally { setLoading(false); }
   }
 
-  useEffect(() => { load(); }, []);
+  async function loadUsers() {
+    try {
+      const res = await fetch('/api/users');
+      const json = await res.json();
+      if (res.ok && Array.isArray(json)) setUsers(json);
+    } catch {}
+  }
+
+  useEffect(() => {
+    load();
+    loadUsers();
+  }, []);
 
   async function updateRoleField(id: number, updates: Partial<Role>) {
     setLoading(true);
@@ -77,11 +90,53 @@ export default function RolesPage() {
     } finally { setLoading(false); }
   }
 
+  async function createUserRole() {
+    if (!selectedUserId) { setMsg('Bitte Nutzer wählen'); return; }
+    setLoading(true);
+    setMsg(null);
+    try {
+      const user = users.find(u => u.id === selectedUserId);
+      if (!user) throw new Error('Nutzer nicht gefunden');
+      // Rollennamen: user_{id}_{first_name}_{last_name}
+      const roleName = `user_${user.id}_${user.first_name}_${user.last_name}`;
+      const res = await fetch('/api/roles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: roleName, userId: user.id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || 'Fehler');
+      setRoles(r => [...r, json]);
+      setSelectedUserId(null);
+      setMsg('Nutzerrolle angelegt');
+    } catch (e: any) {
+      setMsg('Anlegen fehlgeschlagen: ' + (e?.message || String(e)));
+    } finally { setLoading(false); }
+  }
+
+  async function deleteRole(id: number) {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const res = await fetch('/api/roles', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || 'Fehler');
+      setRoles(r => r.filter(x => x.id !== id));
+      setMsg('Rolle gelöscht');
+    } catch (e: any) {
+      setMsg('Löschen fehlgeschlagen: ' + (e?.message || String(e)));
+    } finally { setLoading(false); }
+  }
+
   return (
     <div style={{ maxWidth: 1100, margin: "1.5rem auto", padding: "1rem" }}>
       <h2 style={{ marginBottom: 12 }}>Rollenverwaltung</h2>
       <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>
-        <button onClick={load} disabled={loading}>Aktualisieren</button>
+        <button className="button" onClick={load} disabled={loading}>Aktualisieren</button>
       </div>
       {msg && <div style={{ marginBottom: 12, fontWeight: 600, color: "var(--secondary-color, #facc15)" }}>{msg}</div>}
       <table className="kc-table" role="table">
@@ -89,51 +144,60 @@ export default function RolesPage() {
           <tr>
             <th>Name</th>
             <th>Keycloak ID</th>
+            <th>Nutzer</th>
             <th>Household</th>
             <th>User Auth</th>
             <th>Help Accounts</th>
             <th>Bank Accounts</th>
             <th>Transactions</th>
             <th>Advances</th>
+            <th>Löschen</th>
           </tr>
         </thead>
         <tbody>
-          {roles.map(r => (
-            <tr key={r.id} className="kc-row">
-              <td>{r.name || <em>ohne Namen</em>}</td>
-              <td style={{ fontSize: 12, color: "var(--muted, #9aa4b2)" }}>{r.keycloak_id || <em>—</em>}</td>
-              <td>
-                <select value={r.household} onChange={(e) => updateRoleField(r.id, { household: e.target.value as AuthorizationType })} disabled={loading}>
-                  {AUTH_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </td>
-              <td>
-                <select value={r.userAuth} onChange={(e) => updateRoleField(r.id, { userAuth: e.target.value as AuthorizationType })} disabled={loading}>
-                  {AUTH_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </td>
-              <td>
-                <select value={r.help_accounts} onChange={(e) => updateRoleField(r.id, { help_accounts: e.target.value as AuthorizationType })} disabled={loading}>
-                  {AUTH_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </td>
-              <td>
-                <select value={r.bank_accounts} onChange={(e) => updateRoleField(r.id, { bank_accounts: e.target.value as AuthorizationType })} disabled={loading}>
-                  {AUTH_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </td>
-              <td>
-                <select value={r.transactions} onChange={(e) => updateRoleField(r.id, { transactions: e.target.value as AuthorizationType })} disabled={loading}>
-                  {AUTH_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </td>
-              <td>
-                <select value={r.advances} onChange={(e) => updateRoleField(r.id, { advances: e.target.value as AuthorizationType })} disabled={loading}>
-                  {AUTH_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </td>
-            </tr>
-          ))}
+          {roles.map(r => {
+            const user = r.userId ? users.find(u => u.id === r.userId) : null;
+            return (
+              <tr key={r.id} className="kc-row">
+                <td>{r.name || <em>ohne Namen</em>}</td>
+                <td style={{ fontSize: 12, color: "var(--muted, #9aa4b2)" }}>{r.keycloak_id ? "Ja" : "Nein"}</td>
+                <td>{user ? `${user.first_name} ${user.last_name} (${user.mail})` : <em>—</em>}</td>
+                <td>
+                  <select value={r.household} onChange={(e) => updateRoleField(r.id, { household: e.target.value as AuthorizationType })} disabled={loading}>
+                    {AUTH_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </td>
+                <td>
+                  <select value={r.userAuth} onChange={(e) => updateRoleField(r.id, { userAuth: e.target.value as AuthorizationType })} disabled={loading}>
+                    {AUTH_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </td>
+                <td>
+                  <select value={r.help_accounts} onChange={(e) => updateRoleField(r.id, { help_accounts: e.target.value as AuthorizationType })} disabled={loading}>
+                    {AUTH_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </td>
+                <td>
+                  <select value={r.bank_accounts} onChange={(e) => updateRoleField(r.id, { bank_accounts: e.target.value as AuthorizationType })} disabled={loading}>
+                    {AUTH_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </td>
+                <td>
+                  <select value={r.transactions} onChange={(e) => updateRoleField(r.id, { transactions: e.target.value as AuthorizationType })} disabled={loading}>
+                    {AUTH_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </td>
+                <td>
+                  <select value={r.advances} onChange={(e) => updateRoleField(r.id, { advances: e.target.value as AuthorizationType })} disabled={loading}>
+                    {AUTH_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </td>
+                <td>
+                  <button className="button" onClick={() => deleteRole(r.id)} disabled={loading}>Löschen</button>
+                </td>
+              </tr>
+            );
+          })}
 
           {/* Neue Rolle */}
           <tr className="kc-row">
@@ -141,8 +205,24 @@ export default function RolesPage() {
               <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Neue Rolle (Name)" />
             </td>
             <td colSpan={7} style={{ display: 'flex', gap: 8 }}>
-              <button onClick={createRole} disabled={loading}>Rolle anlegen</button>
+              <button className="button" onClick={createRole} disabled={loading}>Rolle anlegen</button>
             </td>
+            <td></td>
+          </tr>
+          {/* Nutzerrolle */}
+          <tr className="kc-row">
+            <td colSpan={2}>
+              <select value={selectedUserId ?? ''} onChange={e => setSelectedUserId(Number(e.target.value) || null)}>
+                <option value="">Nutzer wählen…</option>
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.mail})</option>
+                ))}
+              </select>
+            </td>
+            <td colSpan={6} style={{ display: 'flex', gap: 8 }}>
+              <button className="button" onClick={createUserRole} disabled={loading || !selectedUserId}>Nutzerrolle anlegen</button>
+            </td>
+            <td></td>
           </tr>
         </tbody>
       </table>

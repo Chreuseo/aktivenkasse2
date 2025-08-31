@@ -36,7 +36,7 @@ export default function LoginPage() {
           <span>Mit Keycloak anmelden</span>
         </label>
 
-        <button type="submit">Anmelden mit Keycloak</button>
+        <button className="button" type="submit">Anmelden mit Keycloak</button>
 
         {!hasKeycloak && (
           <div className="message">Keycloak-Provider nicht gefunden — versuche es später erneut.</div>

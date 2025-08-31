@@ -57,16 +57,13 @@ export default function UsersOverview() {
               <td>{u.mail}</td>
               <td>{typeof u.balance === "string" ? u.balance : Number(u.balance).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</td>
               <td>
-                <button style={{ padding: "0.3rem 0.8rem", fontSize: "0.95rem" }} disabled>
+                <button className="button" disabled>
                   Infomail
                 </button>
                 {/* TODO: Infomail Funktion */}
               </td>
               <td>
-                <button
-                  style={{ padding: "0.3rem 0.8rem", fontSize: "0.95rem" }}
-                  onClick={() => window.location.href = `/users/${u.id}`}
-                >
+                <button className="button" onClick={() => window.location.href = `/users/${u.id}`}>
                   Details
                 </button>
               </td>

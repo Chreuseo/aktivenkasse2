@@ -66,9 +66,9 @@ export default function KeycloakImportPage() {
     <div style={{ maxWidth: 1100, margin: "1.5rem auto", padding: "1rem" }}>
       <h2 style={{ marginBottom: 12 }}>Keycloak Import</h2>
       <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>
-        <button onClick={load} disabled={loading}>Aktualisieren</button>
-        <button onClick={toggleAll} disabled={loading}>Alle auswählen/abwählen</button>
-        <button onClick={importSelected} disabled={loading}>Ausgewählte importieren</button>
+        <button className="button" onClick={load} disabled={loading}>Aktualisieren</button>
+        <button className="button" onClick={toggleAll} disabled={loading}>Alle auswählen/abwählen</button>
+        <button className="button" onClick={importSelected} disabled={loading}>Ausgewählte importieren</button>
       </div>
       {msg && <div style={{ marginBottom: 12, fontWeight: 600, color: "var(--secondary-color, #facc15)" }}>{msg}</div>}
       <table className="kc-table" role="table">

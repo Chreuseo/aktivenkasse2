@@ -152,7 +152,29 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const name: string = (body?.name || "").trim();
-    if (!name) return NextResponse.json({ error: "Name fehlt" }, { status: 400 });
+    const userId: number | undefined = body?.userId;
+    // Nutzerrolle: name beginnt mit user_ und userId ist gesetzt
+    if (name.startsWith("user_") && userId) {
+      // Prüfe, ob Nutzer existiert
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) return NextResponse.json({ error: "Nutzer nicht gefunden" }, { status: 404 });
+      // Rolle lokal anlegen, falls noch nicht vorhanden
+      const existing = await prisma.role.findFirst({ where: { name, userId } });
+      if (existing) return NextResponse.json(existing, { status: 200 });
+      const created = await prisma.role.create({
+        data: {
+          name,
+          userId,
+          household: "none",
+          userAuth: "none",
+          help_accounts: "none",
+          bank_accounts: "none",
+          transactions: "none",
+          advances: "none",
+        },
+      });
+      return NextResponse.json(created, { status: 201 });
+    }
 
     const token = await getKeycloakToken();
     const kc = await createKeycloakRole(token, name);
@@ -207,5 +229,49 @@ export async function PUT(req: Request) {
   } catch (err: any) {
     console.error(err);
     return NextResponse.json({ error: "Fehler beim Aktualisieren", detail: err?.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const body = await req.json();
+    const id = Number(body?.id || 0);
+    if (!id) return NextResponse.json({ error: "ID fehlt" }, { status: 400 });
+
+    // Hole die Rolle
+    const role = await prisma.role.findUnique({ where: { id } });
+    if (!role) return NextResponse.json({ error: "Rolle nicht gefunden" }, { status: 404 });
+
+    // Lösche ggf. in Keycloak
+    if (role.keycloak_id) {
+      try {
+        const token = await getKeycloakToken();
+        const baseRaw = resolveEnv(
+          "KEYCLOAK_BASE_URL",
+          "KEYCLOAK_BASEURL",
+          "KEYCLOAK_URL",
+          "KEYCLOAK_HOST",
+          "NEXT_PUBLIC_KEYCLOAK_BASE_URL"
+        );
+        const realm = resolveEnv("KEYCLOAK_REALM", "KEYCLOAK_REALM_NAME", "NEXT_PUBLIC_KEYCLOAK_REALM");
+        if (baseRaw && realm) {
+          const base = normalizeBaseUrl(baseRaw);
+          await fetch(`${base}/admin/realms/${realm}/roles/${encodeURIComponent(role.name ?? "")}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+      } catch (e) {
+        // Fehler bei Keycloak-Löschung ignorieren, aber loggen
+        console.error("Keycloak-Löschung fehlgeschlagen:", e);
+      }
+    }
+
+    // Lösche aus DB
+    await prisma.role.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error(err);
+    return NextResponse.json({ error: "Fehler beim Löschen", detail: err?.message }, { status: 500 });
   }
 }

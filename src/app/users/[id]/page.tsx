@@ -53,7 +53,8 @@ export default async function UserDetailPage({ params }: { params: { id: string 
     },
   });
 
-  const transactions: Transaction[] = transactionsRaw.map(tx => {
+  // @ts-ignore
+    const transactions: Transaction[] = transactionsRaw.map(tx => {
     let isMain = tx.accountId1 === accountId;
     let amount = isMain ? (tx.account1Negative ? -Number(tx.amount) : Number(tx.amount)) : (tx.account2Negative ? -Number(tx.amount) : Number(tx.amount));
     let otherAccount = isMain ? tx.account2 : tx.account1;

@@ -58,7 +58,7 @@ export default function NewUserPage() {
                     <input type="email" name="mail" value={formData.mail} onChange={handleChange} required />
                 </label>
 
-                <button type="submit">Anlegen</button>
+                <button className="button" type="submit">Anlegen</button>
             </form>
             {message && <p className="message">{message}</p>}
         </div>
