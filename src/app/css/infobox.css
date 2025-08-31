@@ -1,0 +1,19 @@
+.kc-infobox {
+  background: var(--row-bg, #f8fafc);
+  color: var(--fg, #171717);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  padding: 1.2rem;
+  margin-bottom: 2rem;
+  border: 1px solid var(--border, #e6e9ee);
+  transition: background 0.2s;
+}
+
+@media (prefers-color-scheme: dark) {
+  .kc-infobox {
+    background: var(--row-bg-dark, #0f1720);
+    color: var(--fg, #ededed);
+    border: 1px solid #222;
+  }
+}
+
