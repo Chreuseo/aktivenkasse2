@@ -198,7 +198,7 @@ export async function GET() {
             first_name: u.first_name,
             last_name: u.last_name,
             mail: u.mail,
-            balance: u.account?.balance ?? 0
+            balance: u.account?.balance ? Number(u.account.balance) : 0
         }));
         return NextResponse.json(result);
     } catch (error: any) {
