@@ -2,6 +2,7 @@
 'use client';
 import React, { useEffect, useState } from "react";
 import "@/app/css/tables.css";
+import { useSession } from "next-auth/react";
 
 type Row = {
   keycloak_id: string;
@@ -14,20 +15,38 @@ type Row = {
 };
 
 export default function KeycloakImportPage() {
+  const { data: session } = useSession();
   const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
+  function getToken() {
+    return (session?.token as string)
+      || (session?.user && typeof session.user === 'object' && (session.user as any).token)
+      || "";
+  }
+
   async function load() {
     setLoading(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/keycloak-sync");
+      const token = getToken();
+      const res = await fetch("/api/keycloak-sync", {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       const json = await res.json();
-      setRows(json || []);
-      setSelected({});
+      if (Array.isArray(json)) {
+        setRows(json);
+        setSelected({});
+      } else {
+        setRows([]);
+        setMsg(json?.error || "Fehler beim Laden der Daten");
+      }
     } catch (e: any) {
+      setRows([]);
       setMsg("Fehler beim Laden: " + (e?.message || String(e)));
     } finally { setLoading(false); }
   }
@@ -49,7 +68,15 @@ export default function KeycloakImportPage() {
     setLoading(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/keycloak-sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+      const token = getToken();
+      const res = await fetch("/api/keycloak-sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ ids })
+      });
       const json = await res.json();
       if (!res.ok) {
         setMsg("Fehler: " + (json?.error || "unbekannt"));
