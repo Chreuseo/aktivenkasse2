@@ -8,7 +8,6 @@ export default function NewUserPage() {
         first_name: "",
         last_name: "",
         mail: "",
-        keycloak_id: "",
     });
 
     const [message, setMessage] = useState("");
@@ -30,7 +29,7 @@ export default function NewUserPage() {
 
             if (res.ok) {
                 setMessage("✅ User erfolgreich angelegt!");
-                setFormData({ first_name: "", last_name: "", mail: "", keycloak_id: "" });
+                setFormData({ first_name: "", last_name: "", mail: ""});
             } else {
                 const err = await res.json();
                 setMessage("❌ Fehler: " + err.error);
@@ -57,11 +56,6 @@ export default function NewUserPage() {
                 <label>
                     E-Mail
                     <input type="email" name="mail" value={formData.mail} onChange={handleChange} required />
-                </label>
-
-                <label>
-                    Keycloak-ID
-                    <input type="text" name="keycloak_id" value={formData.keycloak_id} onChange={handleChange} required />
                 </label>
 
                 <button type="submit">Anlegen</button>

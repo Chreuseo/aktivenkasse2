@@ -10,9 +10,12 @@ function resolveEnv(...keys: string[]) {
     return undefined;
 }
 
+function normalizeBaseUrl(base: string) {
+    return base.replace(/\/+$/, "");
+}
+// typescript
 async function getKeycloakToken() {
-    // Versuche mehrere mögliche Env-Namen (häufige Varianten)
-    const base = resolveEnv(
+    const baseRaw = resolveEnv(
         "KEYCLOAK_BASE_URL",
         "KEYCLOAK_BASEURL",
         "KEYCLOAK_URL",
@@ -23,54 +26,68 @@ async function getKeycloakToken() {
     const clientId = resolveEnv("KEYCLOAK_CLIENT_ID", "KEYCLOAK_CLIENT", "NEXT_PUBLIC_KEYCLOAK_CLIENT_ID");
     const clientSecret = resolveEnv("KEYCLOAK_CLIENT_SECRET", "KEYCLOAK_CLIENT_SECRET_KEY");
 
-    const tried = {
-        base: ["KEYCLOAK_BASE_URL", "KEYCLOAK_BASEURL", "KEYCLOAK_URL", "KEYCLOAK_HOST", "NEXT_PUBLIC_KEYCLOAK_BASE_URL"],
-        realm: ["KEYCLOAK_REALM", "KEYCLOAK_REALM_NAME", "NEXT_PUBLIC_KEYCLOAK_REALM"],
-        clientId: ["KEYCLOAK_CLIENT_ID", "KEYCLOAK_CLIENT", "NEXT_PUBLIC_KEYCLOAK_CLIENT_ID"],
-        clientSecret: ["KEYCLOAK_CLIENT_SECRET", "KEYCLOAK_CLIENT_SECRET_KEY"],
-    };
-
     const missingParts: string[] = [];
-    if (!base) missingParts.push("KEYCLOAK_BASE_URL");
+    if (!baseRaw) missingParts.push("KEYCLOAK_BASE_URL");
     if (!realm) missingParts.push("KEYCLOAK_REALM");
     if (!clientId) missingParts.push("KEYCLOAK_CLIENT_ID");
     if (!clientSecret) missingParts.push("KEYCLOAK_CLIENT_SECRET");
 
     if (missingParts.length > 0) {
-        console.error("Missing Keycloak env vars:", missingParts.join(", "), "| presence map:", {
-            base: tried.base.reduce((acc, k) => ({ ...acc, [k]: !!process.env[k] }), {}),
-            realm: tried.realm.reduce((acc, k) => ({ ...acc, [k]: !!process.env[k] }), {}),
-            clientId: tried.clientId.reduce((acc, k) => ({ ...acc, [k]: !!process.env[k] }), {}),
-            clientSecret: tried.clientSecret.reduce((acc, k) => ({ ...acc, [k]: !!process.env[k] }), {}),
-            NODE_ENV: process.env.NODE_ENV,
-        });
-        throw new Error(`Missing Keycloak env vars: ${missingParts.join(", ")} (checked multiple common keys)`);
+        console.error("Missing Keycloak env vars:", missingParts.join(", "));
+        throw new Error(`Missing Keycloak env vars: ${missingParts.join(", ")}`);
     }
 
+    const base = normalizeBaseUrl(baseRaw!);
+
+    // Baue genau einen aktuellen Token-Endpunkt: /realms/{realm}/protocol/openid-connect/token
+    // Falls die Base-URL bereits ein `/auth` enthält, bleibt das erhalten (es wird nicht zusätzlich `/auth` ergänzt).
     const tokenUrl = `${base}/realms/${realm}/protocol/openid-connect/token`;
+
     const params = new URLSearchParams();
     params.append("grant_type", "client_credentials");
     params.append("client_id", clientId!);
     params.append("client_secret", clientSecret!);
 
-    const res = await fetch(tokenUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: params.toString(),
-    });
+    try {
+        console.info("Attempting Keycloak token url:", tokenUrl);
+        const res = await fetch(tokenUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: params.toString(),
+        });
 
-    if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(`Keycloak token error: ${res.status} ${txt}`);
+        if (!res.ok) {
+            const txt = await res.text().catch(() => "");
+            console.error("Keycloak token request failed", { url: tokenUrl, status: res.status, text: txt });
+            throw new Error(`Keycloak token error: ${res.status} ${txt}`);
+        }
+
+        const json = await res.json();
+        if (!json?.access_token) {
+            throw new Error("No access_token in Keycloak response");
+        }
+        return json.access_token as string;
+    } catch (err: any) {
+        console.error("Keycloak token fetch error", { url: tokenUrl, message: err?.message ?? String(err) });
+        throw err;
     }
-
-    const json = await res.json();
-    return json.access_token as string;
 }
 
 async function createOrFindKeycloakUser(token: string, firstName: string, lastName: string, email: string, password?: string) {
-    const base = process.env.KEYCLOAK_BASE_URL!;
-    const realm = process.env.KEYCLOAK_REALM!;
+    const baseRaw = resolveEnv(
+        "KEYCLOAK_BASE_URL",
+        "KEYCLOAK_BASEURL",
+        "KEYCLOAK_URL",
+        "KEYCLOAK_HOST",
+        "NEXT_PUBLIC_KEYCLOAK_BASE_URL"
+    );
+    const realm = resolveEnv("KEYCLOAK_REALM", "KEYCLOAK_REALM_NAME", "NEXT_PUBLIC_KEYCLOAK_REALM");
+
+    if (!baseRaw || !realm) {
+        throw new Error("Missing KEYCLOAK_BASE_URL or KEYCLOAK_REALM for user creation");
+    }
+
+    const base = normalizeBaseUrl(baseRaw);
 
     // Versuch anlegen
     const body: any = {
@@ -107,7 +124,10 @@ async function createOrFindKeycloakUser(token: string, firstName: string, lastNa
         const findRes = await fetch(`${base}/admin/realms/${realm}/users?email=${encodeURIComponent(email)}`, {
             headers: { Authorization: `Bearer ${token}` },
         });
-        if (!findRes.ok) throw new Error(`Keycloak user search failed: ${findRes.status}`);
+        if (!findRes.ok) {
+            const txt = await findRes.text().catch(() => "");
+            throw new Error(`Keycloak user search failed: ${findRes.status} ${txt}`);
+        }
         const users = await findRes.json();
         if (Array.isArray(users) && users.length > 0 && users[0].id) {
             return users[0].id;
@@ -115,7 +135,7 @@ async function createOrFindKeycloakUser(token: string, firstName: string, lastNa
         throw new Error("User exists but konnte nicht gefunden werden");
     }
 
-    const txt = await createRes.text();
+    const txt = await createRes.text().catch(() => "");
     throw new Error(`Keycloak create failed: ${createRes.status} ${txt}`);
 }
 

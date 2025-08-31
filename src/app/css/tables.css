@@ -1,0 +1,85 @@
+/* Datei: src/app/css/tables.css */
+:root {
+  --bg: var(--background, #ffffff);
+  --fg: var(--foreground, #171717);
+  --muted: #9aa4b2;
+  --primary: var(--primary-color, #1e40af);
+  --accent: var(--secondary-color, #facc15);
+  --row-bg: #f8fafc;
+  --row-bg-dark: #0f1720;
+  --border: #e6e9ee;
+  --changed: #f59e0b; /* gelb/orange */
+  --new: #10b981; /* grün */
+  --hover: rgba(30,64,175,0.08);
+}
+
+/* table wrapper */
+.kc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-geist-sans, Arial, sans-serif);
+  color: var(--fg);
+  background: transparent;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+}
+
+/* header */
+.kc-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--fg);
+  border-bottom: 1px solid var(--border);
+}
+
+/* rows */
+.kc-table td {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+  vertical-align: middle;
+  font-size: 0.95rem;
+}
+
+/* hover & selectable */
+.kc-row {
+  transition: background 0.12s ease;
+}
+.kc-row:hover {
+  background: var(--hover);
+}
+
+/* status badges */
+.kc-badge {
+  display: inline-block;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.kc-badge.new { background: rgba(16,185,129,0.14); color: var(--new); border: 1px solid rgba(16,185,129,0.2); }
+.kc-badge.changed { background: rgba(245,158,11,0.12); color: var(--changed); border: 1px solid rgba(245,158,11,0.16); }
+.kc-badge.same { background: transparent; color: var(--muted); border: 1px solid rgba(0,0,0,0.03); }
+
+/* changed cell highlight and diff display */
+.kc-diff {
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  display: inline-block;
+}
+.kc-diff.changed { background: rgba(245,158,11,0.08); color: var(--changed); }
+.kc-diff.new { background: rgba(16,185,129,0.08); color: var(--new); }
+.kc-diff small { display: block; font-size: 0.75rem; color: var(--muted); }
+
+/* checkbox column */
+.kc-checkbox {
+  width: 48px;
+  text-align: center;
+}
+
+/* responsive */
+@media (max-width: 900px) {
+  .kc-table th:nth-child(4),
+  .kc-table td:nth-child(4) { display: none; } /* hide lastName on small */
+}

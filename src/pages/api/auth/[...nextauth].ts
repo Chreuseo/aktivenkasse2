@@ -2,8 +2,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import NextAuth, { NextAuthOptions } from "next-auth";
 import KeycloakProvider from "next-auth/providers/keycloak";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import prisma from "@/lib/prisma";
 
 const {
   KEYCLOAK_CLIENT_ID,
@@ -14,9 +12,9 @@ const {
 
 function sanitizeIssuer(raw: string | undefined): string | null {
   if (!raw) return null;
-  const first = raw.split(/\s+/)[0].trim(); // entfernt versehentlich eingefügten Text
+  const first = raw.split(/\s+/)[0].trim();
   if (!first) return null;
-  return first.replace(/\/$/, ""); // entferne trailing slash
+  return first.replace(/\/$/, "");
 }
 
 async function validateDiscovery(issuerBase: string) {
@@ -36,12 +34,11 @@ async function validateDiscovery(issuerBase: string) {
     const body = await res.text().then((t) => t.slice(0, 400));
     throw new Error(`OIDC discovery did not return JSON (content-type=${ct}) body=${body}`);
   }
-  await res.json(); // parse zur Validierung
+  await res.json();
 }
 
 function buildAuthOptions(issuerBase: string): NextAuthOptions {
   return {
-    adapter: PrismaAdapter(prisma),
     providers: [
       KeycloakProvider({
         clientId: KEYCLOAK_CLIENT_ID!,
@@ -50,24 +47,39 @@ function buildAuthOptions(issuerBase: string): NextAuthOptions {
       }),
     ],
     secret: NEXTAUTH_SECRET,
-    session: { strategy: "database" },
+    session: {
+      strategy: "jwt",
+      maxAge: 30 * 24 * 60 * 60, // 30 Tage
+    },
+    jwt: {
+      // Optional: zusätzliche Einstellungen möglich
+    },
     callbacks: {
-      async session({ session, user }) {
-        if (session.user) (session.user as any).id = user.id;
-        return session;
-      },
-      async signIn({ user, account }) {
-        try {
-          if (account?.provider === "keycloak" && account.providerAccountId) {
-            await prisma.user.update({
-              where: { id: Number(user.id) },
-              data: { keycloak_id: account.providerAccountId },
-            });
-          }
-        } catch {
-          // Nicht blockierend — Fehler loggen optional
+      async jwt({ token, user, account }) {
+        // Beim ersten Sign-In: user ist gesetzt
+        if (user) {
+          // user.id oder user.sub übernehmen, falls vorhanden
+          token.id = (user as any).id ?? (user as any).sub ?? token.id;
         }
-        return true;
+        // Keycloak Account-Info übernehmen
+        if (account?.provider === "keycloak") {
+          if (account.providerAccountId) token.keycloak_id = account.providerAccountId;
+          if (account.access_token) token.accessToken = account.access_token;
+          if (account.id_token) token.idToken = account.id_token;
+          if (account.expires_at) token.providerExpiresAt = account.expires_at;
+        }
+        return token;
+      },
+
+      async session({ session, token }) {
+        if (session.user) {
+          (session.user as any).id = token.id;
+          (session.user as any).keycloak_id = token.keycloak_id;
+        }
+        // Optional: Keycloak-Token an den Client weiterreichen
+        (session as any).accessToken = token.accessToken;
+        (session as any).idToken = token.idToken;
+        return session;
       },
     },
     pages: { signIn: "/auth/signin" },
