@@ -33,12 +33,22 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* Header mit dicker weißer Linie */
+.kc-table thead tr {
+  border-bottom: 4px solid #fff;
+}
+
 /* rows */
 .kc-table td {
   padding: 0.65rem 1rem;
-  border-bottom: 1px solid rgba(0,0,0,0.04);
+  /* border-bottom entfernt, damit die graue Linie von tr sichtbar ist */
   vertical-align: middle;
   font-size: 0.95rem;
+}
+
+/* Zeilen mit normaler grauer Linie */
+.kc-table tbody tr {
+  border-bottom: 1px solid #ccc;
 }
 
 /* hover & selectable */
