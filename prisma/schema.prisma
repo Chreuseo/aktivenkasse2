@@ -60,14 +60,15 @@ model BankAccount {
 }
 
 model ClearingAccount {
-  id            Int                     @id @default(autoincrement())
-  name          String
-  responsibleId Int?
-  responsible   User?                   @relation("responsible", fields: [responsibleId], references: [id])
-  accountId     Int
-  account       Account                 @relation(fields: [accountId], references: [id])
-  members       ClearingAccountMember[]
-  advances      Advances[]
+  id                    Int                     @id @default(autoincrement())
+  name                  String
+  responsibleId         Int?
+  responsible           User?                   @relation("responsible", fields: [responsibleId], references: [id])
+  accountId             Int
+  account               Account                 @relation(fields: [accountId], references: [id])
+  reimbursementEligible Boolean
+  members               ClearingAccountMember[]
+  advances              Advances[]
 }
 
 model ClearingAccountMember {

@@ -22,9 +22,9 @@ const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
         { label: 'Neues Bankkonto', href: '/bank-accounts/new' }
     ],
     Verrechnungskonten: [
-        { label: 'Übersicht', href: '/auxiliary-accounts' },
-        { label: 'Neues Verrechnungskonto', href: '/auxiliary-accounts/new' },
-        { label: 'Funktionen', href: '/auxiliary-accounts/functions' }
+        { label: 'Übersicht', href: '/clearing-accounts' },
+        { label: 'Neues Verrechnungskonto', href: '/clearing-accounts/new' },
+        { label: 'Funktionen', href: '/clearing-accounts/functions' }
     ],
     Haushaltsplan: [
         { label: 'Aktueller Plan', href: '/budget-plan' },
