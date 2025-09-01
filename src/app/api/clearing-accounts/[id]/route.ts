@@ -104,8 +104,7 @@ export async function GET(req: Request, context: any) {
     responsibleMail: ca.responsible ? ca.responsible.mail : null,
     balance: ca.account?.balance ? Number(ca.account.balance) : 0,
     reimbursementEligible: ca.reimbursementEligible,
-    // Mitglieder werden entfernt
-    // members: ca.members.map(m => m.user ? { id: m.user.id, name: `${m.user.first_name} ${m.user.last_name}`, mail: m.user.mail } : null).filter(Boolean),
+    members: ca.members.map(m => m.user ? { id: m.user.id, name: `${m.user.first_name} ${m.user.last_name}`, mail: m.user.mail } : null).filter(Boolean),
     canEdit,
     transactions: txs,
   });

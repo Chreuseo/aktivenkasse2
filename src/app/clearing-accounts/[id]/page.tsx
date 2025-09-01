@@ -32,16 +32,14 @@ interface ClearingAccountData {
 }
 
 export default function ClearingAccountOverviewPage({ params }: { params: { id: string } }) {
-  const unwrappedParams = React.use(params);
   const { data: session } = useSession();
   const [data, setData] = useState<ClearingAccountData | null>(null);
   const [error, setError] = useState<string>("");
   useEffect(() => {
     async function loadData() {
       try {
-        // Token aus session.user extrahieren
         const token = (session?.user && (session.user as any).token) || "";
-        const res = await fetch(`/api/clearing-accounts/${unwrappedParams.id}`, {
+        const res = await fetch(`/api/clearing-accounts/${params.id}`, {
           method: "GET",
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -56,7 +54,7 @@ export default function ClearingAccountOverviewPage({ params }: { params: { id: 
       }
     }
     loadData();
-  }, [session, unwrappedParams.id]);
+  }, [session, params.id]);
 
   if (error) return <div className="kc-infobox" style={{ color: "#e11d48" }}>❌ {error}</div>;
   if (!data) return <div className="kc-infobox">Lade Daten...</div>;
