@@ -7,6 +7,7 @@ import { ClearingAccount } from "@/app/types/clearingAccount";
 import { Transaction } from "@/app/types/transaction";
 import "@/app/css/infobox.css";
 import "@/app/css/tables.css";
+import TransactionTable from "@/app/components/TransactionTable";
 
 interface ClearingAccountData extends ClearingAccount {
   canEdit: boolean;
@@ -56,39 +57,7 @@ export default function ClearingAccountOverviewPage({ params }: { params: Promis
         </div>
       </div>
       <h3 style={{ marginBottom: "0.8rem" }}>Transaktionen</h3>
-      <table className="kc-table compact">
-        <thead>
-          <tr>
-            <th>Betrag</th>
-            <th>Datum</th>
-            <th>Beschreibung</th>
-            <th>Referenz</th>
-            <th>Gegenkonto</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.transactions.length === 0 && (
-            <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Transaktionen vorhanden</td></tr>
-          )}
-          {data.transactions.map((tx: Transaction) => (
-            <tr key={tx.id} className="kc-row">
-              <td style={{ color: tx.amount < 0 ? "#e11d48" : "#059669", fontWeight: 600 }}>{tx.amount.toFixed(2)} €</td>
-              <td>{new Date(tx.date).toLocaleDateString()}</td>
-              <td>{tx.description}</td>
-              <td>{tx.reference || "-"}</td>
-              <td>
-                {tx.other ? (
-                  <span>
-                    {tx.other.type === "user" && `Nutzer: ${tx.other.name}`}
-                    {tx.other.type === "bank" && `Bankkonto: ${tx.other.name} (${tx.other.bank})`}
-                    {tx.other.type === "clearing_account" && `Verrechnungskonto: ${tx.other.name}`}
-                  </span>
-                ) : <span style={{ color: "var(--muted)" }}>-</span>}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <TransactionTable transactions={data.transactions} />
       {data.canEdit && (
         <div style={{ marginTop: "2rem" }}>
           <a href={`/clearing-accounts/${data.id}/edit`}>

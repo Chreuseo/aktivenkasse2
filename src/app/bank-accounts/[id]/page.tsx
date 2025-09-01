@@ -8,6 +8,7 @@ import "@/app/css/infobox.css";
 import { extractToken, fetchJson } from "@/lib/utils";
 import { Transaction } from "@/app/types/transaction";
 import { BankAccount } from "@/app/types/bankAccount";
+import TransactionTable from "@/app/components/TransactionTable";
 
 interface BankAccountDetail {
   bankAccount: BankAccount;
@@ -31,7 +32,7 @@ export default function BankAccountDetailPage() {
       setError(null);
       try {
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "";
-        const url = `${baseUrl}/api/bank-accounts/${id}`.replace(/\/\/+/, "/");
+        const url = `${baseUrl}/api/bank-accounts/${id}?withTransactions=true`.replace(/\/\/+/, "/");
         const json = await fetchJson(url, {
           method: "GET",
           headers: {
@@ -65,39 +66,7 @@ export default function BankAccountDetailPage() {
         <div style={{ fontWeight: 500 }}>Kontostand: <span style={{ color: "var(--primary)", fontWeight: 700 }}>{bankAccount.balance.toFixed(2)} €</span></div>
       </div>
       <h3 style={{ marginBottom: "0.8rem" }}>Transaktionen</h3>
-      <table className="kc-table">
-        <thead>
-          <tr>
-            <th>Betrag</th>
-            <th>Datum</th>
-            <th>Beschreibung</th>
-            <th>Referenz</th>
-            <th>Gegenkonto</th>
-          </tr>
-        </thead>
-        <tbody>
-          {transactions.length === 0 && (
-            <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Transaktionen vorhanden</td></tr>
-          )}
-          {transactions.map((tx: Transaction) => (
-            <tr key={tx.id} className="kc-row">
-              <td style={{ color: tx.amount < 0 ? "#e11d48" : "#059669", fontWeight: 600 }}>{tx.amount.toFixed(2)} €</td>
-              <td>{new Date(tx.date).toLocaleDateString()}</td>
-              <td>{tx.description}</td>
-              <td>{tx.reference || "-"}</td>
-              <td>
-                {tx.other ? (
-                  <span>
-                    {tx.other.type === "user" && `Nutzer: ${tx.other.name}`}
-                    {tx.other.type === "bank" && `Bankkonto: ${tx.other.name} (${tx.other.bank})`}
-                    {tx.other.type === "clearing_account" && `Verrechnungskonto: ${tx.other.name}`}
-                  </span>
-                ) : <span style={{ color: "var(--muted)" }}>-</span>}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <TransactionTable transactions={transactions} />
     </div>
   );
 }
