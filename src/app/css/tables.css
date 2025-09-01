@@ -136,6 +136,20 @@
   outline: none;
 }
 
+/* Summenzeile hervorheben */
+.kc-table tbody tr.kc-sum-row {
+  background: #fef9c3; /* helles gelb für Light Theme */
+  color: #171717;
+  font-weight: 700;
+}
+@media (prefers-color-scheme: dark) {
+  .kc-table tbody tr.kc-sum-row {
+    background: #3a2e00; /* dunkles gelb/braun für Dark Theme */
+    color: #facc15;
+    font-weight: 700;
+  }
+}
+
 /* responsive */
 @media (max-width: 900px) {
   .kc-table th:nth-child(4),

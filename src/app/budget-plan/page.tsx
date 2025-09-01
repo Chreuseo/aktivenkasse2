@@ -14,6 +14,13 @@ interface BudgetPlan {
   state: string;
 }
 
+const statusNames: Record<string, string> = {
+  draft: "Entwurf",
+  default: "Standard",
+  active: "Aktiv",
+  closed: "Abgeschlossen",
+};
+
 export default function BudgetPlanOverview() {
   const { data: session } = useSession();
   const [plans, setPlans] = useState<BudgetPlan[]>([]);
@@ -67,7 +74,7 @@ export default function BudgetPlanOverview() {
               <td>{plan.name}</td>
               <td>{new Date(plan.createdAt).toLocaleDateString("de-DE")}</td>
               <td>{new Date(plan.updatedAt).toLocaleDateString("de-DE")}</td>
-              <td>{plan.state}</td>
+              <td>{statusNames[plan.state] ?? plan.state}</td>
               <td>
                 <Link href={`/budget-plan/${plan.id}/edit`}>
                   <button className="button">
@@ -81,9 +88,11 @@ export default function BudgetPlanOverview() {
                 </Link>
               </td>
                 <td>
-                    <button className="button" disabled>
-                        Details
+                  <Link href={`/budget-plan/${plan.id}/details`}>
+                    <button className="button">
+                      Details
                     </button>
+                  </Link>
                 </td>
             </tr>
           ))}
