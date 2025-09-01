@@ -17,6 +17,8 @@ model Account {
   clearingAccounts ClearingAccount[]
   transactions1    Transaction[]     @relation("Account1")
   transactions2    Transaction[]     @relation("Account2")
+
+  TransactionBulk TransactionBulk[]
 }
 
 model User {
@@ -93,23 +95,22 @@ model BudgetPlan {
 }
 
 model CostCenter {
-  id                 Int               @id @default(autoincrement())
+  id                 Int           @id @default(autoincrement())
   name               String
   description        String?
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
   earnings_expected  Decimal
   costs_expected     Decimal
-  earnings_actual    Decimal           @default(0)
-  costs_actual       Decimal           @default(0)
+  earnings_actual    Decimal       @default(0)
+  costs_actual       Decimal       @default(0)
   budget_planId      Int
-  budget_plan        BudgetPlan        @relation(fields: [budget_planId], references: [id])
-  budgetPlanFirst    BudgetPlan[]      @relation("FirstCostCenter")
+  budget_plan        BudgetPlan    @relation(fields: [budget_planId], references: [id])
+  budgetPlanFirst    BudgetPlan[]  @relation("FirstCostCenter")
   nextCostCenter     Int?
-  nextCostCenterObj  CostCenter?       @relation("NextCostCenter", fields: [nextCostCenter], references: [id])
-  previousCostCenter CostCenter[]      @relation("NextCostCenter")
+  nextCostCenterObj  CostCenter?   @relation("NextCostCenter", fields: [nextCostCenter], references: [id])
+  previousCostCenter CostCenter[]  @relation("NextCostCenter")
   Transaction        Transaction[]
-  TransactionBulk    TransactionBulk[]
 }
 
 model Transaction {
@@ -137,18 +138,18 @@ model Transaction {
 }
 
 model TransactionBulk {
-  id              Int           @id @default(autoincrement())
-  date            DateTime      @default(now())
-  date_valued     DateTime?
-  description     String
-  reference       String?
-  accountNegative Boolean       @default(false)
-  accountId       Int
-  attachmentId    Int?
-  attachment      Attachment?   @relation(fields: [attachmentId], references: [id])
-  transactions    Transaction[]
-  CostCenter      CostCenter?   @relation(fields: [costCenterId], references: [id])
-  costCenterId    Int?
+  id           Int           @id @default(autoincrement())
+  date         DateTime      @default(now())
+  date_valued  DateTime?
+  balance      Decimal
+  balanceAfter Decimal
+  description  String
+  reference    String?
+  accountId    Int
+  attachmentId Int?
+  attachment   Attachment?   @relation(fields: [attachmentId], references: [id])
+  account      Account       @relation(fields: [accountId], references: [id])
+  transactions Transaction[]
 }
 
 model Advances {
