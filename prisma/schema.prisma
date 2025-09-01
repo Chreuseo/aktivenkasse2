@@ -36,17 +36,17 @@ model User {
 }
 
 model Role {
-  id            Int               @id @default(autoincrement())
-  name          String?           @unique
-  keycloak_id   String?           @unique
-  userId        Int?
-  user          User?             @relation(fields: [userId], references: [id])
-  household     AuthorizationType
-  userAuth      AuthorizationType
-  help_accounts AuthorizationType
-  bank_accounts AuthorizationType
-  transactions  AuthorizationType
-  advances      AuthorizationType
+  id                Int               @id @default(autoincrement())
+  name              String?           @unique
+  keycloak_id       String?           @unique
+  userId            Int?
+  user              User?             @relation(fields: [userId], references: [id])
+  household         AuthorizationType
+  userAuth          AuthorizationType
+  clearing_accounts AuthorizationType // Hilfskonten ersetzt durch Verrechnungskonten
+  bank_accounts     AuthorizationType
+  transactions      AuthorizationType
+  advances          AuthorizationType
 }
 
 model BankAccount {

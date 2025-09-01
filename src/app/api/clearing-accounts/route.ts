@@ -33,3 +33,70 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Fehler beim Laden der Verrechnungskonten", detail: error?.message }, { status: 500 });
   }
 }
+
+export async function POST(req: Request) {
+  // Berechtigungsprüfung: write_all für clearing_accounts
+  const perm = await checkPermission(req, ResourceType.clearing_accounts, AuthorizationType.write_all);
+  if (!perm.allowed) {
+    return NextResponse.json({ error: "Keine Berechtigung für write_all auf clearing_accounts" }, { status: 403 });
+  }
+
+  let data;
+  try {
+    data = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültige JSON-Daten" }, { status: 400 });
+  }
+  const { name, responsibleId, reimbursementEligible, members } = data;
+  if (!name) {
+    return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
+  }
+  // Prüfe, ob Verantwortlicher existiert, aber nur wenn angegeben
+  let responsible = null;
+  if (responsibleId) {
+    responsible = await prisma.user.findUnique({ where: { id: Number(responsibleId) } });
+    if (!responsible) {
+      return NextResponse.json({ error: "Verantwortlicher User nicht gefunden" }, { status: 404 });
+    }
+  }
+  // Account für das Verrechnungskonto anlegen
+  const account = await prisma.account.create({
+    data: {
+      balance: 0,
+      interest: false,
+      type: "clearing_account",
+    },
+  });
+  // Verrechnungskonto anlegen
+  const clearingAccount = await prisma.clearingAccount.create({
+    data: {
+      name,
+      responsibleId: responsible ? responsible.id : null,
+      accountId: account.id,
+      reimbursementEligible: !!reimbursementEligible,
+    },
+  });
+  // Mitglieder zuweisen (optional)
+  let memberIds: number[] = [];
+  if (members && typeof members === "string" && members.trim().length > 0) {
+    memberIds = members.split(",").map((id: string) => Number(id.trim())).filter((id: number) => !isNaN(id));
+    for (const userId of memberIds) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user) {
+        await prisma.clearingAccountMember.create({
+          data: {
+            clearingAccountId: clearingAccount.id,
+            userId: user.id,
+          },
+        });
+      }
+    }
+  }
+  return NextResponse.json({
+    id: clearingAccount.id,
+    name: clearingAccount.name,
+    responsible: responsible ? `${responsible.first_name} ${responsible.last_name}` : null,
+    reimbursementEligible: clearingAccount.reimbursementEligible,
+    members: memberIds,
+  });
+}
