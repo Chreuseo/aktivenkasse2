@@ -145,19 +145,19 @@ model TransactionBulk {
 }
 
 model Advances {
-  id            Int          @id @default(autoincrement())
-  amount        Decimal
-  date          DateTime     @default(now())
-  description   String
-  userId        Int
-  user          User         @relation("FromUser", fields: [userId], references: [id])
+  id                Int              @id @default(autoincrement())
+  amount            Decimal
+  date              DateTime         @default(now())
+  description       String
+  userId            Int
+  user              User             @relation("FromUser", fields: [userId], references: [id])
   clearingAccountId Int?
   clearingAccount   ClearingAccount? @relation(fields: [clearingAccountId], references: [id])
-  transactionId Int?
-  transaction   Transaction? @relation(fields: [transactionId], references: [id])
-  reviewerId    Int?
-  reviewer      User?        @relation("Reviewer", fields: [reviewerId], references: [id])
-  state         advanceState @default(open)
+  transactionId     Int?
+  transaction       Transaction?     @relation(fields: [transactionId], references: [id])
+  reviewerId        Int?
+  reviewer          User?            @relation("Reviewer", fields: [reviewerId], references: [id])
+  state             advanceState     @default(open)
 }
 
 model Attachment {
