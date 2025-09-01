@@ -1,19 +1,34 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import "../../css/forms.css";
 import { extractToken, fetchJson } from "@/lib/utils";
 import type { User } from "@/app/types/clearingAccount";
 import type { BankAccount } from "@/app/types/bankAccount";
 import type { ClearingAccount } from "@/app/types/clearingAccount";
 
-// Dummy-Daten für die Auswahl (später per API ersetzen)
 const accountTypes = [
     { value: "user", label: "Nutzer" },
     { value: "bank", label: "Bankkonto" },
     { value: "clearing_account", label: "Verrechnungskonto" },
 ];
+
+function getOptions(type: string, userOptions: User[], bankOptions: BankAccount[], clearingOptions: ClearingAccount[]) {
+    if (type === "user") return userOptions;
+    if (type === "bank") return bankOptions;
+    if (type === "clearing_account") return clearingOptions;
+    return [];
+}
+
+function getAccountDisplayName(opt: any) {
+    if (!opt) return "";
+    if (opt.name) return opt.name;
+    if (opt.first_name && opt.last_name) return `${opt.first_name} ${opt.last_name}`;
+    if (opt.iban) return opt.iban;
+    if (opt.mail) return opt.mail;
+    return String(opt.id || "Unbekannt");
+}
 
 export default function NewTransactionPage() {
     const { data: session } = useSession();
@@ -25,37 +40,33 @@ export default function NewTransactionPage() {
         reference: "",
         account1Type: "user",
         account1Id: "",
-        account2Type: "", // Typ2 vorausgefüllt leer
+        account2Type: "",
         account2Id: "",
         attachment: null as File | null,
         signAccounts: ["+", "+"],
     });
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
-    // Auswahl-Daten aus der API
     const [userOptions, setUserOptions] = useState<User[]>([]);
     const [bankOptions, setBankOptions] = useState<BankAccount[]>([]);
     const [clearingOptions, setClearingOptions] = useState<ClearingAccount[]>([]);
-
-    // Budgetplan und Kostenstellen
     const [budgetPlans, setBudgetPlans] = useState<any[]>([]);
     const [costCenters, setCostCenters] = useState<any[]>([]);
     const [budgetPlanId, setBudgetPlanId] = useState<string>("");
     const [costCenterId, setCostCenterId] = useState<string>("");
+    const [account1Negative, setAccount1Negative] = useState(false);
+    const [account2Negative, setAccount2Negative] = useState(false);
 
-    // Daten beim ersten Rendern laden
+    // Daten laden
     useEffect(() => {
         const token = extractToken(session);
         const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
         fetchJson("/api/users", { headers }).then(setUserOptions).catch(() => setUserOptions([]));
         fetchJson("/api/bank-accounts", { headers }).then(setBankOptions).catch(() => setBankOptions([]));
         fetchJson("/api/clearing-accounts", { headers }).then(setClearingOptions).catch(() => setClearingOptions([]));
-        fetchJson("/api/budget-plan", { headers })
-            .then(setBudgetPlans)
-            .catch(() => setBudgetPlans([]));
+        fetchJson("/api/budget-plan", { headers }).then(setBudgetPlans).catch(() => setBudgetPlans([]));
     }, [session]);
 
-    // Kostenstellen laden, wenn Budgetplan gewählt
     useEffect(() => {
         if (!budgetPlanId) {
             setCostCenters([]);
@@ -69,81 +80,59 @@ export default function NewTransactionPage() {
             .catch(() => setCostCenters([]));
     }, [budgetPlanId, session]);
 
-    // Hilfsfunktionen für die Auswahl
-    const getOptions = (type: string) => {
-        if (type === "user") return userOptions;
-        if (type === "bank") return bankOptions;
-        if (type === "clearing_account") return clearingOptions;
-        return [];
-    };
-
-    // Hilfsfunktion für die Anzeige des Namens
-    function getAccountDisplayName(opt: any) {
-        if (!opt) return "";
-        if (opt.name) return opt.name;
-        if (opt.first_name && opt.last_name) return `${opt.first_name} ${opt.last_name}`;
-        if (opt.iban) return opt.iban;
-        if (opt.mail) return opt.mail;
-        return String(opt.id || "Unbekannt");
-    }
-
-    // Neuer State für die Vorzeichen
-    const [account1Negative, setAccount1Negative] = useState(false);
-    const [account2Negative, setAccount2Negative] = useState(false);
-
-    // Synchronisiere die Vorzeichen-Logik bei Typ-Änderung
+    // Initialisiere Wertstellung mit heutigem Datum
     useEffect(() => {
-        // Wenn Typ2 leer, ist account2Negative immer false
+        if (!formData.date_valued) {
+            const today = new Date().toISOString().slice(0, 10);
+            setFormData(prev => ({ ...prev, date_valued: today }));
+        }
+    }, [formData.date_valued]);
+
+    // Vorzeichen-Logik
+    useEffect(() => {
         if (!formData.account2Type) {
             setAccount2Negative(false);
             return;
         }
-        // Logik für die Vorzeichen
         if (formData.account1Type === formData.account2Type) {
-            // Beide Typen gleich: wechselseitig negiert
             setAccount2Negative(!account1Negative);
         } else if (
             (formData.account1Type === "bank" && (formData.account2Type === "user" || formData.account2Type === "clearing_account")) ||
             (formData.account2Type === "bank" && (formData.account1Type === "user" || formData.account1Type === "clearing_account"))
         ) {
-            // Einer Bank, einer Nutzer/Verrechnungskonto: beide gleich
             setAccount2Negative(account1Negative);
         } else if (
             (formData.account1Type === "user" && formData.account2Type === "clearing_account") ||
             (formData.account1Type === "clearing_account" && formData.account2Type === "user")
         ) {
-            // Nutzer und Verrechnungskonto: wechselseitig negiert
             setAccount2Negative(!account1Negative);
         }
     }, [formData.account1Type, formData.account2Type, account1Negative]);
 
-    // Handler für oberen Button
-    const handleTopButton = () => {
-        if (!formData.account2Type) {
-            setAccount1Negative((prev) => !prev);
-        }
-    };
-    // Handler für unteren Buttons
-    const handleBottomButton = () => {
-        // Wenn Typ2 leer, nur account1Negative toggeln
-        if (!formData.account2Type) {
-            setAccount1Negative((prev) => !prev);
-            return;
-        }
-        // Wenn Typ2 befüllt, beide synchron toggeln
-        setAccount1Negative((prev) => !prev);
-        // account2Negative wird automatisch durch useEffect synchronisiert
-    };
-
     // Handler
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData({ ...formData, [name]: value });
-    };
-    // Die unteren Buttons sollen keine Funktionalität haben
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({ ...formData, attachment: e.target.files?.[0] || null });
-    };
+        setFormData(prev => ({ ...prev, [name]: value }));
+    }, []);
+
+    const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData(prev => ({ ...prev, attachment: e.target.files?.[0] || null }));
+    }, []);
+
+    const handleAccount2TypeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = e.target.value;
+        setFormData(prev => ({ ...prev, account2Type: value, account2Id: "" }));
+    }, []);
+
+    const handleTopButton = useCallback(() => {
+        if (!formData.account2Type) {
+            setAccount1Negative(prev => !prev);
+        }
+    }, [formData.account2Type]);
+
+    const handleBottomButton = useCallback(() => {
+        setAccount1Negative(prev => !prev);
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -160,13 +149,8 @@ export default function NewTransactionPage() {
             formDataObj.append("account1Id", formData.account1Id);
             formDataObj.append("account2Type", formData.account2Type);
             formDataObj.append("account2Id", formData.account2Id);
-            // Vorzeichen-Logik je nach Buchungsart
-            if (!formData.account2Type) {
-                // Einzelbuchung: Nur account1Negative aus dem oberen Button
-                formDataObj.append("account1Negative", account1Negative ? "true" : "false");
-            } else {
-                // Doppelbuchung: Beide Vorzeichen aus den States
-                formDataObj.append("account1Negative", account1Negative ? "true" : "false");
+            formDataObj.append("account1Negative", account1Negative ? "true" : "false");
+            if (formData.account2Type) {
                 formDataObj.append("account2Negative", account2Negative ? "true" : "false");
             }
             if (budgetPlanId) formDataObj.append("budgetPlanId", budgetPlanId);
@@ -198,16 +182,20 @@ export default function NewTransactionPage() {
                 setFormData({
                     amount: "",
                     sign: "+",
-                    date_valued: "",
+                    date_valued: new Date().toISOString().slice(0, 10),
                     description: "",
                     reference: "",
-                    account1Type: "user", // Default
+                    account1Type: "user",
                     account1Id: "",
-                    account2Type: "", // Default leer
+                    account2Type: "",
                     account2Id: "",
                     attachment: null,
                     signAccounts: ["+", "+"],
                 });
+                setAccount1Negative(false);
+                setAccount2Negative(false);
+                setBudgetPlanId("");
+                setCostCenterId("");
             }
         } catch (error: any) {
             setMessage("❌ " + (error?.message || "Serverfehler"));
@@ -215,14 +203,6 @@ export default function NewTransactionPage() {
             setLoading(false);
         }
     };
-
-    // Initialisiere Wertstellung mit heutigem Datum
-    useEffect(() => {
-        if (!formData.date_valued) {
-            const today = new Date().toISOString().slice(0, 10);
-            setFormData(prev => ({ ...prev, date_valued: today }));
-        }
-    }, []);
 
     return (
         <div className="form-container">
@@ -235,7 +215,6 @@ export default function NewTransactionPage() {
                         name="date_valued"
                         value={formData.date_valued}
                         onChange={handleChange}
-                        // nicht required
                     />
                 </label>
                 <div className="form-accounts-row">
@@ -265,7 +244,7 @@ export default function NewTransactionPage() {
                                 style={{ maxWidth: "220px" }}
                             >
                                 <option value="">Bitte wählen</option>
-                                {getOptions(formData.account1Type).map((opt) => (
+                                {getOptions(formData.account1Type, userOptions, bankOptions, clearingOptions).map((opt) => (
                                     <option key={opt.id} value={opt.id}>
                                         {getAccountDisplayName(opt)}
                                     </option>
@@ -288,14 +267,7 @@ export default function NewTransactionPage() {
                                 name="account2Type"
                                 className="form-select form-select-max"
                                 value={formData.account2Type}
-                                onChange={e => {
-                                    const value = e.target.value;
-                                    setFormData({
-                                        ...formData,
-                                        account2Type: value,
-                                        account2Id: "", // Immer zurücksetzen, wenn Typ geändert wird
-                                    });
-                                }}
+                                onChange={handleAccount2TypeChange}
                                 style={{ maxWidth: "220px" }}
                             >
                                 <option value="">---</option>
@@ -316,7 +288,7 @@ export default function NewTransactionPage() {
                                 style={{ maxWidth: "220px" }}
                             >
                                 <option value="">---</option>
-                                {getOptions(formData.account2Type).map((opt) => (
+                                {getOptions(formData.account2Type, userOptions, bankOptions, clearingOptions).map((opt) => (
                                     <option key={opt.id} value={opt.id}>
                                         {getAccountDisplayName(opt)}
                                     </option>
@@ -350,11 +322,9 @@ export default function NewTransactionPage() {
                         name="reference"
                         value={formData.reference}
                         onChange={handleChange}
-                        // nicht required
                     />
                 </label>
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                    {/* Oberer Button nur anzeigen, wenn Typ2 leer ist */}
                     {!formData.account2Type && (
                         <button
                             type="button"
