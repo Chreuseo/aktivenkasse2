@@ -27,8 +27,7 @@ const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
         { label: 'Funktionen', href: '/clearing-accounts/functions' }
     ],
     Haushaltsplan: [
-        { label: 'Aktueller Plan', href: '/budget-plan' },
-        { label: 'Übersicht', href: '/budget-plan/overview' },
+        { label: 'Übersicht', href: '/budget-plan' },
         { label: 'Neuer Plan', href: '/budget-plan/new' },
         { label: 'Haushaltsabschluss', href: '/budget-plan/finalization' },
         ],
