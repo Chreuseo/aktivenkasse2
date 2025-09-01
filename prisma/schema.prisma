@@ -81,29 +81,35 @@ model ClearingAccountMember {
 }
 
 model BudgetPlan {
-  id          Int             @id @default(autoincrement())
-  name        String
-  description String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  state       budgetPlanState @default(draft)
-  costCenters CostCenter[]
+  id                 Int             @id @default(autoincrement())
+  name               String
+  description        String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  state              budgetPlanState @default(draft)
+  firstCostCenter    Int?
+  firstCostCenterObj CostCenter?     @relation("FirstCostCenter", fields: [firstCostCenter], references: [id])
+  costCenters        CostCenter[]
 }
 
 model CostCenter {
-  id                Int               @id @default(autoincrement())
-  name              String
-  description       String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  earnings_expected Decimal
-  costs_expected    Decimal
-  earnings_actual   Decimal           @default(0)
-  costs_actual      Decimal           @default(0)
-  budget_planId     Int // vorher: householdId
-  budget_plan       BudgetPlan        @relation(fields: [budget_planId], references: [id]) // vorher: Household
-  transactions      Transaction[]
-  transactionBulks  TransactionBulk[]
+  id                 Int               @id @default(autoincrement())
+  name               String
+  description        String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  earnings_expected  Decimal
+  costs_expected     Decimal
+  earnings_actual    Decimal           @default(0)
+  costs_actual       Decimal           @default(0)
+  budget_planId      Int
+  budget_plan        BudgetPlan        @relation(fields: [budget_planId], references: [id])
+  budgetPlanFirst    BudgetPlan[]      @relation("FirstCostCenter")
+  nextCostCenter     Int?
+  nextCostCenterObj  CostCenter?       @relation("NextCostCenter", fields: [nextCostCenter], references: [id])
+  previousCostCenter CostCenter[]      @relation("NextCostCenter")
+  Transaction        Transaction[]
+  TransactionBulk    TransactionBulk[]
 }
 
 model Transaction {

@@ -15,6 +15,7 @@ interface BudgetPlan {
   createdAt: string;
   updatedAt: string;
   state: string;
+  firstCostCenter?: number;
 }
 
 interface CostCenter {
@@ -23,6 +24,7 @@ interface CostCenter {
   description?: string;
   earnings_expected: number;
   costs_expected: number;
+  nextCostCenter?: number;
 }
 
 export default function CostCentersPage() {
@@ -174,6 +176,82 @@ export default function CostCentersPage() {
     }
   }
 
+  function getSortedCostCenters(plan: BudgetPlan | null, costCenters: CostCenter[]): CostCenter[] {
+    if (!plan || !costCenters.length) return costCenters;
+    const map = new Map<number, CostCenter>();
+    costCenters.forEach(cc => map.set(cc.id, cc));
+    const sorted: CostCenter[] = [];
+    let currentId = plan.firstCostCenter;
+    let visited = new Set<number>();
+    while (currentId && map.has(currentId) && !visited.has(currentId)) {
+      const cc = map.get(currentId)!;
+      sorted.push(cc);
+      visited.add(currentId);
+      currentId = cc.nextCostCenter;
+    }
+    // Füge alle nicht verketteten am Ende hinzu
+    costCenters.forEach(cc => {
+      if (!visited.has(cc.id)) sorted.push(cc);
+    });
+    return sorted;
+  }
+
+  const sortedCostCenters = getSortedCostCenters(plan, costCenters);
+
+  const handleMoveUp = async (idx: number) => {
+    if (idx === 0) return;
+    await updateOrder(idx, idx - 1);
+  };
+
+  const handleMoveDown = async (idx: number) => {
+    if (idx === sortedCostCenters.length - 1) return;
+    await updateOrder(idx, idx + 1);
+  };
+
+  const updateOrder = async (fromIdx: number, toIdx: number) => {
+    const arr = [...sortedCostCenters];
+    const moved = arr.splice(fromIdx, 1)[0];
+    arr.splice(toIdx, 0, moved);
+    let firstId = arr.length ? arr[0].id : undefined;
+    let updates: any[] = [];
+    arr.forEach((cc, i) => {
+      const nextId = arr[i + 1]?.id;
+      updates.push({ id: cc.id, nextCostCenter: nextId });
+    });
+    setCostCenters(arr);
+    const token = extractToken(session);
+    if (planId && firstId) {
+      await fetchJson(`/api/budget-plan/${planId}`, {
+        method: "PATCH",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ firstCostCenter: firstId }),
+      });
+    }
+    for (const u of updates) {
+      await fetchJson(`/api/budget-plan/cost-centers/${u.id}`, {
+        method: "PATCH",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ nextCostCenter: u.nextCostCenter }),
+      });
+    }
+    if (planId) {
+      const ccRes = await fetchJson(`/api/budget-plan/cost-centers?planId=${planId}`, {
+        method: "GET",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          "Content-Type": "application/json",
+        },
+      });
+      setCostCenters(ccRes);
+    }
+  };
+
   return (
     <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
       <h2 style={{ marginBottom: "1.2rem" }}>Kostenstellen verwalten</h2>
@@ -195,11 +273,12 @@ export default function CostCentersPage() {
             <th>Geplante Einnahmen (€)</th>
             <th>Geplante Ausgaben (€)</th>
             <th>Erwartetes Ergebnis (€)</th>
+            <th>Sortierung</th>
             <th>Löschen</th>
           </tr>
         </thead>
         <tbody>
-          {costCenters.map(cc => (
+          {sortedCostCenters.map((cc, idx) => (
             <tr key={cc.id} className="kc-row">
               <td>
                 <input type="text" value={editRows[cc.id]?.name ?? cc.name} onChange={e => handleEdit(cc.id, "name", e.target.value)} />
@@ -212,6 +291,10 @@ export default function CostCentersPage() {
               </td>
               <td>
                 {((editRows[cc.id]?.earnings_expected ?? cc.earnings_expected) - (editRows[cc.id]?.costs_expected ?? cc.costs_expected)).toFixed(2)} €
+              </td>
+              <td style={{ display: "flex", gap: "0.3rem" }}>
+                <button className="button" onClick={() => handleMoveUp(idx)} disabled={idx === 0}>↑</button>
+                <button className="button" onClick={() => handleMoveDown(idx)} disabled={idx === sortedCostCenters.length - 1}>↓</button>
               </td>
               <td>
                 <button className="button" onClick={() => handleDelete(cc.id)}>Löschen</button>
@@ -231,6 +314,10 @@ export default function CostCentersPage() {
               </td>
               <td>
                 {((row.earnings_expected ?? 0) - (row.costs_expected ?? 0)).toFixed(2)} €
+              </td>
+              <td style={{ display: "flex", gap: "0.3rem" }}>
+                <button className="button" disabled>↑</button>
+                <button className="button" disabled>↓</button>
               </td>
               <td>
                 <button className="button" onClick={() => handleDeleteNewRow(idx)} disabled={saving}>Löschen</button>
