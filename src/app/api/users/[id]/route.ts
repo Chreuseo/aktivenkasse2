@@ -1,7 +1,20 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { ResourceType, AuthorizationType } from "@/app/types/authorization";
+import { checkPermission, extractTokenAndUserId } from "@/services/authService";
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
+    // Rechtevalidierung für Nutzer-Detailansicht
+    const { userId: tokenUserId } = extractTokenAndUserId(req);
+    const requestedId = params.id;
+    let requiredPermission = AuthorizationType.read_all;
+    if (tokenUserId && (requestedId === tokenUserId || requestedId === String(tokenUserId))) {
+        requiredPermission = AuthorizationType.read_own;
+    }
+    const perm = await checkPermission(req, ResourceType.userAuth, requiredPermission);
+    if (!perm.allowed) {
+        return NextResponse.json({ error: `Keine Berechtigung für ${requiredPermission} auf userAuth` }, { status: 403 });
+    }
     try {
         const userId = Number(params.id);
         if (!userId || isNaN(userId)) {
