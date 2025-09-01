@@ -218,36 +218,45 @@ export default function RolesPage() {
             const user = r.userId ? users.find(u => u.id === r.userId) : null;
             return (
               <tr key={r.id} className="kc-row">
-                <td>{getRoleDisplayName(r, users)}</td>
+                <td>
+                  <input
+                    type="text"
+                    className="kc-input"
+                    value={r.name ?? ""}
+                    onChange={e => updateRoleField(r.id, { name: e.target.value })}
+                    placeholder="Rollenname"
+                    disabled={loading}
+                  />
+                </td>
                 <td style={{ fontSize: 12, color: "var(--muted, #9aa4b2)" }}>{r.keycloak_id ? "Ja" : "Nein"}</td>
                 <td>{user ? `${user.first_name} ${user.last_name} (${user.mail})` : <em>—</em>}</td>
                 <td>
-                  <select value={r.budget_plan} onChange={(e) => updateRoleField(r.id, { budget_plan: e.target.value as AuthorizationType })} disabled={loading}>
+                  <select className="kc-select" value={r.budget_plan} onChange={(e) => updateRoleField(r.id, { budget_plan: e.target.value as AuthorizationType })} disabled={loading}>
                     {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
                   </select>
                 </td>
                 <td>
-                  <select value={r.userAuth} onChange={(e) => updateRoleField(r.id, { userAuth: e.target.value as AuthorizationType })} disabled={loading}>
+                  <select className="kc-select" value={r.userAuth} onChange={(e) => updateRoleField(r.id, { userAuth: e.target.value as AuthorizationType })} disabled={loading}>
                     {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
                   </select>
                 </td>
                 <td>
-                  <select value={r.clearing_accounts} onChange={(e) => updateRoleField(r.id, { clearing_accounts: e.target.value as AuthorizationType })} disabled={loading}>
+                  <select className="kc-select" value={r.clearing_accounts} onChange={(e) => updateRoleField(r.id, { clearing_accounts: e.target.value as AuthorizationType })} disabled={loading}>
                     {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
                   </select>
                 </td>
                 <td>
-                  <select value={r.bank_accounts} onChange={(e) => updateRoleField(r.id, { bank_accounts: e.target.value as AuthorizationType })} disabled={loading}>
+                  <select className="kc-select" value={r.bank_accounts} onChange={(e) => updateRoleField(r.id, { bank_accounts: e.target.value as AuthorizationType })} disabled={loading}>
                     {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
                   </select>
                 </td>
                 <td>
-                  <select value={r.transactions} onChange={(e) => updateRoleField(r.id, { transactions: e.target.value as AuthorizationType })} disabled={loading}>
+                  <select className="kc-select" value={r.transactions} onChange={(e) => updateRoleField(r.id, { transactions: e.target.value as AuthorizationType })} disabled={loading}>
                     {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
                   </select>
                 </td>
                 <td>
-                  <select value={r.advances} onChange={(e) => updateRoleField(r.id, { advances: e.target.value as AuthorizationType })} disabled={loading}>
+                  <select className="kc-select" value={r.advances} onChange={(e) => updateRoleField(r.id, { advances: e.target.value as AuthorizationType })} disabled={loading}>
                     {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
                   </select>
                 </td>
@@ -261,7 +270,14 @@ export default function RolesPage() {
           {/* Neue Rolle */}
           <tr className="kc-row">
             <td>
-              <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Neue Rolle (Name)" />
+              <input
+                type="text"
+                className="kc-input"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                placeholder="Neue Rolle (Name)"
+                disabled={loading}
+              />
             </td>
             <td colSpan={7} style={{ display: 'flex', gap: 8 }}>
               <button className="button" onClick={createRole} disabled={loading}>Rolle anlegen</button>
@@ -271,7 +287,7 @@ export default function RolesPage() {
           {/* Nutzerrolle */}
           <tr className="kc-row">
             <td colSpan={2}>
-              <select value={selectedUserId ?? ''} onChange={e => setSelectedUserId(Number(e.target.value) || null)}>
+              <select className="kc-select" value={selectedUserId ?? ''} onChange={e => setSelectedUserId(Number(e.target.value) || null)}>
                 <option value="">Nutzer wählen…</option>
                 {users.map(u => (
                   <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.mail})</option>
