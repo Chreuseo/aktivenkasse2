@@ -4,76 +4,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
-
-function resolveEnv(...keys: string[]) {
-    for (const k of keys) {
-        if (typeof process.env[k] === "string" && process.env[k]!.length > 0) return process.env[k]!;
-    }
-    return undefined;
-}
-
-function normalizeBaseUrl(base: string) {
-    return base.replace(/\/+$/, "");
-}
-// typescript
-async function getKeycloakToken() {
-    const baseRaw = resolveEnv(
-        "KEYCLOAK_BASE_URL",
-        "KEYCLOAK_BASEURL",
-        "KEYCLOAK_URL",
-        "KEYCLOAK_HOST",
-        "NEXT_PUBLIC_KEYCLOAK_BASE_URL"
-    );
-    const realm = resolveEnv("KEYCLOAK_REALM", "KEYCLOAK_REALM_NAME", "NEXT_PUBLIC_KEYCLOAK_REALM");
-    const clientId = resolveEnv("KEYCLOAK_CLIENT_ID", "KEYCLOAK_CLIENT", "NEXT_PUBLIC_KEYCLOAK_CLIENT_ID");
-    const clientSecret = resolveEnv("KEYCLOAK_CLIENT_SECRET", "KEYCLOAK_CLIENT_SECRET_KEY");
-
-    const missingParts: string[] = [];
-    if (!baseRaw) missingParts.push("KEYCLOAK_BASE_URL");
-    if (!realm) missingParts.push("KEYCLOAK_REALM");
-    if (!clientId) missingParts.push("KEYCLOAK_CLIENT_ID");
-    if (!clientSecret) missingParts.push("KEYCLOAK_CLIENT_SECRET");
-
-    if (missingParts.length > 0) {
-        console.error("Missing Keycloak env vars:", missingParts.join(", "));
-        throw new Error(`Missing Keycloak env vars: ${missingParts.join(", ")}`);
-    }
-
-    const base = normalizeBaseUrl(baseRaw!);
-
-    // Baue genau einen aktuellen Token-Endpunkt: /realms/{realm}/protocol/openid-connect/token
-    // Falls die Base-URL bereits ein `/auth` enthält, bleibt das erhalten (es wird nicht zusätzlich `/auth` ergänzt).
-    const tokenUrl = `${base}/realms/${realm}/protocol/openid-connect/token`;
-
-    const params = new URLSearchParams();
-    params.append("grant_type", "client_credentials");
-    params.append("client_id", clientId!);
-    params.append("client_secret", clientSecret!);
-
-    try {
-        console.info("Attempting Keycloak token url:", tokenUrl);
-        const res = await fetch(tokenUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: params.toString(),
-        });
-
-        if (!res.ok) {
-            const txt = await res.text().catch(() => "");
-            console.error("Keycloak token request failed", { url: tokenUrl, status: res.status, text: txt });
-            throw new Error(`Keycloak token error: ${res.status} ${txt}`);
-        }
-
-        const json = await res.json();
-        if (!json?.access_token) {
-            throw new Error("No access_token in Keycloak response");
-        }
-        return json.access_token as string;
-    } catch (err: any) {
-        console.error("Keycloak token fetch error", { url: tokenUrl, message: err?.message ?? String(err) });
-        throw err;
-    }
-}
+import { resolveEnv, normalizeBaseUrl, getKeycloakToken } from "@/lib/keycloakUtils";
 
 async function createOrFindKeycloakUser(token: string, firstName: string, lastName: string, email: string, password?: string) {
     const baseRaw = resolveEnv(
@@ -84,14 +15,10 @@ async function createOrFindKeycloakUser(token: string, firstName: string, lastNa
         "NEXT_PUBLIC_KEYCLOAK_BASE_URL"
     );
     const realm = resolveEnv("KEYCLOAK_REALM", "KEYCLOAK_REALM_NAME", "NEXT_PUBLIC_KEYCLOAK_REALM");
-
     if (!baseRaw || !realm) {
         throw new Error("Missing KEYCLOAK_BASE_URL or KEYCLOAK_REALM for user creation");
     }
-
     const base = normalizeBaseUrl(baseRaw);
-
-    // Versuch anlegen
     const body: any = {
         username: email,
         email,
@@ -99,11 +26,9 @@ async function createOrFindKeycloakUser(token: string, firstName: string, lastNa
         lastName,
         enabled: true,
     };
-
     if (password) {
         body.credentials = [{ type: "password", value: password, temporary: false }];
     }
-
     const createRes = await fetch(`${base}/admin/realms/${realm}/users`, {
         method: "POST",
         headers: {
@@ -112,17 +37,13 @@ async function createOrFindKeycloakUser(token: string, firstName: string, lastNa
         },
         body: JSON.stringify(body),
     });
-
     if (createRes.status === 201) {
-        // Location: .../users/{id}
         const loc = createRes.headers.get("location") || "";
         const id = loc.split("/").pop() || null;
         if (!id) throw new Error("Kein Keycloak id in Location header");
         return id;
     }
-
     if (createRes.status === 409) {
-        // Bereits vorhanden -> suche per Email
         const findRes = await fetch(`${base}/admin/realms/${realm}/users?email=${encodeURIComponent(email)}`, {
             headers: { Authorization: `Bearer ${token}` },
         });
@@ -136,7 +57,6 @@ async function createOrFindKeycloakUser(token: string, firstName: string, lastNa
         }
         throw new Error("User exists but konnte nicht gefunden werden");
     }
-
     const txt = await createRes.text().catch(() => "");
     throw new Error(`Keycloak create failed: ${createRes.status} ${txt}`);
 }

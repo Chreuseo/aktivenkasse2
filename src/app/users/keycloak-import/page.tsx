@@ -4,6 +4,13 @@ import React, { useEffect, useState } from "react";
 import "@/app/css/tables.css";
 import { useSession } from "next-auth/react";
 
+// Utility für Token-Extraktion
+function extractToken(session: any): string {
+  return (session?.token as string)
+    || (session?.user && typeof session.user === 'object' && (session.user as any).token)
+    || "";
+}
+
 type Row = {
   keycloak_id: string;
   username: string;
@@ -22,9 +29,7 @@ export default function KeycloakImportPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   function getToken() {
-    return (session?.token as string)
-      || (session?.user && typeof session.user === 'object' && (session.user as any).token)
-      || "";
+    return extractToken(session);
   }
 
   async function load() {
@@ -112,7 +117,7 @@ export default function KeycloakImportPage() {
           {rows.map(r => (
             <tr key={r.keycloak_id} className="kc-row">
               <td className="kc-checkbox">
-                <input type="checkbox" checked={!!selected[r.keycloak_id]} onChange={() => toggle(r.keycloak_id)} />
+                <input type="checkbox" checked={selected[r.keycloak_id]} onChange={() => toggle(r.keycloak_id)} />
               </td>
               <td>
                 <div style={{ display: "flex", flexDirection: "column" }}>

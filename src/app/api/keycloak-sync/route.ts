@@ -3,56 +3,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
-
-function resolveEnv(...keys: string[]) {
-  for (const k of keys) {
-    if (typeof process.env[k] === "string" && process.env[k]!.length > 0) return process.env[k]!;
-  }
-  return undefined;
-}
-function normalizeBaseUrl(base: string) {
-  return base.replace(/\/+$/, "");
-}
-
-async function getKeycloakToken() {
-  const baseRaw = resolveEnv(
-    "KEYCLOAK_BASE_URL",
-    "KEYCLOAK_BASEURL",
-    "KEYCLOAK_URL",
-    "KEYCLOAK_HOST",
-    "NEXT_PUBLIC_KEYCLOAK_BASE_URL"
-  );
-  const realm = resolveEnv("KEYCLOAK_REALM", "KEYCLOAK_REALM_NAME", "NEXT_PUBLIC_KEYCLOAK_REALM");
-  const clientId = resolveEnv("KEYCLOAK_CLIENT_ID", "KEYCLOAK_CLIENT", "NEXT_PUBLIC_KEYCLOAK_CLIENT_ID");
-  const clientSecret = resolveEnv("KEYCLOAK_CLIENT_SECRET", "KEYCLOAK_CLIENT_SECRET_KEY");
-
-  const missing: string[] = [];
-  if (!baseRaw) missing.push("KEYCLOAK_BASE_URL");
-  if (!realm) missing.push("KEYCLOAK_REALM");
-  if (!clientId) missing.push("KEYCLOAK_CLIENT_ID");
-  if (!clientSecret) missing.push("KEYCLOAK_CLIENT_SECRET");
-  if (missing.length) throw new Error("Missing Keycloak env: " + missing.join(", "));
-
-  const base = normalizeBaseUrl(baseRaw!);
-  const tokenUrl = `${base}/realms/${realm}/protocol/openid-connect/token`;
-  const params = new URLSearchParams();
-  params.append("grant_type", "client_credentials");
-  params.append("client_id", clientId!);
-  params.append("client_secret", clientSecret!);
-
-  const res = await fetch(tokenUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: params.toString(),
-  });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`Keycloak token error: ${res.status} ${txt}`);
-  }
-  const json = await res.json();
-  if (!json?.access_token) throw new Error("No access_token");
-  return json.access_token as string;
-}
+import { resolveEnv, normalizeBaseUrl, getKeycloakToken } from "@/lib/keycloakUtils";
 
 async function fetchAllKeycloakUsers(token: string) {
   const baseRaw = resolveEnv(
@@ -81,18 +32,16 @@ async function fetchAllKeycloakUsers(token: string) {
     if (batch.length < pageSize) break;
     first += pageSize;
   }
-  // normalize to minimal shape
   return out.map((u: any) => ({
     id: u.id,
     username: u.username,
-    email: u.email || u.emailVerified || "",
+    email: u.email || "",
     firstName: u.firstName || "",
     lastName: u.lastName || "",
   }));
 }
 
 export async function GET(req: Request) {
-  // Rechteprüfung: userAuth/read_all
   const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.read_all);
   if (!perm.allowed) {
     return NextResponse.json({ error: "Keine Berechtigung für Keycloak-Sync-Lesen" }, { status: 403 });
@@ -106,7 +55,6 @@ export async function GET(req: Request) {
       select: { id: true, keycloak_id: true, mail: true, first_name: true, last_name: true },
     });
     const dbMap = new Map(dbUsers.map(u => [u.keycloak_id, u]));
-
     const result = kcUsers.map(u => {
       const db = dbMap.get(u.id);
       if (!db) {
@@ -127,7 +75,6 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  // Rechteprüfung: userAuth/write_all
   const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.write_all);
   if (!perm.allowed) {
     return NextResponse.json({ error: "Keine Berechtigung für Keycloak-Sync-Import" }, { status: 403 });
@@ -136,7 +83,6 @@ export async function POST(req: Request) {
     const body = await req.json();
     const ids: string[] = Array.isArray(body?.ids) ? body.ids : [];
     if (!ids.length) return NextResponse.json({ error: "Keine IDs angegeben" }, { status: 400 });
-
     const token = await getKeycloakToken();
     const baseRaw = resolveEnv(
       "KEYCLOAK_BASE_URL",

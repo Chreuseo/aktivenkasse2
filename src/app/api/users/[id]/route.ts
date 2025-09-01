@@ -7,18 +7,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         if (!userId || isNaN(userId)) {
             return NextResponse.json({ error: "Ungültige Nutzer-ID" }, { status: 400 });
         }
-
         // User inkl. Account und Kontostand
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            include: {
-                account: true,
-            },
+            include: { account: true },
         });
         if (!user) {
             return NextResponse.json({ error: "Nutzer nicht gefunden" }, { status: 404 });
         }
-
         // Alle Transaktionen des Accounts (als account1 oder account2)
         const accountId = user.accountId;
         const transactions = await prisma.transaction.findMany({
@@ -46,10 +42,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
                 },
             },
         });
-
         // Für jede Transaktion: Gegenkonto bestimmen und Details extrahieren
         const txs = transactions.map(tx => {
-            // Aus Sicht des Accounts: Betrag und Richtung
             let isMain = tx.accountId1 === accountId;
             let amount = isMain ? (tx.account1Negative ? -tx.amount : tx.amount) : (tx.account2Negative ? -tx.amount : tx.amount);
             let otherAccount = isMain ? tx.account2 : tx.account1;
@@ -78,14 +72,13 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             }
             return {
                 id: tx.id,
-                amount: amount,
+                amount: typeof tx.amount === "object" ? Number(amount) : amount,
                 date: tx.date,
                 description: tx.description,
                 reference: tx.reference,
                 other: otherDetails,
             };
         });
-
         return NextResponse.json({
             user: {
                 id: user.id,
@@ -94,10 +87,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
                 mail: user.mail,
                 balance: user.account?.balance ? Number(user.account.balance) : 0,
             },
-            transactions: txs.map(tx => ({
-                ...tx,
-                amount: typeof tx.amount === "object" ? Number(tx.amount) : tx.amount
-            })),
+            transactions: txs,
         });
     } catch (error: any) {
         console.error(error);

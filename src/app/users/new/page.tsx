@@ -4,6 +4,13 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import "../../css/forms.css";
 
+// Utility für Token-Extraktion
+function extractToken(session: any): string {
+    return (session?.token as string)
+        || (session?.user && typeof session.user === 'object' && (session.user as any).token)
+        || "";
+}
+
 export default function NewUserPage() {
     const { data: session } = useSession();
     const [formData, setFormData] = useState({
@@ -11,16 +18,8 @@ export default function NewUserPage() {
         last_name: "",
         mail: "",
     });
-
     const [message, setMessage] = useState("");
-
-    // Token aus Session extrahieren
-    function getToken() {
-        return (session?.user && typeof session.user === 'object' && (session.user as any).token)
-            || (session?.token as string)
-            || (session?.accessToken as string)
-            || "";
-    }
+    const [loading, setLoading] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -29,9 +28,9 @@ export default function NewUserPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setMessage("");
-
+        setLoading(true);
         try {
-            const token = getToken();
+            const token = extractToken(session);
             const res = await fetch("/api/users", {
                 method: "POST",
                 headers: {
@@ -40,7 +39,6 @@ export default function NewUserPage() {
                 },
                 body: JSON.stringify(formData),
             });
-
             if (res.ok) {
                 setMessage("✅ User erfolgreich angelegt!");
                 setFormData({ first_name: "", last_name: "", mail: ""});
@@ -50,6 +48,8 @@ export default function NewUserPage() {
             }
         } catch (error) {
             setMessage("❌ Serverfehler");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -72,7 +72,7 @@ export default function NewUserPage() {
                     <input type="email" name="mail" value={formData.mail} onChange={handleChange} required />
                 </label>
 
-                <button className="button" type="submit">Anlegen</button>
+                <button className="button" type="submit" disabled={loading}>Anlegen</button>
             </form>
             {message && <p className="message">{message}</p>}
         </div>

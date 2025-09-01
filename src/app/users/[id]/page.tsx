@@ -3,7 +3,6 @@ import prisma from "@/lib/prisma";
 import "@/app/css/tables.css";
 import "@/app/css/infobox.css";
 
-// Typ für Transaktionen
 interface Transaction {
   id: number;
   amount: number;
@@ -53,28 +52,26 @@ export default async function UserDetailPage({ params }: { params: { id: string 
     },
   });
 
-  // @ts-ignore
-    const transactions: Transaction[] = transactionsRaw.map(tx => {
-    let isMain = tx.accountId1 === accountId;
-    let amount = isMain ? (tx.account1Negative ? -Number(tx.amount) : Number(tx.amount)) : (tx.account2Negative ? -Number(tx.amount) : Number(tx.amount));
-    let otherAccount = isMain ? tx.account2 : tx.account1;
-    let otherType = otherAccount?.type;
+  const transactions: Transaction[] = transactionsRaw.map(tx => {
+    const isMain = tx.accountId1 === accountId;
+    const amount = isMain ? (tx.account1Negative ? -Number(tx.amount) : Number(tx.amount)) : (tx.account2Negative ? -Number(tx.amount) : Number(tx.amount));
+    const otherAccount = isMain ? tx.account2 : tx.account1;
     let otherDetails = null;
     if (otherAccount) {
-      if (otherType === "user" && otherAccount.users?.length) {
+      if (otherAccount.type === "user" && otherAccount.users?.length) {
         otherDetails = {
           type: "user",
           name: otherAccount.users[0].first_name + " " + otherAccount.users[0].last_name,
           mail: otherAccount.users[0].mail,
         };
-      } else if (otherType === "bank" && otherAccount.bankAccounts?.length) {
+      } else if (otherAccount.type === "bank" && otherAccount.bankAccounts?.length) {
         otherDetails = {
           type: "bank",
           name: otherAccount.bankAccounts[0].name,
           bank: otherAccount.bankAccounts[0].bank,
           iban: otherAccount.bankAccounts[0].iban,
         };
-      } else if (otherType === "help_account" && otherAccount.helpAccounts?.length) {
+      } else if (otherAccount.type === "help_account" && otherAccount.helpAccounts?.length) {
         otherDetails = {
           type: "help_account",
           name: otherAccount.helpAccounts[0].name,

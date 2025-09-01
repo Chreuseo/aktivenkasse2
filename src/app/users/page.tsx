@@ -4,6 +4,13 @@ import React, { useEffect, useState } from "react";
 import "@/app/css/tables.css";
 import { useSession } from "next-auth/react";
 
+// Utility für Token-Extraktion
+function extractToken(session: any): string {
+  return (session?.token as string)
+    || (session?.user && typeof session.user === 'object' && (session.user as any).token)
+    || "";
+}
+
 type User = {
   id: number;
   first_name: string;
@@ -15,22 +22,15 @@ type User = {
 export default function UsersOverview() {
   const { data: session } = useSession();
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    console.log("Session:", session); // Session-Daten im Browser loggen
-    function getToken() {
-      return (session?.token as string)
-        || (session?.user && typeof session.user === 'object' && (session.user as any).token)
-        || "";
-    }
     async function load() {
       setLoading(true);
       setError(null);
       try {
-        const token = getToken();
-        console.log("JWT für /api/users:", token);
+        const token = extractToken(session);
         const res = await fetch("/api/users", {
           method: "GET",
           headers: {
@@ -39,10 +39,15 @@ export default function UsersOverview() {
           },
         });
         const json = await res.json();
-        if (!res.ok) throw new Error(json?.error || "Fehler beim Laden");
-        setUsers(json);
+        if (!res.ok) {
+          setError(json?.error || "Fehler beim Laden");
+          setUsers([]);
+        } else {
+          setUsers(json);
+        }
       } catch (e: any) {
         setError(e?.message || String(e));
+        setUsers([]);
       } finally {
         setLoading(false);
       }
@@ -53,6 +58,7 @@ export default function UsersOverview() {
   return (
     <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
       <h2 style={{ marginBottom: 16 }}>Nutzerübersicht</h2>
+      {loading && <div style={{ color: "var(--muted)", marginBottom: 12 }}>Lade Daten ...</div>}
       {error && <div style={{ color: "var(--accent)", marginBottom: 12 }}>{error}</div>}
       <table className="kc-table" role="table">
         <thead>
@@ -85,6 +91,9 @@ export default function UsersOverview() {
               </td>
             </tr>
           ))}
+          {users.length === 0 && !loading && (
+            <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Nutzer gefunden</td></tr>
+          )}
         </tbody>
       </table>
     </div>

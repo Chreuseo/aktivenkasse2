@@ -55,10 +55,15 @@ export default function RolesPage() {
         },
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || 'Fehler');
-      setRoles(json);
+      if (!res.ok) {
+        setMsg(json?.error || 'Fehler');
+        setRoles([]);
+      } else {
+        setRoles(json);
+      }
     } catch (e: any) {
       setMsg('Ladefehler: ' + (e?.message || String(e)));
+      setRoles([]);
     } finally { setLoading(false); }
   }
 
@@ -91,9 +96,12 @@ export default function RolesPage() {
         body: JSON.stringify({ id, ...updates }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || 'Fehler');
-      setRoles(r => r.map(x => x.id === id ? json : x));
-      setMsg('Gespeichert');
+      if (!res.ok) {
+        setMsg(json?.error || 'Fehler');
+      } else {
+        setRoles(r => r.map(x => x.id === id ? json : x));
+        setMsg('Gespeichert');
+      }
     } catch (e: any) {
       setMsg('Speicherfehler: ' + (e?.message || String(e)));
     } finally { setLoading(false); }
@@ -111,10 +119,13 @@ export default function RolesPage() {
         body: JSON.stringify({ name: newName.trim() }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || 'Fehler');
-      setRoles(r => [...r, json]);
-      setNewName('');
-      setMsg('Rolle angelegt');
+      if (!res.ok) {
+        setMsg(json?.error || 'Fehler');
+      } else {
+        setRoles(r => [...r, json]);
+        setNewName('');
+        setMsg('Rolle angelegt');
+      }
     } catch (e: any) {
       setMsg('Anlegen fehlgeschlagen: ' + (e?.message || String(e)));
     } finally { setLoading(false); }
@@ -126,8 +137,7 @@ export default function RolesPage() {
     setMsg(null);
     try {
       const user = users.find(u => u.id === selectedUserId);
-      if (!user) throw new Error('Nutzer nicht gefunden');
-      // Rollennamen: user_{id}_{first_name}_{last_name}
+      if (!user) { setMsg('Nutzer nicht gefunden'); return; }
       const roleName = `user_${user.id}_${user.first_name}_${user.last_name}`;
       const token = getToken();
       const res = await fetch('/api/roles', {
@@ -136,10 +146,13 @@ export default function RolesPage() {
         body: JSON.stringify({ name: roleName, userId: user.id }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || 'Fehler');
-      setRoles(r => [...r, json]);
-      setSelectedUserId(null);
-      setMsg('Nutzerrolle angelegt');
+      if (!res.ok) {
+        setMsg(json?.error || 'Fehler');
+      } else {
+        setRoles(r => [...r, json]);
+        setSelectedUserId(null);
+        setMsg('Nutzerrolle angelegt');
+      }
     } catch (e: any) {
       setMsg('Anlegen fehlgeschlagen: ' + (e?.message || String(e)));
     } finally { setLoading(false); }
@@ -156,9 +169,12 @@ export default function RolesPage() {
         body: JSON.stringify({ id }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || 'Fehler');
-      setRoles(r => r.filter(x => x.id !== id));
-      setMsg('Rolle gelöscht');
+      if (!res.ok) {
+        setMsg(json?.error || 'Fehler');
+      } else {
+        setRoles(r => r.filter(x => x.id !== id));
+        setMsg('Rolle gelöscht');
+      }
     } catch (e: any) {
       setMsg('Löschen fehlgeschlagen: ' + (e?.message || String(e)));
     } finally { setLoading(false); }
