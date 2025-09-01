@@ -137,18 +137,18 @@ model Transaction {
 }
 
 model TransactionBulk {
-  id               Int           @id @default(autoincrement())
-  date             DateTime      @default(now())
-  date_valued      DateTime?
-  description      String
-  reference        String?
-  account1Negative Boolean       @default(false)
-  accountId1       Int
-  costCenterId     Int?
-  costCenter       CostCenter?   @relation(fields: [costCenterId], references: [id])
-  attachmentId     Int?
-  attachment       Attachment?   @relation(fields: [attachmentId], references: [id])
-  transactions     Transaction[]
+  id              Int           @id @default(autoincrement())
+  date            DateTime      @default(now())
+  date_valued     DateTime?
+  description     String
+  reference       String?
+  accountNegative Boolean       @default(false)
+  accountId       Int
+  attachmentId    Int?
+  attachment      Attachment?   @relation(fields: [attachmentId], references: [id])
+  transactions    Transaction[]
+  CostCenter      CostCenter?   @relation(fields: [costCenterId], references: [id])
+  costCenterId    Int?
 }
 
 model Advances {
