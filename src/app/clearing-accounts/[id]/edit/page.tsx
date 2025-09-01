@@ -69,7 +69,8 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
     }, [session, id]);
 
     // Mitglieder, die noch nicht zugewiesen sind
-    const availableMembers = users.filter(u => !members.some(m => m.id === u.id));
+    const safeMembers = Array.isArray(members) ? members : [];
+    const availableMembers = users.filter(u => !safeMembers.some(m => m.id === u.id));
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -158,9 +159,9 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
                 <div className="edit-members-section">
                     <div className="edit-members-list">
                         <span>Mitglieder:</span>
-                        {members.length === 0 && <span className="edit-members-none">Keine Mitglieder</span>}
+                        {safeMembers.length === 0 && <span className="edit-members-none">Keine Mitglieder</span>}
                         <ul>
-                            {members.map(m => (
+                            {safeMembers.map(m => (
                                 <li key={m.id} className="edit-member-item">
                                     {m.name} ({m.mail})
                                     <button type="button" className="edit-member-remove" onClick={() => handleRemoveMember(m.id)} title="Entfernen">✖</button>
