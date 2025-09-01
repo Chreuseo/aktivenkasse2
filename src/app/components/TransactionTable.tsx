@@ -16,11 +16,12 @@ export default function TransactionTable({ transactions }: TransactionTableProps
           <th>Beschreibung</th>
           <th>Referenz</th>
           <th>Gegenkonto</th>
+          <th>Beleg</th>
         </tr>
       </thead>
       <tbody>
         {transactions.length === 0 && (
-          <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Transaktionen vorhanden</td></tr>
+          <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Transaktionen vorhanden</td></tr>
         )}
         {transactions.map((tx: Transaction) => (
           <tr key={tx.id} className="kc-row">
@@ -37,10 +38,16 @@ export default function TransactionTable({ transactions }: TransactionTableProps
                 </span>
               ) : <span style={{ color: "var(--muted)" }}>-</span>}
             </td>
+            <td>
+              {tx.receiptUrl ? (
+                <a href={`/api/transactions/${tx.id}/receipt`} target="_blank" rel="noopener noreferrer">
+                  <button className="button" style={{ padding: "0.2rem 0.8rem" }}>Beleg herunterladen</button>
+                </a>
+              ) : <span style={{ color: "var(--muted)" }}>Kein Beleg</span>}
+            </td>
           </tr>
         ))}
       </tbody>
     </table>
   );
 }
-

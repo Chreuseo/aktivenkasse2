@@ -85,11 +85,13 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             }
             return {
                 id: tx.id,
-                amount: typeof tx.amount === "object" ? Number(amount) : amount,
-                date: tx.date,
+                amount,
+                date: tx.date.toISOString(),
                 description: tx.description,
-                reference: tx.reference,
+                reference: tx.reference || undefined,
                 other: otherDetails,
+                attachmentId: tx.attachmentId || undefined,
+                receiptUrl: tx.attachmentId ? `/api/attachments/${tx.attachmentId}/download` : undefined,
             };
         });
         return NextResponse.json({

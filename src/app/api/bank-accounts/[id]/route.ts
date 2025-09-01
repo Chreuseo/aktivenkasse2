@@ -115,6 +115,8 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
                 description: tx.description,
                 reference: tx.reference || undefined,
                 other: otherDetails,
+                attachmentId: tx.attachmentId || undefined,
+                receiptUrl: tx.attachmentId ? `/api/attachments/${tx.attachmentId}/download` : undefined,
             };
         });
         // Rückgabe im erwarteten Format

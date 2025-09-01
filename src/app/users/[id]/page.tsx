@@ -72,6 +72,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
       description: tx.description,
       reference: tx.reference || undefined,
       other: otherDetails,
+      receiptUrl: tx.attachmentId ? `/api/attachments/${tx.attachmentId}/download` : undefined,
     };
   });
 

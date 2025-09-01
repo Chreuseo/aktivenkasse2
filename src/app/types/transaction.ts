@@ -11,5 +11,6 @@ export type Transaction = {
         bank?: string;
         iban?: string;
     } | null;
+    attachmentId?: number; // ID des Belegs
+    receiptUrl?: string; // URL zum Download des Belegs
 };
-
