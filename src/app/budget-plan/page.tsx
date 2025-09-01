@@ -57,7 +57,8 @@ export default function BudgetPlanOverview() {
             <th>Bearbeitet</th>
             <th>Status</th>
             <th>Bearbeiten</th>
-            <th>Details</th>
+            <th>Kostenstellen</th>
+              <th>Details</th>
           </tr>
         </thead>
         <tbody>
@@ -75,14 +76,19 @@ export default function BudgetPlanOverview() {
                 </Link>
               </td>
               <td>
-                <button className="button" disabled>
-                  Details
-                </button>
+                <Link href={`/budget-plan/cost-centers/?planId=${plan.id}`}>
+                  <button className="button">Kostenstellen</button>
+                </Link>
               </td>
+                <td>
+                    <button className="button" disabled>
+                        Details
+                    </button>
+                </td>
             </tr>
           ))}
           {plans.length === 0 && !loading && (
-            <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Haushaltspläne gefunden</td></tr>
+            <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Haushaltspläne gefunden</td></tr>
           )}
         </tbody>
       </table>
