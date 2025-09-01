@@ -18,7 +18,6 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
         });
         if (user?.accountId && String(user.accountId) === requestedId) {
             requiredPermission = AuthorizationType.read_own;
-            isOwn = true;
         }
     }
     // Logging für Debug
@@ -41,78 +40,17 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
         if (!bankAccount) {
             return NextResponse.json({ error: "Bankkonto nicht gefunden" }, { status: 404 });
         }
-        // Alle Transaktionen des Kontos (als account1 oder account2)
-        const accountId = bankAccount.accountId;
-        const transactions = await prisma.transaction.findMany({
-            where: {
-                OR: [
-                    { accountId1: accountId },
-                    { accountId2: accountId },
-                ],
-            },
-            orderBy: { date: "desc" },
-            include: {
-                account1: {
-                    include: {
-                        users: true,
-                        bankAccounts: true,
-                    },
-                },
-                account2: {
-                    include: {
-                        users: true,
-                        bankAccounts: true,
-                    },
-                },
-            },
-        });
-        // Für jede Transaktion: Gegenkonto bestimmen und Details extrahieren
-        const txs = transactions.map(tx => {
-            let isMain = tx.accountId1 === accountId;
-            let amount = isMain ? (tx.account1Negative ? -tx.amount : tx.amount) : (tx.account2Negative ? -tx.amount : tx.amount);
-            let otherAccount = isMain ? tx.account2 : tx.account1;
-            let otherType = otherAccount?.type;
-            let otherDetails = null;
-            if (otherAccount) {
-                if (otherType === "user" && otherAccount.users?.length) {
-                    otherDetails = {
-                        type: "user",
-                        name: otherAccount.users[0].first_name + " " + otherAccount.users[0].last_name,
-                        mail: otherAccount.users[0].mail,
-                    };
-                } else if (otherType === "bank" && otherAccount.bankAccounts?.length) {
-                    otherDetails = {
-                        type: "bank",
-                        name: otherAccount.bankAccounts[0].name,
-                        bank: otherAccount.bankAccounts[0].bank,
-                        iban: otherAccount.bankAccounts[0].iban,
-                    };
-                } else if (otherType === "clearing_account") {
-                    otherDetails = {
-                        type: "clearing_account",
-                        name: "Verrechnungskonto",
-                    };
-                }
-            }
-            return {
-                id: tx.id,
-                amount: typeof tx.amount === "object" ? Number(amount) : amount,
-                date: tx.date,
-                description: tx.description,
-                reference: tx.reference,
-                other: otherDetails,
-            };
-        });
-        return NextResponse.json({
-            bankAccount: {
-                id: bankAccount.id,
-                name: bankAccount.name,
-                bank: bankAccount.bank,
-                iban: bankAccount.iban,
-                balance: bankAccount.account?.balance ? Number(bankAccount.account.balance) : 0,
-            },
-            transactions: txs,
-        });
+        // Flaches Objekt für Edit-Formular
+        const result = {
+            id: bankAccount.id,
+            name: bankAccount.name ?? "",
+            bank: bankAccount.bank ?? "",
+            iban: bankAccount.iban ?? "",
+            bic: bankAccount.bic ?? "",
+            balance: typeof bankAccount.account?.balance === "number" ? bankAccount.account.balance : 0,
+        };
+        // Transaktionen werden für die Detailansicht benötigt, aber nicht für das Edit-Formular
+        return NextResponse.json(result);
     } catch (error: any) {
         console.error(error);
         return NextResponse.json({ error: "Fehler beim Laden der Bankkontodaten", detail: error?.message }, { status: 500 });

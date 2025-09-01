@@ -60,16 +60,14 @@ export default function BankAccountsOverview() {
               <td>{acc.iban}</td>
               <td>{acc.balance.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</td>
               <td>
-                <button className="button" disabled>
+                <button className="button" onClick={() => window.location.href = `/bank-accounts/${acc.id}/edit`}>
                   Bearbeiten
                 </button>
-                {/* TODO: Bearbeiten-Funktion */}
               </td>
               <td>
                 <button className="button" onClick={() => window.location.href = `/bank-accounts/${acc.id}`}>
                   Details
                 </button>
-                {/* TODO: Detailseite */}
               </td>
             </tr>
           ))}
