@@ -51,8 +51,15 @@ export default function NewBudgetPlanPage() {
                 </label>
 
                 <label>
-                    Beschreibung (optional)
-                    <textarea name="description" value={formData.description} onChange={handleChange} rows={3} />
+                    Beschreibung <span className="desc-optional">(optional)</span>
+                    <textarea
+                        name="description"
+                        value={formData.description}
+                        onChange={handleChange}
+                        rows={4}
+                        className="edit-form-description"
+                        placeholder="Beschreibe den Haushaltsplan, z.B. Zweck, Zeitraum oder Besonderheiten ..."
+                    />
                 </label>
 
                 <button className="button" type="submit" disabled={loading}>Anlegen</button>
@@ -61,4 +68,3 @@ export default function NewBudgetPlanPage() {
         </div>
     );
 }
-

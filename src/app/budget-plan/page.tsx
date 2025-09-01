@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import "@/app/css/tables.css";
 import { useSession } from "next-auth/react";
 import { extractToken, fetchJson } from "@/app/lib/utils";
+import Link from "next/link";
 
 interface BudgetPlan {
   id: number;
@@ -67,9 +68,11 @@ export default function BudgetPlanOverview() {
               <td>{new Date(plan.updatedAt).toLocaleDateString("de-DE")}</td>
               <td>{plan.state}</td>
               <td>
-                <button className="button" disabled>
-                  Bearbeiten
-                </button>
+                <Link href={`/budget-plan/${plan.id}/edit`}>
+                  <button className="button">
+                    Bearbeiten
+                  </button>
+                </Link>
               </td>
               <td>
                 <button className="button" disabled>
@@ -86,4 +89,3 @@ export default function BudgetPlanOverview() {
     </div>
   );
 }
-
