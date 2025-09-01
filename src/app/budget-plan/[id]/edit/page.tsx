@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useState, useEffect, use } from "react";
 import { extractToken, fetchJson } from "@/app/lib/utils";
+import type { BudgetPlanFormData } from "@/app/types/budgetPlan";
 import "../../../css/edit-form.css";
 
 const budgetPlanStates = [
@@ -15,7 +16,7 @@ const budgetPlanStates = [
 export default function EditBudgetPlanPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data: session, status } = useSession();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<BudgetPlanFormData>({
     name: "",
     description: "",
     state: "draft",

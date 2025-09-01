@@ -7,27 +7,10 @@ import { extractToken, fetchJson } from "@/app/lib/utils";
 import Link from "next/link";
 import "@/app/css/tables.css";
 import "@/app/css/infobox.css";
-
-interface BudgetPlan {
-  id: number;
-  name: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
-  state: string;
-  firstCostCenter?: number;
-}
-
-interface CostCenter {
-  id: number;
-  name: string;
-  description?: string;
-  earnings_expected: number;
-  costs_expected: number;
-  earnings_actual: number;
-  costs_actual: number;
-  nextCostCenter?: number;
-}
+import type { BudgetPlan } from "@/app/types/budgetPlan";
+import type { CostCenter } from "@/app/types/costCenter";
+import { getSortedCostCenters } from "../../utils";
+import { statusNames } from "@/app/types/budgetPlanStatusName";
 
 export default function BudgetPlanDetailsPage() {
   const params = useParams();
@@ -70,26 +53,6 @@ export default function BudgetPlanDetailsPage() {
     }
     load();
   }, [planId, session]);
-
-  function getSortedCostCenters(plan: BudgetPlan | null, costCenters: CostCenter[]): CostCenter[] {
-    if (!plan || !costCenters.length) return costCenters;
-    const map = new Map<number, CostCenter>();
-    costCenters.forEach(cc => map.set(cc.id, cc));
-    const sorted: CostCenter[] = [];
-    let currentId = plan.firstCostCenter;
-    let visited = new Set<number>();
-    while (currentId && map.has(currentId) && !visited.has(currentId)) {
-      const cc = map.get(currentId)!;
-      sorted.push(cc);
-      visited.add(currentId);
-      currentId = cc.nextCostCenter;
-    }
-    // Füge alle nicht verketteten am Ende hinzu
-    costCenters.forEach(cc => {
-      if (!visited.has(cc.id)) sorted.push(cc);
-    });
-    return sorted;
-  }
 
   const sortedCostCenters = getSortedCostCenters(plan, costCenters);
 
@@ -143,7 +106,7 @@ export default function BudgetPlanDetailsPage() {
           <div style={{ color: "var(--muted)", marginBottom: 4 }}>{plan.description}</div>
           <div>Erstellt: {new Date(plan.createdAt).toLocaleDateString("de-DE")}</div>
           <div>Zuletzt geändert: {new Date(plan.updatedAt).toLocaleDateString("de-DE")}</div>
-          <div>Status: {plan.state}</div>
+          <div>Status: {statusNames[plan.state] ?? plan.state}</div>
         </div>
       )}
       {loading && <div style={{ color: "var(--muted)", marginBottom: 12 }}>Lade Daten ...</div>}

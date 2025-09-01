@@ -5,21 +5,8 @@ import "@/app/css/tables.css";
 import { useSession } from "next-auth/react";
 import { extractToken, fetchJson } from "@/app/lib/utils";
 import Link from "next/link";
-
-interface BudgetPlan {
-  id: number;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  state: string;
-}
-
-const statusNames: Record<string, string> = {
-  draft: "Entwurf",
-  default: "Standard",
-  active: "Aktiv",
-  closed: "Abgeschlossen",
-};
+import type { BudgetPlan } from "./utils";
+import { statusNames } from "@/app/types/budgetPlanStatusName";
 
 export default function BudgetPlanOverview() {
   const { data: session } = useSession();
