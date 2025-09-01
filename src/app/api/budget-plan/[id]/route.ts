@@ -20,7 +20,8 @@ export async function GET(req: Request, context: { params: { id: string } }) {
     description: plan.description,
     state: plan.state,
     createdAt: plan.createdAt,
-    updatedAt: plan.updatedAt
+    updatedAt: plan.updatedAt,
+    firstCostCenter: plan.firstCostCenter,
   });
 }
 
@@ -42,6 +43,7 @@ export async function PATCH(req: Request, context: { params: { id: string } }) {
         description: body.description,
         state: body.state,
         updatedAt: body.updatedAt ? new Date(body.updatedAt) : undefined,
+        firstCostCenter: body.firstCostCenter ?? undefined,
       },
     });
     return NextResponse.json({ success: true, updated });

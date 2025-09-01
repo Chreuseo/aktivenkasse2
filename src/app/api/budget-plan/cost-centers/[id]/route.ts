@@ -18,6 +18,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json(cc);
 }
 
+// PATCH: /api/budget-plan/cost-centers/:id
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const id = Number(params.id);
+  if (!id) return NextResponse.json({ error: "ID erforderlich" }, { status: 400 });
+  const data = await req.json();
+  // Erwartet: { nextCostCenter: number | null }
+  const cc = await prisma.costCenter.update({
+    where: { id },
+    data: {
+      nextCostCenter: data.nextCostCenter ?? null,
+    },
+  });
+  return NextResponse.json(cc);
+}
+
 // DELETE: /api/budget-plan/cost-centers/:id
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const id = Number(params.id);

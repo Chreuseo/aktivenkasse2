@@ -104,9 +104,10 @@ export default function CostCentersPage() {
         });
       }
       // Add new cost centers
+      let newIds: number[] = [];
       for (const row of newRows) {
         if (row.name && planId) {
-          await fetchJson(`/api/budget-plan/cost-centers`, {
+          const res = await fetchJson(`/api/budget-plan/cost-centers`, {
             method: "POST",
             headers: {
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -114,7 +115,47 @@ export default function CostCentersPage() {
             },
             body: JSON.stringify({ ...row, budget_planId: +planId }),
           });
+          if (res?.id) newIds.push(res.id);
         }
+      }
+      // Verkettung und Reihenfolge setzen
+      // Hole aktuelle Reihenfolge aus State
+      let allCostCenters = [...sortedCostCenters];
+      // Füge neue Kostenstellen hinten an
+      if (newRows.length && newIds.length === newRows.length) {
+        for (let i = 0; i < newRows.length; i++) {
+          allCostCenters.push({
+            id: newIds[i],
+            name: newRows[i].name ?? "",
+            earnings_expected: newRows[i].earnings_expected ?? 0,
+            costs_expected: newRows[i].costs_expected ?? 0,
+            nextCostCenter: undefined,
+          });
+        }
+      }
+      // Setze nextCostCenter für jede Kostenstelle
+      for (let i = 0; i < allCostCenters.length; i++) {
+        const cc = allCostCenters[i];
+        const nextId = allCostCenters[i + 1]?.id ?? null;
+        await fetchJson(`/api/budget-plan/cost-centers/${cc.id}`, {
+          method: "PATCH",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ nextCostCenter: nextId }),
+        });
+      }
+      // Setze firstCostCenter im Haushaltsplan
+      if (planId && allCostCenters.length) {
+        await fetchJson(`/api/budget-plan/${planId}`, {
+          method: "PATCH",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ firstCostCenter: allCostCenters[0].id }),
+        });
       }
       // Update plan's updatedAt
       await fetchJson(`/api/budget-plan/${planId}`, {
@@ -208,47 +249,18 @@ export default function CostCentersPage() {
     await updateOrder(idx, idx + 1);
   };
 
-  const updateOrder = async (fromIdx: number, toIdx: number) => {
+  const updateOrder = (fromIdx: number, toIdx: number) => {
     const arr = [...sortedCostCenters];
     const moved = arr.splice(fromIdx, 1)[0];
     arr.splice(toIdx, 0, moved);
-    let firstId = arr.length ? arr[0].id : undefined;
-    let updates: any[] = [];
-    arr.forEach((cc, i) => {
-      const nextId = arr[i + 1]?.id;
-      updates.push({ id: cc.id, nextCostCenter: nextId });
-    });
+    // Verkettung aktualisieren
+    for (let i = 0; i < arr.length; i++) {
+      arr[i].nextCostCenter = arr[i + 1]?.id ?? null;
+    }
     setCostCenters(arr);
-    const token = extractToken(session);
-    if (planId && firstId) {
-      await fetchJson(`/api/budget-plan/${planId}`, {
-        method: "PATCH",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ firstCostCenter: firstId }),
-      });
-    }
-    for (const u of updates) {
-      await fetchJson(`/api/budget-plan/cost-centers/${u.id}`, {
-        method: "PATCH",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ nextCostCenter: u.nextCostCenter }),
-      });
-    }
-    if (planId) {
-      const ccRes = await fetchJson(`/api/budget-plan/cost-centers?planId=${planId}`, {
-        method: "GET",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          "Content-Type": "application/json",
-        },
-      });
-      setCostCenters(ccRes);
+    // firstCostCenter im Plan aktualisieren
+    if (plan && arr.length > 0) {
+      setPlan({ ...plan, firstCostCenter: arr[0].id });
     }
   };
 
@@ -281,13 +293,13 @@ export default function CostCentersPage() {
           {sortedCostCenters.map((cc, idx) => (
             <tr key={cc.id} className="kc-row">
               <td>
-                <input type="text" value={editRows[cc.id]?.name ?? cc.name} onChange={e => handleEdit(cc.id, "name", e.target.value)} />
+                <input type="text" className="kc-input" value={editRows[cc.id]?.name ?? cc.name} onChange={e => handleEdit(cc.id, "name", e.target.value)} />
               </td>
               <td>
-                <input type="number" value={editRows[cc.id]?.earnings_expected ?? cc.earnings_expected} onChange={e => handleEdit(cc.id, "earnings_expected", parseFloat(e.target.value))} />
+                <input type="number" className="kc-input" value={editRows[cc.id]?.earnings_expected ?? cc.earnings_expected} onChange={e => handleEdit(cc.id, "earnings_expected", parseFloat(e.target.value))} />
               </td>
               <td>
-                <input type="number" value={editRows[cc.id]?.costs_expected ?? cc.costs_expected} onChange={e => handleEdit(cc.id, "costs_expected", parseFloat(e.target.value))} />
+                <input type="number" className="kc-input" value={editRows[cc.id]?.costs_expected ?? cc.costs_expected} onChange={e => handleEdit(cc.id, "costs_expected", parseFloat(e.target.value))} />
               </td>
               <td>
                 {((editRows[cc.id]?.earnings_expected ?? cc.earnings_expected) - (editRows[cc.id]?.costs_expected ?? cc.costs_expected)).toFixed(2)} €
@@ -304,13 +316,13 @@ export default function CostCentersPage() {
           {newRows.map((row, idx) => (
             <tr key={"new-"+idx} className="kc-row">
               <td>
-                <input type="text" value={row.name ?? ""} onChange={e => handleNewRowChange(idx, "name", e.target.value)} placeholder="Neue Kostenstelle" />
+                <input type="text" className="kc-input" value={row.name ?? ""} onChange={e => handleNewRowChange(idx, "name", e.target.value)} placeholder="Neue Kostenstelle" />
               </td>
               <td>
-                <input type="number" value={row.earnings_expected ?? ""} onChange={e => handleNewRowChange(idx, "earnings_expected", parseFloat(e.target.value))} placeholder="Einnahmen" />
+                <input type="number" className="kc-input" value={row.earnings_expected ?? ""} onChange={e => handleNewRowChange(idx, "earnings_expected", parseFloat(e.target.value))} placeholder="Einnahmen" />
               </td>
               <td>
-                <input type="number" value={row.costs_expected ?? ""} onChange={e => handleNewRowChange(idx, "costs_expected", parseFloat(e.target.value))} placeholder="Ausgaben" />
+                <input type="number" className="kc-input" value={row.costs_expected ?? ""} onChange={e => handleNewRowChange(idx, "costs_expected", parseFloat(e.target.value))} placeholder="Ausgaben" />
               </td>
               <td>
                 {((row.earnings_expected ?? 0) - (row.costs_expected ?? 0)).toFixed(2)} €

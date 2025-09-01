@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
       description: true,
       earnings_expected: true,
       costs_expected: true,
+      nextCostCenter: true,
     },
     orderBy: { id: "asc" },
   });
