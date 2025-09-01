@@ -117,7 +117,7 @@ export default function KeycloakImportPage() {
           {rows.map(r => (
             <tr key={r.keycloak_id} className="kc-row">
               <td className="kc-checkbox">
-                <input type="checkbox" checked={selected[r.keycloak_id]} onChange={() => toggle(r.keycloak_id)} />
+                <input type="checkbox" checked={!!selected[r.keycloak_id]} onChange={() => toggle(r.keycloak_id)} />
               </td>
               <td>
                 <div style={{ display: "flex", flexDirection: "column" }}>

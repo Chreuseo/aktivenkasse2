@@ -95,6 +95,20 @@ export function extractTokenAndUserId(req: Request): { token: string | null, use
   return { token, userId, jwt };
 }
 
+// Extrahiere nur die Nutzer-ID (Keycloak-ID) aus dem Request
+export function getUserIdFromRequest(req: Request): string | null {
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  if (!authHeader) return null;
+  const token = authHeader.replace("Bearer ", "");
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString());
+    // Keycloak: sub = keycloak_id
+    return payload.sub || null;
+  } catch {
+    return null;
+  }
+}
+
 // Zentrale Berechtigungsprüfung für API-Routen
 export async function checkPermission(req: Request, resource: ResourceType, requiredPermission: AuthorizationType): Promise<{ allowed: boolean, error?: string }> {
   const { token, userId, jwt } = extractTokenAndUserId(req);
