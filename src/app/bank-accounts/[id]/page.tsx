@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useParams } from "next/navigation";
 import "@/app/css/tables.css";
 import "@/app/css/infobox.css";
-import { extractToken, fetchJson } from "@/app/lib/utils";
+import { extractToken, fetchJson } from "@/lib/utils";
 import { Transaction } from "@/app/types/transaction";
 import { BankAccount } from "@/app/types/bankAccount";
 

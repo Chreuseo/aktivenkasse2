@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import "@/app/css/tables.css";
 import { useSession } from "next-auth/react";
-import { extractToken, fetchJson } from "@/app/lib/utils";
+import { extractToken, fetchJson } from "@/lib/utils";
 import { BankAccount } from "@/app/types/bankAccount";
 
 export default function BankAccountsOverview() {

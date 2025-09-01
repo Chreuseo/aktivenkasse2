@@ -42,10 +42,23 @@
     margin-bottom: 0.3rem;
 }
 
+.form-select-max {
+    max-width: 220px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
 .form-select:focus {
     outline: none;
     border-color: #facc15;
     background: #23232a;
+}
+
+.form-select:disabled, .form-select-max:disabled {
+    background-color: #23232a;
+    color: #888;
+    cursor: not-allowed;
+    opacity: 0.7;
 }
 
 .form button {
@@ -67,4 +80,40 @@
     margin-top: 1rem;
     font-weight: 600;
     color: #facc15;
+}
+
+.form-accounts-row {
+    display: flex;
+    gap: 2rem;
+    justify-content: space-between;
+}
+.form-account-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.form-sign-toggle {
+    padding: 0.3rem 0.7rem;
+    font-size: 1.2rem;
+    border: none;
+    background-color: #334155;
+    color: #facc15;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+    transition: background 0.2s ease-in-out;
+}
+.form-sign-toggle:disabled {
+    background-color: #23232a;
+    color: #888;
+    cursor: not-allowed;
+}
+.form-file-upload {
+    padding: 0.5rem;
+    background: #18181b;
+    color: #ededed;
+    border: 1px solid #444;
+    border-radius: 6px;
+    margin-top: 0.3rem;
 }

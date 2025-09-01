@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { extractToken, fetchJson } from "@/app/lib/utils";
+import { extractToken, fetchJson } from "@/lib/utils";
 import Link from "next/link";
 import "@/app/css/tables.css";
 import "@/app/css/infobox.css";

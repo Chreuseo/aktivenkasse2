@@ -77,8 +77,16 @@ export async function validateUserPermissions({ userId, resource, requiredPermis
 }
 
 // Extrahiere Token und UserId aus Request
-export function extractTokenAndUserId(req: Request): { token: string | null, userId: string | null, jwt: any } {
-  const auth = req.headers.get("authorization") || req.headers.get("Authorization");
+export function extractTokenAndUserId(req: any): { token: string | null, userId: string | null, jwt: any } {
+  let auth: string | undefined;
+  // Web API Request (App Router)
+  if (req.headers && typeof req.headers.get === "function") {
+    auth = req.headers.get("authorization") || req.headers.get("Authorization");
+  }
+  // Node.js Request (Pages Router)
+  else if (req.headers && (typeof req.headers === "object")) {
+    auth = req.headers["authorization"] || req.headers["Authorization"];
+  }
   let token: string | null = null;
   let userId: string | null = null;
   let jwt: any = null;

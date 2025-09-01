@@ -116,7 +116,7 @@ model Transaction {
   id                 Int              @id @default(autoincrement())
   amount             Decimal
   date               DateTime         @default(now())
-  date_valued        DateTime?
+  date_valued        DateTime         @default(now())
   description        String
   reference          String?
   account1Negative   Boolean          @default(false)

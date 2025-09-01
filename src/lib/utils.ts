@@ -1,3 +1,5 @@
+import { IncomingMessage } from "http";
+
 export function extractToken(session: any): string {
     return (session?.token as string)
         || (session?.user && typeof session.user === 'object' && (session.user as any).token)

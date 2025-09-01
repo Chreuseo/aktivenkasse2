@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { extractToken, fetchJson } from "@/app/lib/utils";
+import { extractToken, fetchJson } from "@/lib/utils";
 import { ClearingAccount } from "@/app/types/clearingAccount";
 import { Transaction } from "@/app/types/transaction";
 import "@/app/css/infobox.css";

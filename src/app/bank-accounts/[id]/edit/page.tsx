@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useState, useEffect, use } from "react";
-import { extractToken, fetchJson } from "@/app/lib/utils";
+import { extractToken, fetchJson } from "@/lib/utils";
 import { BankAccount } from "@/app/types/bankAccount";
 import "../../../css/edit-form.css";
 

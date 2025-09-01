@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import "@/app/css/tables.css";
 import { useSession } from "next-auth/react";
-import { extractToken, fetchJson } from "@/app/lib/utils";
+import { extractToken, fetchJson } from "@/lib/utils";
 import Link from "next/link";
 import type { BudgetPlan } from "./utils";
 import { statusNames } from "@/app/types/budgetPlanStatusName";

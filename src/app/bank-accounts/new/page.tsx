@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import "../../css/forms.css";
-import { extractToken, fetchJson } from "@/app/lib/utils";
+import { extractToken, fetchJson } from "@/lib/utils";
 
 // Utility für Token-Extraktion
 // function extractToken(session: any): string {
