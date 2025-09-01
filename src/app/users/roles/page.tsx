@@ -10,7 +10,7 @@ type Role = {
   name: string | null;
   keycloak_id: string | null;
   userId?: number;
-  household: AuthorizationType;
+  budget_plan: AuthorizationType; // vorher: household
   userAuth: AuthorizationType;
   clearing_accounts: AuthorizationType;
   bank_accounts: AuthorizationType;
@@ -204,7 +204,7 @@ export default function RolesPage() {
             <th>Name</th>
             <th>Keycloak ID</th>
             <th>Nutzer</th>
-            <th>Haushalt</th>
+            <th>Budget-Plan</th>
             <th>Nutzerverwaltung</th>
             <th>Verrechnungskonten</th>
             <th>Bankkonten</th>
@@ -222,7 +222,7 @@ export default function RolesPage() {
                 <td style={{ fontSize: 12, color: "var(--muted, #9aa4b2)" }}>{r.keycloak_id ? "Ja" : "Nein"}</td>
                 <td>{user ? `${user.first_name} ${user.last_name} (${user.mail})` : <em>—</em>}</td>
                 <td>
-                  <select value={r.household} onChange={(e) => updateRoleField(r.id, { household: e.target.value as AuthorizationType })} disabled={loading}>
+                  <select value={r.budget_plan} onChange={(e) => updateRoleField(r.id, { budget_plan: e.target.value as AuthorizationType })} disabled={loading}>
                     {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
                   </select>
                 </td>

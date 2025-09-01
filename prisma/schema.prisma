@@ -41,12 +41,12 @@ model Role {
   keycloak_id       String?           @unique
   userId            Int?
   user              User?             @relation(fields: [userId], references: [id])
-  household         AuthorizationType
-  userAuth          AuthorizationType
-  clearing_accounts AuthorizationType // Hilfskonten ersetzt durch Verrechnungskonten
-  bank_accounts     AuthorizationType
-  transactions      AuthorizationType
-  advances          AuthorizationType
+  budget_plan       AuthorizationType @default(none)
+  userAuth          AuthorizationType @default(none)
+  clearing_accounts AuthorizationType @default(none)
+  bank_accounts     AuthorizationType @default(none)
+  transactions      AuthorizationType @default(none)
+  advances          AuthorizationType @default(none)
 }
 
 model BankAccount {
@@ -80,13 +80,13 @@ model ClearingAccountMember {
   @@id([clearingAccountId, userId])
 }
 
-model Household {
-  id          Int            @id @default(autoincrement())
+model BudgetPlan {
+  id          Int             @id @default(autoincrement())
   name        String
   description String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  state       householdState @default(draft)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  state       budgetPlanState @default(draft)
   costCenters CostCenter[]
 }
 
@@ -100,8 +100,8 @@ model CostCenter {
   costs_expected    Decimal
   earnings_actual   Decimal           @default(0)
   costs_actual      Decimal           @default(0)
-  householdId       Int
-  household         Household         @relation(fields: [householdId], references: [id])
+  budget_planId     Int // vorher: householdId
+  budget_plan       BudgetPlan        @relation(fields: [budget_planId], references: [id]) // vorher: Household
   transactions      Transaction[]
   transactionBulks  TransactionBulk[]
 }
@@ -194,7 +194,7 @@ enum AuthorizationType {
   write_all
 }
 
-enum householdState {
+enum budgetPlanState {
   draft
   default
   active

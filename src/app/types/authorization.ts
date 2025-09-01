@@ -1,5 +1,5 @@
 export enum ResourceType {
-  household = "household",
+  budget_plan = "budget_plan", // vorher: household
   userAuth = "userAuth",
   clearing_accounts = "clearing_accounts",
   bank_accounts = "bank_accounts",
@@ -12,4 +12,3 @@ export enum AuthorizationType {
   read_all = "read_all",
   write_all = "write_all",
 }
-
