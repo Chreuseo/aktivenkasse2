@@ -2,20 +2,9 @@
 
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
+import { extractToken, fetchJson } from "@/app/lib/utils";
+import { User } from "@/app/types/clearingAccount";
 import "../../css/forms.css";
-
-function extractToken(session: any): string {
-    return (session?.token as string)
-        || (session?.user && typeof session.user === 'object' && (session.user as any).token)
-        || "";
-}
-
-type User = {
-    id: number;
-    first_name: string;
-    last_name: string;
-    mail: string;
-};
 
 export default function NewClearingAccountPage() {
     const { data: session } = useSession();
@@ -32,16 +21,17 @@ export default function NewClearingAccountPage() {
         async function loadUsers() {
             try {
                 const token = extractToken(session);
-                const res = await fetch("/api/users", {
+                const json = await fetchJson("/api/users", {
                     method: "GET",
                     headers: {
                         ...(token ? { Authorization: `Bearer ${token}` } : {}),
                         "Content-Type": "application/json",
                     },
                 });
-                const json = await res.json();
-                if (res.ok) setUsers(json);
-            } catch {}
+                setUsers(json);
+            } catch (err: any) {
+                setMessage("❌ Fehler beim Laden der Nutzer: " + err.message);
+            }
         }
         loadUsers();
     }, [session]);
@@ -67,7 +57,7 @@ export default function NewClearingAccountPage() {
         setLoading(true);
         try {
             const token = extractToken(session);
-            const res = await fetch("/api/clearing-accounts", {
+            await fetchJson("/api/clearing-accounts", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -79,15 +69,10 @@ export default function NewClearingAccountPage() {
                     reimbursementEligible: formData.reimbursementEligible,
                 }),
             });
-            if (res.ok) {
-                setMessage("✅ Verrechnungskonto erfolgreich angelegt!");
-                setFormData({ name: "", responsibleId: "", reimbursementEligible: false });
-            } else {
-                const err = await res.json();
-                setMessage("❌ Fehler: " + err.error);
-            }
-        } catch (error) {
-            setMessage("❌ Serverfehler");
+            setMessage("✅ Verrechnungskonto erfolgreich angelegt!");
+            setFormData({ name: "", responsibleId: "", reimbursementEligible: false });
+        } catch (error: any) {
+            setMessage("❌ Fehler: " + error.message);
         } finally {
             setLoading(false);
         }

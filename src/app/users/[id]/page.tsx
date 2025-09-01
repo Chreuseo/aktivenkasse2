@@ -2,21 +2,7 @@ import React from "react";
 import prisma from "@/lib/prisma";
 import "@/app/css/tables.css";
 import "@/app/css/infobox.css";
-
-interface Transaction {
-  id: number;
-  amount: number;
-  date: string;
-  description: string;
-  reference?: string;
-  other?: {
-    type: "user" | "bank" | "clearing_account";
-    name: string;
-    mail?: string;
-    bank?: string;
-    iban?: string;
-  } | null;
-}
+import { Transaction } from "@/app/types/transaction";
 
 export default async function UserDetailPage({ params }: { params: { id: string } }) {
   const user = await prisma.user.findUnique({
@@ -56,7 +42,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
     const isMain = tx.accountId1 === accountId;
     const amount = isMain ? (tx.account1Negative ? -Number(tx.amount) : Number(tx.amount)) : (tx.account2Negative ? -Number(tx.amount) : Number(tx.amount));
     const otherAccount = isMain ? tx.account2 : tx.account1;
-    let otherDetails = null;
+    let otherDetails: Transaction["other"] = null;
     if (otherAccount) {
       if (otherAccount.type === "user" && otherAccount.users?.length) {
         otherDetails = {

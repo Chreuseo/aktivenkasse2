@@ -2,31 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { extractToken, fetchJson } from "@/app/lib/utils";
+import { ClearingAccount } from "@/app/types/clearingAccount";
+import { Transaction } from "@/app/types/transaction";
 import "@/app/css/infobox.css";
 import "@/app/css/tables.css";
 
-interface Transaction {
-  id: number;
-  amount: number;
-  date: string;
-  description: string;
-  reference?: string;
-  other?: {
-    type: "user" | "bank" | "clearing_account";
-    name: string;
-    mail?: string;
-    bank?: string;
-    iban?: string;
-  } | null;
-}
-
-interface ClearingAccountData {
-  id: number;
-  name: string;
-  responsible: string | null;
-  responsibleMail: string | null;
-  balance: number;
-  reimbursementEligible: boolean;
+interface ClearingAccountData extends ClearingAccount {
   canEdit: boolean;
   transactions: Transaction[];
 }
@@ -39,19 +21,17 @@ export default function ClearingAccountOverviewPage({ params }: { params: Promis
   useEffect(() => {
     async function loadData() {
       try {
-        const token = (session?.user && (session.user as any).token) || "";
-        const res = await fetch(`/api/clearing-accounts/${resolvedParams.id}`, {
+        const token = extractToken(session);
+        const json = await fetchJson(`/api/clearing-accounts/${resolvedParams.id}`, {
           method: "GET",
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
             "Content-Type": "application/json",
           },
         });
-        const json = await res.json();
-        if (res.ok) setData(json);
-        else setError(json.error || "Fehler beim Laden");
-      } catch {
-        setError("Serverfehler");
+        setData(json);
+      } catch (err: any) {
+        setError(err.message);
       }
     }
     loadData();

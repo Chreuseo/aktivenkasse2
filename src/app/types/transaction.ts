@@ -1,0 +1,15 @@
+export type Transaction = {
+    id: number;
+    amount: number;
+    date: string;
+    description: string;
+    reference?: string;
+    other?: {
+        type: "user" | "bank" | "clearing_account";
+        name: string;
+        mail?: string;
+        bank?: string;
+        iban?: string;
+    } | null;
+};
+

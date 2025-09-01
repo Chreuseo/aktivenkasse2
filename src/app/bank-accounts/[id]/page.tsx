@@ -5,21 +5,7 @@ import { useSession } from "next-auth/react";
 import { useParams } from "next/navigation";
 import "@/app/css/tables.css";
 import "@/app/css/infobox.css";
-
-interface Transaction {
-  id: number;
-  amount: number;
-  date: string;
-  description: string;
-  reference?: string;
-  other?: {
-    type: "user" | "bank" | "clearing_account";
-    name: string;
-    mail?: string;
-    bank?: string;
-    iban?: string;
-  } | null;
-}
+import { Transaction } from "@/app/types/transaction";
 
 interface BankAccountDetail {
   bankAccount: {

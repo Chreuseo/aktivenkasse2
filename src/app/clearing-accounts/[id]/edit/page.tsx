@@ -2,20 +2,9 @@
 
 import { useSession } from "next-auth/react";
 import { useState, useEffect, use } from "react";
+import { extractToken, fetchJson } from "@/app/lib/utils";
+import { User, Member } from "@/app/types/clearingAccount";
 import "../../../css/edit-form.css";
-
-type User = {
-    id: number;
-    first_name: string;
-    last_name: string;
-    mail: string;
-};
-
-type Member = {
-    id: number;
-    name: string;
-    mail: string;
-};
 
 export default function EditClearingAccountPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -31,44 +20,40 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
     const [loading, setLoading] = useState(false);
     const [addMemberId, setAddMemberId] = useState("");
 
-    // Daten laden
     useEffect(() => {
         async function loadData() {
             try {
-                const token = session?.token || (session?.user && (session.user as any).token) || "";
+                const token = extractToken(session);
                 // Alle User
-                const resUsers = await fetch("/api/users", {
+                const usersJson = await fetchJson("/api/users", {
                     method: "GET",
                     headers: {
                         ...(token ? { Authorization: `Bearer ${token}` } : {}),
                         "Content-Type": "application/json",
                     },
                 });
-                const usersJson = await resUsers.json();
-                if (resUsers.ok) setUsers(usersJson);
+                setUsers(usersJson);
                 // Kontodaten
-                const resCa = await fetch(`/api/clearing-accounts/${id}`, {
+                const caJson = await fetchJson(`/api/clearing-accounts/${id}`, {
                     method: "GET",
                     headers: {
                         ...(token ? { Authorization: `Bearer ${token}` } : {}),
                         "Content-Type": "application/json",
                     },
                 });
-                const caJson = await resCa.json();
-                if (resCa.ok) {
-                    setFormData({
-                        name: caJson.name,
-                        responsibleId: caJson.responsibleId ? String(caJson.responsibleId) : "",
-                        reimbursementEligible: !!caJson.reimbursementEligible,
-                    });
-                    setMembers(caJson.members);
-                }
-            } catch {}
+                setFormData({
+                    name: caJson.name,
+                    responsibleId: caJson.responsibleId ? String(caJson.responsibleId) : "",
+                    reimbursementEligible: !!caJson.reimbursementEligible,
+                });
+                setMembers(caJson.members || []);
+            } catch (err: any) {
+                setMessage("❌ Fehler beim Laden: " + err.message);
+            }
         }
         loadData();
     }, [session, id]);
 
-    // Mitglieder, die noch nicht zugewiesen sind
     const safeMembers = Array.isArray(members) ? members : [];
     const availableMembers = users.filter(u => !safeMembers.some(m => m.id === u.id));
 
@@ -105,8 +90,8 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
         setMessage("");
         setLoading(true);
         try {
-            const token = session?.token || (session?.user && (session.user as any).token) || "";
-            const res = await fetch(`/api/clearing-accounts/${id}/edit`, {
+            const token = extractToken(session);
+            await fetchJson(`/api/clearing-accounts/${id}/edit`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -119,14 +104,9 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
                     memberIds: members.map(m => m.id),
                 }),
             });
-            if (res.ok) {
-                setMessage("✅ Änderungen gespeichert!");
-            } else {
-                const err = await res.json();
-                setMessage("❌ Fehler: " + err.error);
-            }
-        } catch (error) {
-            setMessage("❌ Serverfehler");
+            setMessage("✅ Änderungen gespeichert!");
+        } catch (error: any) {
+            setMessage("❌ Fehler: " + error.message);
         } finally {
             setLoading(false);
         }
