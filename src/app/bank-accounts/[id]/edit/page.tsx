@@ -18,7 +18,7 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
     });
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
-
+    const [formLoading, setFormLoading] = useState(true);
     useEffect(() => {
         if (status !== "authenticated") return;
         async function loadData() {
