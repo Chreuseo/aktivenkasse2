@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import "../../../css/edit-form.css";
 
 type User = {
@@ -17,8 +17,8 @@ type Member = {
     mail: string;
 };
 
-export default function EditClearingAccountPage({ params }: { params: { id: string } }) {
-    const { id } = params;
+export default function EditClearingAccountPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
     const { data: session } = useSession();
     const [formData, setFormData] = useState({
         name: "",
@@ -35,7 +35,7 @@ export default function EditClearingAccountPage({ params }: { params: { id: stri
     useEffect(() => {
         async function loadData() {
             try {
-                const token = (session?.user && (session.user as any).token) || "";
+                const token = session?.token || (session?.user && (session.user as any).token) || "";
                 // Alle User
                 const resUsers = await fetch("/api/users", {
                     method: "GET",
@@ -104,7 +104,7 @@ export default function EditClearingAccountPage({ params }: { params: { id: stri
         setMessage("");
         setLoading(true);
         try {
-            const token = (session?.user && (session.user as any).token) || "";
+            const token = session?.token || (session?.user && (session.user as any).token) || "";
             const res = await fetch(`/api/clearing-accounts/${id}/edit`, {
                 method: "PUT",
                 headers: {

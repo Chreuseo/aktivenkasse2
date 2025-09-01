@@ -13,8 +13,7 @@ interface ClearingAccount {
 }
 
 export default async function ClearingAccountsPage() {
-  // Datenbankabfrage
-  const clearingAccounts = await prisma.clearingAccount.findMany({
+  const clearingAccounts = await prisma.ClearingAccount.findMany({
     include: {
       responsible: true,
       account: { select: { balance: true } },
@@ -22,16 +21,13 @@ export default async function ClearingAccountsPage() {
     },
   });
 
-  // Datenaufbereitung
   const accounts: ClearingAccount[] = clearingAccounts.map((ca: any) => ({
     id: ca.id,
     name: ca.name,
     responsible: ca.responsible ? `${ca.responsible.first_name} ${ca.responsible.last_name}` : null,
     balance: ca.account?.balance ? Number(ca.account.balance) : 0,
     reimbursementEligible: ca.reimbursementEligible,
-    members: (ca.members as any[])
-      .filter((m: any) => m.user)
-      .map((m: any) => `${m.user.first_name} ${m.user.last_name}`),
+    members: (ca.members as any[]).map((m: any) => m.user ? `${m.user.first_name} ${m.user.last_name}` : null).filter(Boolean),
   }));
 
   return (
@@ -50,33 +46,20 @@ export default async function ClearingAccountsPage() {
           </tr>
         </thead>
         <tbody>
-          {accounts.length === 0 ? (
-            <tr>
-              <td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>
-                Keine Verrechnungskonten vorhanden
-              </td>
-            </tr>
-          ) : (
-            accounts.map(acc => (
-              <tr key={acc.id} className="kc-row">
-                <td>{acc.name}</td>
-                <td>{acc.responsible || <span style={{ color: "var(--muted)" }}>-</span>}</td>
-                <td style={{ fontWeight: 600, color: "var(--primary)" }}>{acc.balance.toFixed(2)} €</td>
-                <td>{acc.reimbursementEligible ? "Ja" : "Nein"}</td>
-                <td>{acc.members.length > 0 ? acc.members.join(", ") : <span style={{ color: "var(--muted)" }}>-</span>}</td>
-                <td>
-                  <Link href={`/clearing-accounts/${acc.id}/edit`}>
-                    <button className="button">Bearbeiten</button>
-                  </Link>
-                </td>
-                <td>
-                  <Link href={`/clearing-accounts/${acc.id}`}>
-                    <button className="button">Details</button>
-                  </Link>
-                </td>
-              </tr>
-            ))
+          {accounts.length === 0 && (
+            <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Verrechnungskonten vorhanden</td></tr>
           )}
+          {accounts.map((acc: ClearingAccount) => (
+            <tr key={acc.id} className="kc-row">
+              <td>{acc.name}</td>
+              <td>{acc.responsible || <span style={{ color: "var(--muted)" }}>-</span>}</td>
+              <td style={{ fontWeight: 600, color: "var(--primary)" }}>{acc.balance.toFixed(2)} €</td>
+              <td>{acc.reimbursementEligible ? "Ja" : "Nein"}</td>
+              <td>{acc.members.length > 0 ? acc.members.join(", ") : <span style={{ color: "var(--muted)" }}>-</span>}</td>
+              <td><Link href={`/clearing-accounts/${acc.id}/edit`}><button className="button">Bearbeiten</button></Link></td>
+              <td><Link href={`/clearing-accounts/${acc.id}`}><button className="button">Details</button></Link></td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
