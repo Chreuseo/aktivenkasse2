@@ -59,6 +59,17 @@ export default function ClientHeader() {
         setSubmenuOpen(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
+    // Funktion zum Schließen aller Menüs
+    const closeMenus = () => {
+        setSubmenuOpen({});
+        setMobileMenuOpen(false);
+    };
+
+    // Handler für Link-Klicks
+    const handleLinkClick = () => {
+        closeMenus();
+    };
+
     return (
         <header className="bg-gray-800 text-white">
             <nav className="max-w-6xl mx-auto px-4 flex items-center justify-between h-16">
@@ -76,7 +87,7 @@ export default function ClientHeader() {
                             <ul className={`absolute menu-dropdown ${submenuOpen[item] ? 'block' : 'hidden'} ...`}>
                                 {submenuLinks[item]?.map((link: SubmenuLink) => (
                                     <li key={link.href} className="px-4 py-2 hover:bg-gray-600">
-                                        <Link href={link.href}>{link.label}</Link>
+                                        <Link href={link.href} onClick={handleLinkClick}>{link.label}</Link>
                                     </li>
                                 ))}
                             </ul>
@@ -100,7 +111,7 @@ export default function ClientHeader() {
                                 <ul className="pl-4 mt-1">
                                     {submenuLinks[item]?.map((link: SubmenuLink) => (
                                         <li key={link.href} className="px-4 py-2 hover:bg-gray-600">
-                                            <Link href={link.href}>{link.label}</Link>
+                                            <Link href={link.href} onClick={handleLinkClick}>{link.label}</Link>
                                         </li>
                                     ))}
                                 </ul>
