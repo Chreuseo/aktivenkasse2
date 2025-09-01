@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
-import { validateUserPermissions } from "@/services/authService";
+import { checkPermission } from "@/services/authService";
 
 function resolveEnv(...keys: string[]) {
     for (const k of keys) {
@@ -141,50 +141,9 @@ async function createOrFindKeycloakUser(token: string, firstName: string, lastNa
     throw new Error(`Keycloak create failed: ${createRes.status} ${txt}`);
 }
 
-async function checkPermission(req: Request, requiredPermission: AuthorizationType) {
-    let jwt: any = undefined;
-    let userId: any = undefined;
-    let source = "none";
-    const authHeader = req.headers.get("authorization");
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-        try {
-            const token = authHeader.slice(7);
-            jwt = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString());
-            userId = jwt.sub || jwt.id;
-            source = "header";
-        } catch {}
-    }
-    if (!jwt) {
-        try {
-            const body = await req.clone().json();
-            if (body?.jwt) jwt = body.jwt;
-            if (body?.userId) userId = body.userId;
-            if (jwt && !userId) userId = jwt.sub || jwt.id;
-            if (jwt) source = "body";
-        } catch {}
-    }
-    if (!userId) {
-        const cookieHeader = req.headers.get("cookie");
-        if (cookieHeader) {
-            const match = cookieHeader.match(/validated_user_keycloak_id=([^;]+)/);
-            if (match) {
-                userId = match[1];
-                source = "cookie";
-            }
-        }
-    }
-    console.log("[checkPermission] userId:", userId, "jwt:", jwt, "source:", source);
-    if (!userId || !jwt) {
-        return { allowed: false, error: "Missing userId or jwt" };
-    }
-    // Berechtigungsprüfung direkt als Funktion
-    const result = await validateUserPermissions({ userId, resource: ResourceType.userAuth, requiredPermission, jwt });
-    return { allowed: result.allowed };
-}
-
 export async function POST(req: Request) {
     // Berechtigungsprüfung: write_all für userAuth
-    const perm = await checkPermission(req, AuthorizationType.write_all);
+    const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.write_all);
     if (!perm.allowed) {
         return NextResponse.json({ error: "Keine Berechtigung für write_all auf userAuth" }, { status: 403 });
     }
@@ -234,7 +193,7 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
     // Berechtigungsprüfung: read_all für userAuth
-    const perm = await checkPermission(req, AuthorizationType.read_all);
+    const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.read_all);
     if (!perm.allowed) {
         return NextResponse.json({ error: "Keine Berechtigung für read_all auf userAuth" }, { status: 403 });
     }
