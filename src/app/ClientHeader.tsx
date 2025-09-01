@@ -3,9 +3,9 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 type SubmenuLink = { label: string; href: string };
-type MenuKey = 'Allgemein' | 'Benutzer' | 'Bankkonten' | 'Hilfskonten' | 'Haushaltsplan' | 'Transaktionen' | 'Prozesse' | 'Konto';
+type MenuKey = 'Allgemein' | 'Benutzer' | 'Bankkonten' | 'Verrechnungskonten' | 'Haushaltsplan' | 'Transaktionen' | 'Prozesse' | 'Konto';
 
-const menuItems: MenuKey[] = ['Allgemein', 'Benutzer', 'Bankkonten', 'Hilfskonten', 'Haushaltsplan', 'Transaktionen', 'Prozesse', 'Konto'];
+const menuItems: MenuKey[] = ['Allgemein', 'Benutzer', 'Bankkonten', 'Verrechnungskonten', 'Haushaltsplan', 'Transaktionen', 'Prozesse', 'Konto'];
 const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
     Allgemein: [
         { label: 'Übersicht', href: '/' },
@@ -21,9 +21,9 @@ const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
         { label: 'Übersicht', href: '/bank-accounts' },
         { label: 'Neues Bankkonto', href: '/bank-accounts/new' }
     ],
-    Hilfskonten: [
+    Verrechnungskonten: [
         { label: 'Übersicht', href: '/auxiliary-accounts' },
-        { label: 'Neues Hilfskonto', href: '/auxiliary-accounts/new' },
+        { label: 'Neues Verrechnungskonto', href: '/auxiliary-accounts/new' },
         { label: 'Funktionen', href: '/auxiliary-accounts/functions' }
     ],
     Haushaltsplan: [

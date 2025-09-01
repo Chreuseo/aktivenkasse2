@@ -43,14 +43,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
                     include: {
                         users: true,
                         bankAccounts: true,
-                        helpAccounts: true,
+                        clearingAccounts: true,
                     },
                 },
                 account2: {
                     include: {
                         users: true,
                         bankAccounts: true,
-                        helpAccounts: true,
+                        clearingAccounts: true,
                     },
                 },
             },
@@ -76,10 +76,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
                         bank: otherAccount.bankAccounts[0].bank,
                         iban: otherAccount.bankAccounts[0].iban,
                     };
-                } else if (otherType === "help_account" && otherAccount.helpAccounts?.length) {
+                } else if (otherType === "clearing_account" && otherAccount.clearingAccounts?.length) {
                     otherDetails = {
-                        type: "help_account",
-                        name: otherAccount.helpAccounts[0].name,
+                        type: "clearing_account",
+                        name: otherAccount.clearingAccounts[0].name,
                     };
                 }
             }

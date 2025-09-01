@@ -10,7 +10,7 @@ interface Transaction {
   description: string;
   reference?: string;
   other?: {
-    type: "user" | "bank" | "help_account";
+    type: "user" | "bank" | "clearing_account";
     name: string;
     mail?: string;
     bank?: string;
@@ -39,14 +39,14 @@ export default async function UserDetailPage({ params }: { params: { id: string 
         include: {
           users: true,
           bankAccounts: true,
-          helpAccounts: true,
+          clearingAccounts: true,
         },
       },
       account2: {
         include: {
           users: true,
           bankAccounts: true,
-          helpAccounts: true,
+          clearingAccounts: true,
         },
       },
     },
@@ -71,10 +71,10 @@ export default async function UserDetailPage({ params }: { params: { id: string 
           bank: otherAccount.bankAccounts[0].bank,
           iban: otherAccount.bankAccounts[0].iban,
         };
-      } else if (otherAccount.type === "help_account" && otherAccount.helpAccounts?.length) {
+      } else if (otherAccount.type === "clearing_account" && otherAccount.clearingAccounts?.length) {
         otherDetails = {
-          type: "help_account",
-          name: otherAccount.helpAccounts[0].name,
+          type: "clearing_account",
+          name: otherAccount.clearingAccounts[0].name,
         };
       }
     }
@@ -122,7 +122,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
                   <span>
                     {tx.other.type === "user" && `Nutzer: ${tx.other.name}`}
                     {tx.other.type === "bank" && `Bankkonto: ${tx.other.name} (${tx.other.bank})`}
-                    {tx.other.type === "help_account" && `Hilfskonto: ${tx.other.name}`}
+                    {tx.other.type === "clearing_account" && `Verrechnungskonto: ${tx.other.name}`}
                   </span>
                 ) : <span style={{ color: "var(--muted)" }}>-</span>}
               </td>
