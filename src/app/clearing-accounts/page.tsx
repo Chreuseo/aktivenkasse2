@@ -1,7 +1,7 @@
 import React from "react";
+import Link from "next/link";
 import "@/app/css/tables.css";
 import prisma from "@/lib/prisma";
-import Link from "next/link";
 
 interface ClearingAccount {
   id: number;
@@ -57,7 +57,7 @@ export default async function ClearingAccountsPage() {
               <td>{acc.reimbursementEligible ? "Ja" : "Nein"}</td>
               <td>{acc.members.length > 0 ? acc.members.join(", ") : <span style={{ color: "var(--muted)" }}>-</span>}</td>
               <td><Link href={`/clearing-accounts/${acc.id}/edit`}><button className="button">Bearbeiten</button></Link></td>
-              <td><button disabled style={{ opacity: 0.5 }}>Details</button></td>
+              <td><Link href={`/clearing-accounts/${acc.id}`}><button className="button">Details</button></Link></td>
             </tr>
           ))}
         </tbody>

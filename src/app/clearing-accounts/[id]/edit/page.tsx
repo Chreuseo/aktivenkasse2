@@ -27,7 +27,6 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
     });
     const [users, setUsers] = useState<User[]>([]);
     const [members, setMembers] = useState<Member[]>([]);
-    const [allMembers, setAllMembers] = useState<Member[]>([]);
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
     const [addMemberId, setAddMemberId] = useState("");
@@ -106,7 +105,7 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
         setLoading(true);
         try {
             const token = session?.token || (session?.user && (session.user as any).token) || "";
-            const res = await fetch(`/api/clearing-accounts/${id}`, {
+            const res = await fetch(`/api/clearing-accounts/${id}/edit`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
