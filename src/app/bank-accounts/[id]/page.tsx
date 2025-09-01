@@ -53,7 +53,7 @@ export default function BankAccountDetailPage() {
   if (status === "loading" || !token) return <div style={{ color: "var(--muted)", margin: "2rem auto", maxWidth: 900 }}>Lade Session ...</div>;
   if (loading) return <div style={{ color: "var(--muted)", margin: "2rem auto", maxWidth: 900 }}>Lade Daten ...</div>;
   if (error) return <div style={{ color: "var(--accent)", margin: "2rem auto", maxWidth: 900 }}>{error}</div>;
-  if (!data) return null;
+  if (!data || !data.bankAccount) return <div style={{ color: "var(--accent)", margin: "2rem auto", maxWidth: 900 }}>Bankkonto-Daten konnten nicht geladen werden.</div>;
   const { bankAccount, transactions } = data;
   return (
     <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
