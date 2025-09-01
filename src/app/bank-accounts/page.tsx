@@ -3,21 +3,8 @@
 import React, { useEffect, useState } from "react";
 import "@/app/css/tables.css";
 import { useSession } from "next-auth/react";
-
-// Utility für Token-Extraktion
-function extractToken(session: any): string {
-  return (session?.token as string)
-    || (session?.user && typeof session.user === 'object' && (session.user as any).token)
-    || "";
-}
-
-type BankAccount = {
-  id: number;
-  name: string;
-  bank: string;
-  iban: string;
-  balance: string | number;
-};
+import { extractToken, fetchJson } from "@/app/lib/utils";
+import { BankAccount } from "@/app/types/bankAccount";
 
 export default function BankAccountsOverview() {
   const { data: session } = useSession();
@@ -31,21 +18,14 @@ export default function BankAccountsOverview() {
       setError(null);
       try {
         const token = extractToken(session);
-        // TODO: API-Route /api/bank-accounts implementieren
-        const res = await fetch("/api/bank-accounts", {
+        const json = await fetchJson("/api/bank-accounts", {
           method: "GET",
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
             "Content-Type": "application/json",
           },
         });
-        const json = await res.json();
-        if (!res.ok) {
-          setError(json?.error || "Fehler beim Laden");
-          setAccounts([]);
-        } else {
-          setAccounts(json);
-        }
+        setAccounts(json);
       } catch (e: any) {
         setError(e?.message || String(e));
         setAccounts([]);
@@ -78,7 +58,7 @@ export default function BankAccountsOverview() {
               <td>{acc.name}</td>
               <td>{acc.bank}</td>
               <td>{acc.iban}</td>
-              <td>{typeof acc.balance === "string" ? acc.balance : Number(acc.balance).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</td>
+              <td>{acc.balance.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</td>
               <td>
                 <button className="button" disabled>
                   Bearbeiten
@@ -101,4 +81,3 @@ export default function BankAccountsOverview() {
     </div>
   );
 }
-

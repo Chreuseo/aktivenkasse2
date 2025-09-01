@@ -5,23 +5,13 @@ import { useSession } from "next-auth/react";
 import { useParams } from "next/navigation";
 import "@/app/css/tables.css";
 import "@/app/css/infobox.css";
+import { extractToken, fetchJson } from "@/app/lib/utils";
 import { Transaction } from "@/app/types/transaction";
+import { BankAccount } from "@/app/types/bankAccount";
 
 interface BankAccountDetail {
-  bankAccount: {
-    id: number;
-    name: string;
-    bank: string;
-    iban: string;
-    balance: number;
-  };
+  bankAccount: BankAccount;
   transactions: Transaction[];
-}
-
-function extractToken(session: any): string {
-  return (session?.token as string)
-    || (session?.user && typeof session.user === 'object' && (session.user as any).token)
-    || "";
 }
 
 export default function BankAccountDetailPage() {
@@ -42,20 +32,14 @@ export default function BankAccountDetailPage() {
       try {
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "";
         const url = `${baseUrl}/api/bank-accounts/${id}`.replace(/\/\/+/, "/");
-        const res = await fetch(url, {
+        const json = await fetchJson(url, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         });
-        const json = await res.json();
-        if (!res.ok) {
-          setError(json?.error || "Fehler beim Laden");
-          setData(null);
-        } else {
-          setData(json);
-        }
+        setData(json);
       } catch (e: any) {
         setError(e?.message || String(e));
         setData(null);

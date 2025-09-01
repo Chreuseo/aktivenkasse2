@@ -3,13 +3,14 @@
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import "../../css/forms.css";
+import { extractToken, fetchJson } from "@/app/lib/utils";
 
 // Utility für Token-Extraktion
-function extractToken(session: any): string {
-    return (session?.token as string)
-        || (session?.user && typeof session.user === 'object' && (session.user as any).token)
-        || "";
-}
+// function extractToken(session: any): string {
+//     return (session?.token as string)
+//         || (session?.user && typeof session.user === 'object' && (session.user as any).token)
+//         || "";
+// }
 
 export default function NewBankAccountPage() {
     const { data: session } = useSession();
@@ -32,7 +33,7 @@ export default function NewBankAccountPage() {
         setLoading(true);
         try {
             const token = extractToken(session);
-            const res = await fetch("/api/bank-accounts", {
+            await fetchJson("/api/bank-accounts", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -40,15 +41,10 @@ export default function NewBankAccountPage() {
                 },
                 body: JSON.stringify(formData),
             });
-            if (res.ok) {
-                setMessage("✅ Bankkonto erfolgreich angelegt!");
-                setFormData({ name: "", bank: "", iban: "", bic: "" });
-            } else {
-                const err = await res.json();
-                setMessage("❌ Fehler: " + err.error);
-            }
-        } catch (error) {
-            setMessage("❌ Serverfehler");
+            setMessage("✅ Bankkonto erfolgreich angelegt!");
+            setFormData({ name: "", bank: "", iban: "", bic: "" });
+        } catch (error: any) {
+            setMessage("❌ " + (error?.message || "Serverfehler"));
         } finally {
             setLoading(false);
         }
@@ -84,4 +80,3 @@ export default function NewBankAccountPage() {
         </div>
     );
 }
-
