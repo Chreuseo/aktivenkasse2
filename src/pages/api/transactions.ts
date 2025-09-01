@@ -154,6 +154,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         costCenterId: costCenterId ? Number(costCenterId) : undefined,
       },
     });
+    // Kontostand von account1 anpassen
+    await prisma.account.update({
+      where: { id: acc1Id },
+      data: {
+        balance: String(account1Negative) === 'true'
+          ? { decrement: Number(amount) }
+          : { increment: Number(amount) },
+      },
+    });
+    // Kontostand von account2 anpassen (falls vorhanden)
+    if (acc2Id) {
+      await prisma.account.update({
+        where: { id: acc2Id },
+        data: {
+          balance: String(account2Negative) === 'true'
+            ? { decrement: Number(amount) }
+            : { increment: Number(amount) },
+        },
+      });
+    }
     return res.status(201).json({ id: tx.id });
   } else if (req.method === 'GET') {
     // Token und UserId aus Header extrahieren
