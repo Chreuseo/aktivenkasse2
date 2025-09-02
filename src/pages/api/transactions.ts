@@ -1,100 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import formidable from 'formidable';
 import prisma from '@/lib/prisma';
 import { ResourceType, AuthorizationType } from '@/app/types/authorization';
-import fs from 'fs';
-import { jwtDecode } from 'jwt-decode';
 import { computeAccount2Negative, normalizeBoolean, isAllowedAttachment, parsePositiveAmount, AccountTypeStr } from '@/lib/validation';
+import { extractUserFromAuthHeader, parseMultipartFormDataFromNextApi, resolveAccountId as resolveAccountIdUtil, saveAttachmentFromTempFile } from '@/lib/serverUtils';
 
 export const config = {
   api: {
     bodyParser: false,
   },
 };
-
-function extractUserFromToken(authHeader: string | undefined): { token: string | null, userId: string | null, jwt: any } {
-  let token: string | null = null;
-  let userId: string | null = null;
-  let jwt: any = null;
-  if (authHeader && typeof authHeader === 'string') {
-    const match = authHeader.match(/^Bearer (.+)$/);
-    if (match) {
-      token = match[1];
-      try {
-        jwt = jwtDecode(token);
-        userId = (jwt as any).sub || (jwt as any).userId || (jwt as any).id || null;
-      } catch {}
-    }
-  }
-  return { token, userId, jwt };
-}
-
-async function checkPermission(userId: string, resource: ResourceType, requiredPermission: AuthorizationType, jwt: any) {
-  const { validateUserPermissions } = await import('@/services/authService');
-  return validateUserPermissions({ userId: String(userId), resource, requiredPermission, jwt });
-}
-
-async function parseForm(req: NextApiRequest): Promise<{ fields: Record<string, any>, files: Record<string, any> }> {
-  return new Promise((resolve, reject) => {
-    const form = formidable({ multiples: true });
-    form.parse(req, (err, fields, files) => {
-      if (err) return reject(err);
-      const normFields: Record<string, any> = {};
-      Object.keys(fields).forEach(key => {
-        normFields[key] = Array.isArray(fields[key]) ? (fields as any)[key][0] : (fields as any)[key];
-      });
-      const normFiles: Record<string, any> = {};
-      Object.keys(files).forEach(key => {
-        const file: any = Array.isArray(files[key]) ? (files as any)[key][0] : (files as any)[key];
-        if (file && file.filepath) {
-          normFiles[key] = {
-            filename: file.originalFilename || file.newFilename || 'Anhang',
-            mimetype: file.mimetype,
-            size: file.size,
-            filepath: file.filepath,
-          };
-        }
-      });
-      resolve({ fields: normFields, files: normFiles });
-    });
-  });
-}
-
-async function resolveAccountId(type: string, id: string) {
-  if (!type || !id) return null;
-  if (type === 'user') {
-    const user = await prisma.user.findUnique({ where: { id: Number(id) }, include: { account: true } });
-    return user?.accountId || null;
-  }
-  if (type === 'bank') {
-    const bank = await prisma.bankAccount.findUnique({ where: { id: Number(id) }, include: { account: true } });
-    return bank?.accountId || null;
-  }
-  if (type === 'clearing_account') {
-    const ca = await prisma.clearingAccount.findUnique({ where: { id: Number(id) }, include: { account: true } });
-    return ca?.accountId || null;
-  }
-  return null;
-}
-
-async function saveAttachment(file: any) {
-  if (!file || !file.filepath) return null;
-  let fileBuffer: Buffer | null = null;
-  try {
-    fileBuffer = fs.readFileSync(file.filepath);
-  } catch {}
-  if (fileBuffer) {
-    const att = await prisma.attachment.create({
-      data: {
-        name: file.filename || 'Anhang',
-        mimeType: file.mimetype,
-        data: fileBuffer,
-      },
-    });
-    return att.id;
-  }
-  return null;
-}
 
 function inferOtherFromAccount(acc: any): { type: 'user'|'bank'|'clearing_account'; name: string; mail?: string; bank?: string; iban?: string } | null {
   if (!acc) return null;
@@ -114,19 +28,20 @@ function inferOtherFromAccount(acc: any): { type: 'user'|'bank'|'clearing_accoun
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { token, userId, jwt } = extractUserFromToken((req.headers['authorization'] as string) || (req.headers['Authorization'] as string));
+  const { userId, jwt } = extractUserFromAuthHeader((req.headers['authorization'] as string) || (req.headers['Authorization'] as string));
 
   if (req.method === 'POST') {
     if (!userId) {
       return res.status(403).json({ error: 'Keine UserId im Token' });
     }
-    const perm = await checkPermission(userId, ResourceType.transactions, AuthorizationType.write_all, jwt);
+    const { validateUserPermissions } = await import('@/services/authService');
+    const perm = await validateUserPermissions({ userId: String(userId), resource: ResourceType.transactions, requiredPermission: AuthorizationType.write_all, jwt });
     if (!perm.allowed) {
       return res.status(403).json({ error: 'Keine Berechtigung für write_all auf transactions' });
     }
     let form;
     try {
-      form = await parseForm(req);
+      form = await parseMultipartFormDataFromNextApi(req);
     } catch (err: any) {
       console.error('FormData-Parsing-Fehler:', err);
       return res.status(400).json({ error: 'Fehler beim Parsen der Formulardaten', detail: err?.message });
@@ -146,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       account2Type,
       account2Id,
       account1Negative,
-      account2Negative, // wird serverseitig ignoriert/überschrieben
+      // account2Negative wird ignoriert/überschrieben
       costCenterId,
       budgetPlanId,
     } = form.fields as Record<string, any>;
@@ -175,8 +90,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Kostenstelle ohne Budgetplan nicht erlaubt' });
     }
 
-    const acc1Id = await resolveAccountId(a1Type, account1Id);
-    const acc2Id = account2Id ? await resolveAccountId(a2Type as string, account2Id) : null;
+    const acc1Id = await resolveAccountIdUtil(prisma as any, a1Type, account1Id);
+    const acc2Id = account2Id ? await resolveAccountIdUtil(prisma as any, a2Type as string, account2Id) : null;
     if (!acc1Id) {
       return res.status(400).json({ error: 'Account1 konnte nicht aufgelöst werden' });
     }
@@ -200,7 +115,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       costCenterIdNum = cc.id;
     }
 
-    const attachmentId = file ? await saveAttachment(file) : null;
+    const attachmentId = file ? await saveAttachmentFromTempFile(prisma as any, file) : null;
 
     const amountNum = parsePositiveAmount(amount);
     if (amountNum === null) {
@@ -271,7 +186,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!userId) {
       return res.status(403).json({ error: 'Keine UserId im Token' });
     }
-    const perm = await checkPermission(userId, ResourceType.transactions, AuthorizationType.read_all, jwt);
+    const { validateUserPermissions } = await import('@/services/authService');
+    const perm = await validateUserPermissions({ userId: String(userId), resource: ResourceType.transactions, requiredPermission: AuthorizationType.read_all, jwt });
     if (!perm.allowed) {
       return res.status(403).json({ error: 'Keine Berechtigung für read_all auf transactions' });
     }

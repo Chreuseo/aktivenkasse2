@@ -1,11 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import formidable from "formidable";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
-import fs from "fs";
-import { jwtDecode } from "jwt-decode";
 import { BulkTransactionType } from "@prisma/client";
 import { isAllowedAttachment, isAllowedMainAccountForBulk, isAllowedRowTypeForBulk, parsePositiveAmount } from "@/lib/validation";
+import { extractUserFromAuthHeader, parseMultipartFormDataFromNextApi, resolveAccountId as resolveAccountIdUtil, saveAttachmentFromTempFile } from "@/lib/serverUtils";
 
 export const config = {
   api: {
@@ -13,104 +11,21 @@ export const config = {
   },
 };
 
-function extractUserFromToken(authHeader: string | undefined) {
-  let token: string | null = null;
-  let userId: string | null = null;
-  let jwt: any = null;
-  if (authHeader && typeof authHeader === "string") {
-    const match = authHeader.match(/^Bearer (.+)$/);
-    if (match) {
-      token = match[1];
-      try {
-        jwt = jwtDecode(token);
-        userId = (jwt as any).sub || (jwt as any).userId || (jwt as any).id || null;
-      } catch {}
-    }
-  }
-  return { token, userId, jwt };
-}
-
-async function checkPermission(userId: string, resource: ResourceType, requiredPermission: AuthorizationType, jwt: any) {
-  const { validateUserPermissions } = await import("@/services/authService");
-  return validateUserPermissions({ userId: String(userId), resource, requiredPermission, jwt });
-}
-
-async function parseForm(req: NextApiRequest) {
-  return new Promise((resolve, reject) => {
-    const form = formidable({ multiples: true });
-    form.parse(req, (err, fields, files) => {
-      if (err) return reject(err);
-      const normFields: Record<string, any> = {};
-      Object.keys(fields).forEach(key => {
-        normFields[key] = Array.isArray(fields[key]) ? (fields as any)[key][0] : (fields as any)[key];
-      });
-      const normFiles: Record<string, any> = {};
-      Object.keys(files).forEach(key => {
-        const file: any = Array.isArray(files[key]) ? (files as any)[key][0] : (files as any)[key];
-        if (file && file.filepath) {
-          normFiles[key] = {
-            filename: file.originalFilename || file.newFilename || "Anhang",
-            mimetype: file.mimetype,
-            size: file.size,
-            filepath: file.filepath,
-          };
-        }
-      });
-      resolve({ fields: normFields, files: normFiles });
-    });
-  });
-}
-
-async function resolveAccountId(type: string, id: string) {
-  if (!type || !id) return null;
-  if (type === "user") {
-    const user = await prisma.user.findUnique({ where: { id: Number(id) }, include: { account: true } });
-    return user?.accountId || null;
-  }
-  if (type === "bank") {
-    const bank = await prisma.bankAccount.findUnique({ where: { id: Number(id) }, include: { account: true } });
-    return bank?.accountId || null;
-  }
-  if (type === "clearing_account") {
-    const ca = await prisma.clearingAccount.findUnique({ where: { id: Number(id) }, include: { account: true } });
-    return ca?.accountId || null;
-  }
-  return null;
-}
-
-async function saveAttachment(file: any) {
-  if (!file || !file.filepath) return null;
-  let fileBuffer: Buffer | null = null;
-  try {
-    fileBuffer = fs.readFileSync(file.filepath);
-  } catch {}
-  if (fileBuffer) {
-    const att = await prisma.attachment.create({
-      data: {
-        name: file.filename || "Anhang",
-        mimeType: file.mimetype,
-        data: fileBuffer,
-      },
-    });
-    return att.id;
-  }
-  return null;
-}
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { token, userId, jwt } = extractUserFromToken((req.headers["authorization"] as string) || (req.headers["Authorization"] as string));
+  const { userId, jwt } = extractUserFromAuthHeader((req.headers["authorization"] as string) || (req.headers["Authorization"] as string));
 
   if (req.method === "POST") {
     if (!userId) {
       return res.status(403).json({ error: "Keine UserId im Token" });
     }
-    const perm = await checkPermission(userId, ResourceType.transactions, AuthorizationType.write_all, jwt);
+    const { validateUserPermissions } = await import("@/services/authService");
+    const perm = await validateUserPermissions({ userId: String(userId), resource: ResourceType.transactions, requiredPermission: AuthorizationType.write_all, jwt });
     if (!perm.allowed) {
       return res.status(403).json({ error: "Keine Berechtigung für write_all auf transactions" });
     }
     let form: any;
     try {
-      form = await parseForm(req);
+      form = await parseMultipartFormDataFromNextApi(req);
     } catch (err: any) {
       return res.status(400).json({ error: "Fehler beim Parsen der Formulardaten", detail: err?.message });
     }
@@ -148,7 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Hauptkonto auflösen
-    const mainAccountId = await resolveAccountId(accountType, accountId);
+    const mainAccountId = await resolveAccountIdUtil(prisma as any, accountType, accountId);
     if (!mainAccountId) {
       return res.status(400).json({ error: "Hauptkonto konnte nicht aufgelöst werden" });
     }
@@ -185,7 +100,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: `${idxInfo}: Ungültiger Betrag` });
       }
 
-      // Budget/Kostenstelle Konsistenz pro Zeile
+      // Budget/Kostenstelle Konsistenz pro Zeile (nur ohne Auswahl erlaubt)
       if (row.id && (row.budgetPlanId || row.costCenterId)) {
         return res.status(400).json({ error: `${idxInfo}: Budgetplan/Kostenstelle nicht erlaubt, wenn eine Auswahl getroffen wurde` });
       }
@@ -205,12 +120,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (!row.id) {
-        // Ohne Auswahlkonto akzeptieren wir die Zeile nicht als Transaktion, sie würde sonst ins Leere laufen
-        // (Frontend lässt leere Zeilen zu; wir erzwingen hier, dass nur gültige Zeilen gezählt werden)
+        // Ohne Auswahlkonto nicht buchen (Frontend erlaubt leere Zeilen)
         continue;
       }
 
-      const accId = await resolveAccountId(row.type, row.id);
+      const accId = await resolveAccountIdUtil(prisma as any, row.type, row.id);
       if (!accId) {
         return res.status(400).json({ error: `${idxInfo}: Konto konnte nicht aufgelöst werden` });
       }
@@ -236,7 +150,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Attachment speichern
-    const attachmentId = await saveAttachment(file);
+    const attachmentId = await saveAttachmentFromTempFile(prisma as any, file);
 
     try {
       const result = await prisma.$transaction(async (p) => {
