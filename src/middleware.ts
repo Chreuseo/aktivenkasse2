@@ -6,12 +6,21 @@ import { getToken } from "next-auth/jwt";
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
+  // Spezielles Handling: favicon ohne Query ausliefern
+  if (pathname === "/favicon.ico") {
+    if (search) {
+      const cleanUrl = new URL(req.url);
+      cleanUrl.search = "";
+      return NextResponse.redirect(cleanUrl, { status: 302 });
+    }
+    return NextResponse.next();
+  }
+
   // Öffentliche Pfade durchlassen
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
     pathname.startsWith("/api/auth") ||
-    pathname === "/favicon.ico" ||
     pathname === "/login"
   ) {
     return NextResponse.next();
@@ -39,6 +48,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Matcher schützt Seiten und alle API-Routen (außer /api/auth)
-  matcher: ["/", "/((?!_next|favicon.ico|login|api/auth).*)", "/api/:path*"],
+  // Matcher schützt Seiten und alle API-Routen (außer /api/auth) und enthält favicon explizit
+  matcher: ["/", "/favicon.ico", "/((?!_next|favicon.ico|login|api/auth).*)", "/api/:path*"],
 };
