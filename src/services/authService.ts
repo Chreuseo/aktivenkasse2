@@ -13,6 +13,19 @@ function permissionSufficient(actual: AuthorizationType | string, required: Auth
   return AUTH_ORDER.indexOf(actual as AuthorizationType) >= AUTH_ORDER.indexOf(required);
 }
 
+// Prüfe, ob JWT eine Super-Admin-Rolle enthält (Keycloak)
+function hasSuperAdmin(jwt: any): boolean {
+  if (!jwt) return false;
+  const realmRoles: string[] = []
+    .concat(jwt.realm_access?.roles || [])
+    .concat(jwt.roles || []);
+  const resourceRoles: string[] = Object.values(jwt.resource_access || {}).flatMap((r: any) => r?.roles || []);
+  const all = new Set<string>([...realmRoles, ...resourceRoles]);
+  // Übliche Admin-Rollen in Keycloak und projektspezifisch
+  const SUPER = ["admin", "realm-admin", "aktivenkasse_admin"];
+  return SUPER.some((r) => all.has(r));
+}
+
 export async function validateUserPermissions({ userId, resource, requiredPermission, jwt }: {
   userId: string;
   resource: ResourceType;
@@ -29,6 +42,12 @@ export async function validateUserPermissions({ userId, resource, requiredPermis
   if (!Object.values(AuthorizationType).includes(requiredPermission)) {
     return { allowed: false, error: "Invalid permission" };
   }
+
+  // 0. Super-Admin aus JWT hat immer alle Rechte
+  if (hasSuperAdmin(jwt)) {
+    return { allowed: true, role: null, source: "jwt-admin" };
+  }
+
   // User anhand ID oder Keycloak-ID suchen
   let user;
   if (!isNaN(Number(userId))) {
@@ -85,7 +104,7 @@ export function extractTokenAndUserId(req: any): { token: string | null, userId:
   }
   // Node.js Request (Pages Router)
   else if (req.headers && (typeof req.headers === "object")) {
-    auth = req.headers["authorization"] || req.headers["Authorization"];
+    auth = (req.headers as any)["authorization"] || (req.headers as any)["Authorization"];
   }
   let token: string | null = null;
   let userId: string | null = null;
@@ -121,6 +140,8 @@ export function getUserIdFromRequest(req: Request): string | null {
 export async function checkPermission(req: Request, resource: ResourceType, requiredPermission: AuthorizationType): Promise<{ allowed: boolean, error?: string }> {
   const { token, userId, jwt } = extractTokenAndUserId(req);
   if (!token) return { allowed: false, error: "Kein Token" };
+  // Admin-Bypass frühzeitig zulassen
+  if (hasSuperAdmin(jwt)) return { allowed: true };
   if (!userId) return { allowed: false, error: "Keine UserId im Token" };
   const result = await validateUserPermissions({
     userId,

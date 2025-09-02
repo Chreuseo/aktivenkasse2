@@ -38,8 +38,8 @@ export default function RolesPage() {
 
   // Token aus Session extrahieren
   function getToken() {
-    // Token kann je nach NextAuth-Callback unter session.token oder session.user.token liegen
-    return (session?.user && typeof session.user === 'object' && (session.user as any).token) || "";
+    // In unseren NextAuth-Callbacks wird das Access Token als session.token gesetzt
+    return (session as any)?.token || "";
   }
 
   async function load() {
