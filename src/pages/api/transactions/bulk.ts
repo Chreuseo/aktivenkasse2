@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import fs from "fs";
 import { jwtDecode } from "jwt-decode";
+import { BulkTransactionType } from "@prisma/client";
 
 export const config = {
   api: {
@@ -131,123 +132,120 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!mainAccountId) {
       return res.status(400).json({ error: "Hauptkonto konnte nicht aufgelöst werden" });
     }
+
+    // Einzugsart-Logik
+    // Zeichen der Hauptbuchung (Summe)
+    let mainSign = 1; // +
+    let bulkTypeEnum: BulkTransactionType = BulkTransactionType.collection;
+    if (bulkType === "auszahlung") { mainSign = -1; bulkTypeEnum = BulkTransactionType.payout; }
+    if (bulkType === "einzug") { mainSign = 1; bulkTypeEnum = BulkTransactionType.collection; }
+    if (bulkType === "einzahlung") { mainSign = 1; bulkTypeEnum = BulkTransactionType.deposit; }
+
+    // Für Einzelzeilen: Zeichen auf Gegenkonto
+    function rowAmountSigned(raw: number): number {
+      if (bulkType === "einzug") return -Math.abs(raw);      // Einzug: Gegenkonto -
+      if (bulkType === "auszahlung") return Math.abs(raw);   // Auszahlung: Gegenkonto +
+      if (bulkType === "einzahlung") return Math.abs(raw);   // Einzahlung: Gegenkonto +
+      return Math.abs(raw);
+    }
+
     // Einzelbuchungen vorbereiten
+    const preparedRows: Array<{ accountId: number, amount: number, description: string, reference?: string, costCenterId?: number }>
+      = [];
     let totalAmount = 0;
-    const transactionsData: any[] = [];
-    let bulkNegative = false;
-    let bulkTypeEnum: "collection" | "deposit" | "payout" = "collection";
+
     for (const row of rows) {
       if (!row.id || !row.amount) continue; // leere Zeilen überspringen
       const accId = await resolveAccountId(row.type, row.id);
       if (!accId) continue;
       let amount = Number(row.amount);
-      if (isNaN(amount) || amount <= 0) continue;
-      totalAmount += amount;
+      if (!isFinite(amount) || amount <= 0) continue;
+      const signed = rowAmountSigned(amount);
+      totalAmount += Math.abs(amount);
       let txDescription = description;
       if (row.description) txDescription += " - " + row.description;
-      // Einzugsart-Logik
-      let account1Negative = false;
-      if (bulkType === "einzug") {
-        account1Negative = true;
-        bulkNegative = false;
-        bulkTypeEnum = "collection";
-      } else if (bulkType === "einzahlung") {
-        account1Negative = false;
-        bulkNegative = false;
-        bulkTypeEnum = "deposit";
-      } else if (bulkType === "auszahlung") {
-        account1Negative = false;
-        bulkNegative = true;
-        bulkTypeEnum = "payout";
-      }
-      transactionsData.push({
-        amount,
-        date_valued: new Date(date_valued),
+      preparedRows.push({
+        accountId: accId,
+        amount: signed,
         description: txDescription,
         reference,
-        accountId1: accId,
-        account1Negative,
-        account1ValueAfter: 0, // wird nachher gesetzt
-        accountId2: mainAccountId,
-        account2Negative: bulkNegative,
-        account2ValueAfter: 0, // wird nachher gesetzt
-        budgetPlanId: row.budgetPlanId ? Number(row.budgetPlanId) : undefined,
         costCenterId: row.costCenterId ? Number(row.costCenterId) : undefined,
       });
     }
+
     if (totalAmount === 0) {
       return res.status(400).json({ error: "Kein Betrag angegeben" });
     }
+
     // Attachment speichern
     const attachmentId = await saveAttachment(file);
-    // Einzelbuchungen speichern und Kontostände aktualisieren
-    const transactionIds: number[] = [];
-    for (const tx of transactionsData) {
-      // Kontostände aktualisieren
-      await prisma.account.update({
-        where: { id: tx.accountId1 },
-        data: {
-          balance: tx.account1Negative ? { decrement: tx.amount } : { increment: tx.amount },
-        },
+
+    try {
+      const result = await prisma.$transaction(async (p) => {
+        // Hauptbuchung anlegen (Summe, ohne Gegenbuchung)
+        const mainAcc = await p.account.findUnique({ where: { id: mainAccountId } });
+        const mainBal = mainAcc ? Number(mainAcc.balance) : 0;
+        const mainAmt = mainSign * totalAmount;
+        const mainNewBal = mainBal + mainAmt;
+        const mainTx = await p.transaction.create({
+          data: {
+            amount: mainAmt,
+            date_valued: new Date(date_valued),
+            description,
+            reference,
+            account: { connect: { id: mainAccountId } },
+            accountValueAfter: mainNewBal,
+            ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
+          },
+        });
+        await p.account.update({ where: { id: mainAccountId }, data: { balance: mainNewBal } });
+
+        // Bulk-Datensatz anlegen und Haupt-Transaktion verknüpfen
+        const bulk = await p.transactionBulk.create({
+          data: {
+            date_valued: new Date(date_valued),
+            description,
+            reference,
+            account: { connect: { id: mainAccountId } },
+            ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
+            mainTransaction: { connect: { id: mainTx.id } },
+            type: bulkTypeEnum,
+          },
+        });
+
+        // Einzeltransaktionen anlegen, gegenläufig mit Hauptbuchung verknüpfen
+        for (const r of preparedRows) {
+          const acc = await p.account.findUnique({ where: { id: r.accountId } });
+          const bal = acc ? Number(acc.balance) : 0;
+          const newBal = bal + r.amount;
+          await p.transaction.create({
+            data: {
+              amount: r.amount,
+              date_valued: new Date(date_valued),
+              description: r.description,
+              reference: r.reference,
+              account: { connect: { id: r.accountId } },
+              accountValueAfter: newBal,
+              ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
+              ...(r.costCenterId ? { costCenter: { connect: { id: r.costCenterId } } } : {}),
+              transactionBulk: { connect: { id: bulk.id } },
+              counter_transaction: { connect: { id: mainTx.id } },
+            },
+          });
+          await p.account.update({ where: { id: r.accountId }, data: { balance: newBal } });
+        }
+
+        // Haupt-Transaktion ebenfalls dem Bulk zuordnen (aber ohne Gegenbuchung im Hauptkonto)
+        await p.transaction.update({ where: { id: mainTx.id }, data: { transactionBulk: { connect: { id: bulk.id } } } });
+
+        return { id: bulk.id };
       });
-      await prisma.account.update({
-        where: { id: tx.accountId2 },
-        data: {
-          balance: tx.account2Negative ? { decrement: tx.amount } : { increment: tx.amount },
-        },
-      });
-      // Kontostände nach Buchung abfragen
-      const acc1After = await prisma.account.findUnique({ where: { id: tx.accountId1 } });
-      const acc2After = await prisma.account.findUnique({ where: { id: tx.accountId2 } });
-      const account1ValueAfter = acc1After?.balance ? Number(acc1After.balance) : 0;
-      const account2ValueAfter = acc2After?.balance ? Number(acc2After.balance) : 0;
-      const transaction = await prisma.transaction.create({
-        data: {
-          amount: tx.amount,
-          date_valued: tx.date_valued,
-          description: tx.description,
-          reference: tx.reference,
-          accountId1: tx.accountId1,
-          account1Negative: tx.account1Negative,
-          account1ValueAfter,
-          accountId2: tx.accountId2,
-          account2Negative: tx.account2Negative,
-          account2ValueAfter,
-          attachmentId,
-          costCenterId: tx.costCenterId,
-        },
-      });
-      transactionIds.push(transaction.id);
+
+      return res.status(201).json(result);
+    } catch (e: any) {
+      console.error("Sammeltransaktion fehlgeschlagen", e);
+      return res.status(500).json({ error: "Sammeltransaktion fehlgeschlagen" });
     }
-    // Bulk-Konto aktualisieren
-    await prisma.account.update({
-      where: { id: mainAccountId },
-      data: {
-        balance: bulkNegative ? { decrement: totalAmount } : { increment: totalAmount },
-      },
-    });
-    // Kontostand nach allen Buchungen holen
-    const mainAccountAfter = await prisma.account.findUnique({ where: { id: mainAccountId } });
-    // Bulk-Transaktion anlegen
-    const bulkAmount = bulkNegative ? -totalAmount : totalAmount;
-    const bulkTx = await prisma.transactionBulk.create({
-      data: {
-        date_valued: new Date(date_valued),
-        amount: bulkAmount,
-        balanceAfter: mainAccountAfter?.balance ? Number(mainAccountAfter.balance) : 0,
-        description,
-        reference,
-        accountId: mainAccountId,
-        attachmentId,
-        type: bulkTypeEnum,
-      },
-    });
-    // Einzelbuchungen mit Bulk-Id aktualisieren
-    await prisma.transaction.updateMany({
-      where: { id: { in: transactionIds } },
-      data: { transactionBulkId: bulkTx.id },
-    });
-    return res.status(201).json({ id: bulkTx.id });
   } else {
     res.setHeader("Allow", ["POST"]);
     return res.status(405).end("Method Not Allowed");

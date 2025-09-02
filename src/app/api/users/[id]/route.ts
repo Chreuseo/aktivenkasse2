@@ -28,68 +28,45 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         if (!user) {
             return NextResponse.json({ error: "Nutzer nicht gefunden" }, { status: 404 });
         }
-        // Alle Transaktionen des Accounts (als account1 oder account2)
+        // Alle Transaktionen des Accounts nach neuem Schema
         const accountId = user.accountId;
-        const transactions = await prisma.transaction.findMany({
-            where: {
-                OR: [
-                    { accountId1: accountId },
-                    { accountId2: accountId },
-                ],
-            },
+        const transactionsRaw = await prisma.transaction.findMany({
+            where: { accountId },
             orderBy: { date: "desc" },
             include: {
-                account1: {
+                counter_transaction: {
                     include: {
-                        users: true,
-                        bankAccounts: true,
-                        clearingAccounts: true,
-                    },
-                },
-                account2: {
-                    include: {
-                        users: true,
-                        bankAccounts: true,
-                        clearingAccounts: true,
+                        account: { include: { users: true, bankAccounts: true, clearingAccounts: true } },
                     },
                 },
             },
         });
         // Für jede Transaktion: Gegenkonto bestimmen und Details extrahieren
-        const txs = transactions.map(tx => {
-            let isMain = tx.accountId1 === accountId;
-            let amount = isMain ? (tx.account1Negative ? -tx.amount : tx.amount) : (tx.account2Negative ? -tx.amount : tx.amount);
-            let otherAccount = isMain ? tx.account2 : tx.account1;
-            let otherType = otherAccount?.type;
-            let otherDetails = null;
-            if (otherAccount) {
-                if (otherType === "user" && otherAccount.users?.length) {
-                    otherDetails = {
-                        type: "user",
-                        name: otherAccount.users[0].first_name + " " + otherAccount.users[0].last_name,
-                        mail: otherAccount.users[0].mail,
-                    };
-                } else if (otherType === "bank" && otherAccount.bankAccounts?.length) {
-                    otherDetails = {
-                        type: "bank",
-                        name: otherAccount.bankAccounts[0].name,
-                        bank: otherAccount.bankAccounts[0].bank,
-                        iban: otherAccount.bankAccounts[0].iban,
-                    };
-                } else if (otherType === "clearing_account" && otherAccount.clearingAccounts?.length) {
-                    otherDetails = {
-                        type: "clearing_account",
-                        name: otherAccount.clearingAccounts[0].name,
-                    };
+        const txs = transactionsRaw.map((tx: any) => {
+            const other = tx.counter_transaction ? (() => {
+                const acc = tx.counter_transaction.account;
+                if (!acc) return null;
+                if (acc.users && acc.users.length > 0) {
+                    const u = acc.users[0];
+                    return { type: "user", name: `${u.first_name} ${u.last_name}`, mail: u.mail };
                 }
-            }
+                if (acc.bankAccounts && acc.bankAccounts.length > 0) {
+                    const b = acc.bankAccounts[0];
+                    return { type: "bank", name: b.name, bank: b.bank, iban: b.iban };
+                }
+                if (acc.clearingAccounts && acc.clearingAccounts.length > 0) {
+                    const c = acc.clearingAccounts[0];
+                    return { type: "clearing_account", name: c.name };
+                }
+                return null;
+            })() : null;
             return {
                 id: tx.id,
-                amount,
-                date: tx.date.toISOString(),
+                amount: Number(tx.amount),
+                date: (tx.date_valued ?? tx.date).toISOString(),
                 description: tx.description,
                 reference: tx.reference || undefined,
-                other: otherDetails,
+                other,
                 attachmentId: tx.attachmentId || undefined,
                 receiptUrl: tx.attachmentId ? `/api/attachments/${tx.attachmentId}/download` : undefined,
             };

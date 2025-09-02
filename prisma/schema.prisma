@@ -15,10 +15,8 @@ model Account {
   users            User[]
   bankAccounts     BankAccount[]
   clearingAccounts ClearingAccount[]
-  transactions1    Transaction[]     @relation("Account1")
-  transactions2    Transaction[]     @relation("Account2")
-
-  TransactionBulk TransactionBulk[]
+  transactions     Transaction[]
+  transactionBulks TransactionBulk[]
 }
 
 model User {
@@ -114,43 +112,42 @@ model CostCenter {
 }
 
 model Transaction {
-  id                 Int              @id @default(autoincrement())
-  amount             Decimal
-  date               DateTime         @default(now())
-  date_valued        DateTime         @default(now())
-  description        String
-  reference          String?
-  account1Negative   Boolean          @default(false)
-  accountId1         Int
-  account1           Account          @relation("Account1", fields: [accountId1], references: [id])
-  account1ValueAfter Decimal
-  account2Negative   Boolean?         @default(false)
-  accountId2         Int?
-  account2           Account?         @relation("Account2", fields: [accountId2], references: [id])
-  account2ValueAfter Decimal?
-  costCenterId       Int?
-  costCenter         CostCenter?      @relation(fields: [costCenterId], references: [id])
-  attachmentId       Int?
-  attachment         Attachment?      @relation(fields: [attachmentId], references: [id])
-  transactionBulkId  Int?
-  transactionBulk    TransactionBulk? @relation(fields: [transactionBulkId], references: [id])
-  advances           Advances[]
+  id                    Int              @id @default(autoincrement())
+  amount                Decimal
+  date                  DateTime         @default(now())
+  date_valued           DateTime         @default(now())
+  description           String
+  reference             String?
+  accountId             Int
+  account               Account          @relation(fields: [accountId], references: [id])
+  accountValueAfter     Decimal
+  counter_transactionId Int?
+  counter_transaction   Transaction?     @relation("CounterTransaction", fields: [counter_transactionId], references: [id])
+  counter_transactions  Transaction[]    @relation("CounterTransaction")
+  costCenterId          Int?
+  costCenter            CostCenter?      @relation(fields: [costCenterId], references: [id])
+  attachmentId          Int?
+  attachment            Attachment?      @relation(fields: [attachmentId], references: [id])
+  transactionBulkId     Int?
+  transactionBulk       TransactionBulk? @relation("BulkTransactions", fields: [transactionBulkId], references: [id])
+  bulkMain              TransactionBulk? @relation("BulkMainTransaction")
+  advances              Advances[]
 }
 
 model TransactionBulk {
-  id           Int                 @id @default(autoincrement())
-  date         DateTime            @default(now())
-  date_valued  DateTime?
-  amount       Decimal
-  balanceAfter Decimal
-  description  String
-  reference    String?
-  accountId    Int
-  attachmentId Int?
-  attachment   Attachment?         @relation(fields: [attachmentId], references: [id])
-  account      Account             @relation(fields: [accountId], references: [id])
-  transactions Transaction[]
-  type         BulkTransactionType
+  id              Int                 @id @default(autoincrement())
+  date            DateTime            @default(now())
+  date_valued     DateTime?
+  transactionId   Int                 @unique
+  mainTransaction Transaction         @relation("BulkMainTransaction", fields: [transactionId], references: [id])
+  description     String
+  reference       String?
+  accountId       Int
+  attachmentId    Int?
+  attachment      Attachment?         @relation(fields: [attachmentId], references: [id])
+  account         Account             @relation(fields: [accountId], references: [id])
+  transactions    Transaction[]       @relation("BulkTransactions")
+  type            BulkTransactionType
 }
 
 model Advances {

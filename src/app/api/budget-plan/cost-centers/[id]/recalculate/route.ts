@@ -6,28 +6,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const id = Number(params.id);
   if (!id) return NextResponse.json({ error: "ID erforderlich" }, { status: 400 });
 
-  // Hole alle Transaktionen mit costCenterId = id
+  // Hole alle Transaktionen mit costCenterId = id (neues Schema, signed amounts)
   const transactions = await prisma.transaction.findMany({
     where: { costCenterId: id },
-    select: { amount: true, account1Negative: true, account2Negative: true, accountId1: true, accountId2: true },
+    select: { amount: true },
   });
 
   // Einnahmen/Ausgaben berechnen
   let earnings = 0;
   let costs = 0;
   for (const t of transactions) {
-    // Einnahmen: positive Beträge, die der Kostenstelle zufließen
-    // Ausgaben: negative Beträge, die abfließen
-    // Annahme: account1Negative = true => Ausgabe, sonst Einnahme
-    if (t.account1Negative) {
-      costs += Number(t.amount);
-    } else {
-      earnings += Number(t.amount);
-    }
+    const val = Number(t.amount);
+    if (val > 0) earnings += val; else costs += Math.abs(val);
   }
 
   // Update Kostenstelle
-  const cc = await prisma.costCenter.update({
+  await prisma.costCenter.update({
     where: { id },
     data: {
       earnings_actual: earnings,
@@ -37,4 +31,3 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   return NextResponse.json({ success: true, earnings_actual: earnings, costs_actual: costs });
 }
-
