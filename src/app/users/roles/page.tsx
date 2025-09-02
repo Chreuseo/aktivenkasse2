@@ -39,9 +39,7 @@ export default function RolesPage() {
   // Token aus Session extrahieren
   function getToken() {
     // Token kann je nach NextAuth-Callback unter session.token oder session.user.token liegen
-    return (session?.token as string)
-      || (session?.user && typeof session.user === 'object' && (session.user as any).token)
-      || "";
+    return (session?.user && typeof session.user === 'object' && (session.user as any).token) || "";
   }
 
   async function load() {
@@ -192,115 +190,117 @@ export default function RolesPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: "1.5rem auto", padding: "1rem" }}>
-      <h2 style={{ marginBottom: 12 }}>Rollenverwaltung</h2>
-      <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>
-        <button className="button" onClick={load} disabled={loading}>Aktualisieren</button>
-      </div>
-      {msg && <div style={{ marginBottom: 12, fontWeight: 600, color: "var(--secondary-color, #facc15)" }}>{msg}</div>}
-      <table className="kc-table compact" role="table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Keycloak ID</th>
-            <th>Nutzer</th>
-            <th>Budget-Plan</th>
-            <th>Nutzerverwaltung</th>
-            <th>Verrechnungskonten</th>
-            <th>Bankkonten</th>
-            <th>Buchungen</th>
-            <th>Auslagen</th>
-            <th>Löschen</th>
-          </tr>
-        </thead>
-        <tbody>
-          {roles.map(r => {
-            const user = r.userId ? users.find(u => u.id === r.userId) : null;
-            return (
-              <tr key={r.id} className="kc-row">
-                <td>
-                  <input
-                    type="text"
-                    className="kc-input"
-                    value={r.name ?? ""}
-                    onChange={e => updateRoleField(r.id, { name: e.target.value })}
-                    placeholder="Rollenname"
-                    disabled={loading}
-                  />
-                </td>
-                <td style={{ fontSize: 12, color: "var(--muted, #9aa4b2)" }}>{r.keycloak_id ? "Ja" : "Nein"}</td>
-                <td>{user ? `${user.first_name} ${user.last_name} (${user.mail})` : <em>—</em>}</td>
-                <td>
-                  <select className="kc-select" value={r.budget_plan} onChange={(e) => updateRoleField(r.id, { budget_plan: e.target.value as AuthorizationType })} disabled={loading}>
-                    {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
-                  </select>
-                </td>
-                <td>
-                  <select className="kc-select" value={r.userAuth} onChange={(e) => updateRoleField(r.id, { userAuth: e.target.value as AuthorizationType })} disabled={loading}>
-                    {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
-                  </select>
-                </td>
-                <td>
-                  <select className="kc-select" value={r.clearing_accounts} onChange={(e) => updateRoleField(r.id, { clearing_accounts: e.target.value as AuthorizationType })} disabled={loading}>
-                    {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
-                  </select>
-                </td>
-                <td>
-                  <select className="kc-select" value={r.bank_accounts} onChange={(e) => updateRoleField(r.id, { bank_accounts: e.target.value as AuthorizationType })} disabled={loading}>
-                    {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
-                  </select>
-                </td>
-                <td>
-                  <select className="kc-select" value={r.transactions} onChange={(e) => updateRoleField(r.id, { transactions: e.target.value as AuthorizationType })} disabled={loading}>
-                    {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
-                  </select>
-                </td>
-                <td>
-                  <select className="kc-select" value={r.advances} onChange={(e) => updateRoleField(r.id, { advances: e.target.value as AuthorizationType })} disabled={loading}>
-                    {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
-                  </select>
-                </td>
-                <td>
-                  <button className="button" onClick={() => deleteRole(r.id)} disabled={loading}>Löschen</button>
-                </td>
-              </tr>
-            );
-          })}
+    <div className="wide-container">
+      <div style={{ maxWidth: 1100, margin: "1.5rem auto", padding: "1rem" }}>
+        <h2 style={{ marginBottom: 12 }}>Rollenverwaltung</h2>
+        <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>
+          <button className="button" onClick={load} disabled={loading}>Aktualisieren</button>
+        </div>
+        {msg && <div style={{ marginBottom: 12, fontWeight: 600, color: "var(--secondary-color, #facc15)" }}>{msg}</div>}
+        <table className="kc-table compact" role="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Keycloak ID</th>
+              <th>Nutzer</th>
+              <th>Budget-Plan</th>
+              <th>Nutzerverwaltung</th>
+              <th>Verrechnungskonten</th>
+              <th>Bankkonten</th>
+              <th>Buchungen</th>
+              <th>Auslagen</th>
+              <th>Löschen</th>
+            </tr>
+          </thead>
+          <tbody>
+            {roles.map(r => {
+              const user = r.userId ? users.find(u => u.id === r.userId) : null;
+              return (
+                <tr key={r.id} className="kc-row">
+                  <td>
+                    <input
+                      type="text"
+                      className="kc-input"
+                      value={r.name ?? ""}
+                      onChange={e => updateRoleField(r.id, { name: e.target.value })}
+                      placeholder="Rollenname"
+                      disabled={loading}
+                    />
+                  </td>
+                  <td style={{ fontSize: 12, color: "var(--muted, #9aa4b2)" }}>{r.keycloak_id ? "Ja" : "Nein"}</td>
+                  <td>{user ? `${user.first_name} ${user.last_name} (${user.mail})` : <em>—</em>}</td>
+                  <td>
+                    <select className="kc-select" value={r.budget_plan} onChange={(e) => updateRoleField(r.id, { budget_plan: e.target.value as AuthorizationType })} disabled={loading}>
+                      {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    <select className="kc-select" value={r.userAuth} onChange={(e) => updateRoleField(r.id, { userAuth: e.target.value as AuthorizationType })} disabled={loading}>
+                      {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    <select className="kc-select" value={r.clearing_accounts} onChange={(e) => updateRoleField(r.id, { clearing_accounts: e.target.value as AuthorizationType })} disabled={loading}>
+                      {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    <select className="kc-select" value={r.bank_accounts} onChange={(e) => updateRoleField(r.id, { bank_accounts: e.target.value as AuthorizationType })} disabled={loading}>
+                      {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    <select className="kc-select" value={r.transactions} onChange={(e) => updateRoleField(r.id, { transactions: e.target.value as AuthorizationType })} disabled={loading}>
+                      {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    <select className="kc-select" value={r.advances} onChange={(e) => updateRoleField(r.id, { advances: e.target.value as AuthorizationType })} disabled={loading}>
+                      {AUTH_OPTIONS.map(o => <option key={o} value={o}>{AUTH_OPTION_NAMES[o]}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    <button className="button" onClick={() => deleteRole(r.id)} disabled={loading}>Löschen</button>
+                  </td>
+                </tr>
+              );
+            })}
 
-          {/* Neue Rolle */}
-          <tr className="kc-row">
-            <td>
-              <input
-                type="text"
-                className="kc-input"
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                placeholder="Neue Rolle (Name)"
-                disabled={loading}
-              />
-            </td>
-            <td colSpan={7} style={{ display: 'flex', gap: 8 }}>
-              <button className="button" onClick={createRole} disabled={loading}>Rolle anlegen</button>
-            </td>
-            <td></td>
-          </tr>
-          {/* Nutzerrolle */}
-          <tr className="kc-row">
-            <td colSpan={2}>
-              <select className="kc-select" value={selectedUserId ?? ''} onChange={e => setSelectedUserId(Number(e.target.value) || null)}>
-                <option value="">Nutzer wählen…</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.mail})</option>
-                ))}
-              </select>
-            </td>
-            <td colSpan={6} style={{ display: 'flex', gap: 8 }}>
-              <button className="button" onClick={createUserRole} disabled={loading || !selectedUserId}>Nutzerrolle anlegen</button>
-            </td>
-            <td></td>
-          </tr>
-        </tbody>
-      </table>
+            {/* Neue Rolle */}
+            <tr className="kc-row">
+              <td>
+                <input
+                  type="text"
+                  className="kc-input"
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  placeholder="Neue Rolle (Name)"
+                  disabled={loading}
+                />
+              </td>
+              <td colSpan={7} style={{ display: 'flex', gap: 8 }}>
+                <button className="button" onClick={createRole} disabled={loading}>Rolle anlegen</button>
+              </td>
+              <td></td>
+            </tr>
+            {/* Nutzerrolle */}
+            <tr className="kc-row">
+              <td colSpan={2}>
+                <select className="kc-select" value={selectedUserId ?? ''} onChange={e => setSelectedUserId(Number(e.target.value) || null)}>
+                  <option value="">Nutzer wählen…</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.mail})</option>
+                  ))}
+                </select>
+              </td>
+              <td colSpan={6} style={{ display: 'flex', gap: 8 }}>
+                <button className="button" onClick={createUserRole} disabled={loading || !selectedUserId}>Nutzerrolle anlegen</button>
+              </td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

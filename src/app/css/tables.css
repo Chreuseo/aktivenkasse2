@@ -166,6 +166,20 @@
   }
 }
 
+/* CSS-Klasse für sehr breite Tabellen */
+.wide-container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* Anpassung für Tabellen in der .wide-container */
+.wide-container .kc-table {
+    overflow-x: auto;
+    display: block;
+    white-space: nowrap;
+}
+
 /* responsive */
 @media (max-width: 900px) {
   .kc-table th:nth-child(4),

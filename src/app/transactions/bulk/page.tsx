@@ -181,10 +181,11 @@ export default function BulkTransactionPage() {
   if (formData.accountType === "clearing_account") mainAccountOptions = clearingOptions;
 
   return (
-    <div className="form-container">
+    <div className="wide-container">
       <h1>Sammeltransaktion anlegen</h1>
       <form onSubmit={e => { e.preventDefault(); handleSubmit(); }} className="form">
-        <label>
+        <div className="form-container">
+          <label>
           Wertstellung
           <input
             type="date"
@@ -270,6 +271,7 @@ export default function BulkTransactionPage() {
             accept="image/*,application/pdf"
           />
         </label>
+      </div>
         <div className="form-table-wrapper">
           <table className="kc-table compact">
             <thead>
