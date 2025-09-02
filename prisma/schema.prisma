@@ -138,18 +138,19 @@ model Transaction {
 }
 
 model TransactionBulk {
-  id           Int           @id @default(autoincrement())
-  date         DateTime      @default(now())
+  id           Int                 @id @default(autoincrement())
+  date         DateTime            @default(now())
   date_valued  DateTime?
-  balance      Decimal
+  amount       Decimal
   balanceAfter Decimal
   description  String
   reference    String?
   accountId    Int
   attachmentId Int?
-  attachment   Attachment?   @relation(fields: [attachmentId], references: [id])
-  account      Account       @relation(fields: [accountId], references: [id])
+  attachment   Attachment?         @relation(fields: [attachmentId], references: [id])
+  account      Account             @relation(fields: [accountId], references: [id])
   transactions Transaction[]
+  type         BulkTransactionType
 }
 
 model Advances {
@@ -212,4 +213,10 @@ enum advanceState {
   open
   accepted
   rejected
+}
+
+enum BulkTransactionType {
+  collection
+  deposit
+  payout
 }

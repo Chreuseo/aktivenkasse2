@@ -1,119 +1,129 @@
 .form-container {
-    max-width: 500px;
+    max-width: 1400px;
     margin: 2rem auto;
-    padding: 2rem;
+    padding: 2.5rem 2rem;
     background: #23232a;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
     color: #ededed;
+    width: 100%;
 }
 
 .form {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 1.2rem;
+    width: 100%;
 }
 
 .form label {
     display: flex;
     flex-direction: column;
     font-weight: 600;
-    font-size: 0.9rem;
-    color: #ededed;
-}
-
-.form input {
-    padding: 0.5rem;
-    border: 1px solid #444;
-    border-radius: 6px;
     font-size: 1rem;
-    background: #18181b;
     color: #ededed;
+    margin-bottom: 0.2rem;
 }
 
-.form-select {
-    padding: 0.5rem;
-    border: 1px solid #444;
-    border-radius: 6px;
-    font-size: 1rem;
-    background: #18181b;
-    color: #ededed;
-    margin-top: 0.3rem;
-    margin-bottom: 0.3rem;
-}
-
+.form input[type="text"],
+.form input[type="number"],
+.form input[type="date"],
+.form-select,
 .form-select-max {
-    max-width: 220px;
-    width: 100%;
+    padding: 0.7rem 1rem;
+    border: 1.5px solid #444;
+    border-radius: 8px;
+    font-size: 1.08rem;
+    background: #18181b;
+    color: #ededed;
+    transition: border-color 0.2s, box-shadow 0.2s;
     box-sizing: border-box;
 }
 
-.form-select:focus {
+.form input:focus,
+.form-select:focus,
+.form-select-max:focus {
     outline: none;
     border-color: #facc15;
+    box-shadow: 0 0 0 2px #facc1533;
     background: #23232a;
 }
 
-.form-select:disabled, .form-select-max:disabled {
-    background-color: #23232a;
+.form input:disabled,
+.form-select:disabled,
+.form-select-max:disabled {
+    background-color: #2d2d36 !important;
+    color: #888 !important;
+    cursor: not-allowed;
+    opacity: 0.7;
+    border-color: #555 !important;
+}
+
+.form-file-upload {
+    padding: 0.7rem 1rem;
+    background: #18181b;
+    color: #ededed;
+    border: 1.5px solid #444;
+    border-radius: 8px;
+    margin-top: 0.3rem;
+    font-size: 1.08rem;
+}
+
+.form-file-upload:disabled {
+    background-color: #2d2d36 !important;
+    color: #888 !important;
+    cursor: not-allowed;
+    opacity: 0.7;
+    border-color: #555 !important;
+}
+
+.form-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    background: #23232a;
+    padding: 0.5rem 0.2rem;
+}
+
+.form-table-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.2rem;
+    justify-content: flex-end;
+}
+
+.form-btn {
+    padding: 0.7rem 1.6rem;
+    font-size: 1.08rem;
+    border: none;
+    border-radius: 8px;
+    background: #23232a;
+    color: #ededed;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    transition: background 0.18s, box-shadow 0.18s, transform 0.12s, color 0.18s;
+}
+
+.form-btn:hover, .form-btn:focus {
+    background: #334155;
+    color: #facc15;
+    box-shadow: 0 4px 16px rgba(250,204,21,0.08);
+    transform: scale(1.03);
+}
+
+.form-btn:disabled {
+    background: #23232a;
     color: #888;
     cursor: not-allowed;
     opacity: 0.7;
 }
 
-.form button {
-    padding: 0.7rem;
-    font-size: 1rem;
-    border: none;
-    background-color: #1e293b;
-    color: #facc15;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.2s ease-in-out;
-}
-
-.form button:hover {
-    background-color: #334155;
-}
-
-.message {
-    margin-top: 1rem;
-    font-weight: 600;
-    color: #facc15;
-}
-
-.form-accounts-row {
-    display: flex;
-    gap: 2rem;
-    justify-content: space-between;
-}
-.form-account-col {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-.form-sign-toggle {
-    padding: 0.3rem 0.7rem;
-    font-size: 1.2rem;
-    border: none;
-    background-color: #334155;
-    color: #facc15;
-    border-radius: 6px;
-    cursor: pointer;
-    margin-bottom: 0.5rem;
-    transition: background 0.2s ease-in-out;
-}
-.form-sign-toggle:disabled {
-    background-color: #23232a;
-    color: #888;
-    cursor: not-allowed;
-}
-.form-file-upload {
-    padding: 0.5rem;
-    background: #18181b;
-    color: #ededed;
-    border: 1px solid #444;
-    border-radius: 6px;
-    margin-top: 0.3rem;
+@media (max-width: 1500px) {
+    .form-container {
+        max-width: 98vw;
+        padding: 1rem 0.5rem;
+    }
 }
