@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { ResourceType, AuthorizationType } from '@/app/types/authorization';
 import fs from 'fs';
 import { jwtDecode } from 'jwt-decode';
+import { computeAccount2Negative, normalizeBoolean, isAllowedAttachment, parsePositiveAmount, AccountTypeStr } from '@/lib/validation';
 
 export const config = {
   api: {
@@ -21,7 +22,7 @@ function extractUserFromToken(authHeader: string | undefined): { token: string |
       token = match[1];
       try {
         jwt = jwtDecode(token);
-        userId = jwt.sub || jwt.userId || jwt.id || null;
+        userId = (jwt as any).sub || (jwt as any).userId || (jwt as any).id || null;
       } catch {}
     }
   }
@@ -40,11 +41,11 @@ async function parseForm(req: NextApiRequest): Promise<{ fields: Record<string, 
       if (err) return reject(err);
       const normFields: Record<string, any> = {};
       Object.keys(fields).forEach(key => {
-        normFields[key] = Array.isArray(fields[key]) ? fields[key][0] : fields[key];
+        normFields[key] = Array.isArray(fields[key]) ? (fields as any)[key][0] : (fields as any)[key];
       });
       const normFiles: Record<string, any> = {};
       Object.keys(files).forEach(key => {
-        const file = Array.isArray(files[key]) ? files[key][0] : files[key];
+        const file: any = Array.isArray(files[key]) ? (files as any)[key][0] : (files as any)[key];
         if (file && file.filepath) {
           normFiles[key] = {
             filename: file.originalFilename || file.newFilename || 'Anhang',
@@ -113,7 +114,7 @@ function inferOtherFromAccount(acc: any): { type: 'user'|'bank'|'clearing_accoun
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { token, userId, jwt } = extractUserFromToken(req.headers['authorization'] as string || req.headers['Authorization'] as string);
+  const { token, userId, jwt } = extractUserFromToken((req.headers['authorization'] as string) || (req.headers['Authorization'] as string));
 
   if (req.method === 'POST') {
     if (!userId) {
@@ -130,9 +131,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('FormData-Parsing-Fehler:', err);
       return res.status(400).json({ error: 'Fehler beim Parsen der Formulardaten', detail: err?.message });
     }
+    // Pflichtfelder prüfen
     if (!form.fields.amount || !form.fields.description || !form.fields.account1Type || !form.fields.account1Id) {
       return res.status(400).json({ error: 'Pflichtfelder fehlen', fields: form.fields });
     }
+
     const {
       amount,
       date_valued,
@@ -143,25 +146,72 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       account2Type,
       account2Id,
       account1Negative,
-      account2Negative,
+      account2Negative, // wird serverseitig ignoriert/überschrieben
       costCenterId,
-    } = form.fields;
-    const file = form.files?.attachment;
+      budgetPlanId,
+    } = form.fields as Record<string, any>;
+    const file = (form.files?.attachment as any) || null;
 
-    const acc1Id = await resolveAccountId(account1Type, account1Id);
-    const acc2Id = account2Id ? await resolveAccountId(account2Type, account2Id) : null;
+    // Attachment-Typ prüfen
+    if (file && !isAllowedAttachment(file.mimetype)) {
+      return res.status(400).json({ error: 'Dateityp nicht erlaubt (nur Bilder oder PDF)' });
+    }
+
+    // Account-Typen validieren
+    const a1Type = String(account1Type) as AccountTypeStr;
+    const a2Type = account2Type ? (String(account2Type) as AccountTypeStr) : '';
+    if (!['user', 'bank', 'clearing_account'].includes(a1Type)) {
+      return res.status(400).json({ error: 'Ungültiger account1Type' });
+    }
+    if (a2Type && !['user', 'bank', 'clearing_account'].includes(a2Type)) {
+      return res.status(400).json({ error: 'Ungültiger account2Type' });
+    }
+
+    // Budget-/Kostenstellen-Konsistenz: Nur OHNE Gegenkonto erlaubt
+    if (a2Type && (budgetPlanId || costCenterId)) {
+      return res.status(400).json({ error: 'Budgetplan/Kostenstelle nur ohne Gegenkonto erlaubt' });
+    }
+    if (costCenterId && !budgetPlanId) {
+      return res.status(400).json({ error: 'Kostenstelle ohne Budgetplan nicht erlaubt' });
+    }
+
+    const acc1Id = await resolveAccountId(a1Type, account1Id);
+    const acc2Id = account2Id ? await resolveAccountId(a2Type as string, account2Id) : null;
     if (!acc1Id) {
       return res.status(400).json({ error: 'Account1 konnte nicht aufgelöst werden' });
     }
+    if (a2Type && !account2Id) {
+      return res.status(400).json({ error: 'account2Id fehlt' });
+    }
+    if (a2Type && !acc2Id) {
+      return res.status(400).json({ error: 'Account2 konnte nicht aufgelöst werden' });
+    }
 
-    const attachmentId = await saveAttachment(file);
+    // Budget-/Kostenstelle prüfen (Existenz/Zuordnung)
+    let costCenterIdNum: number | null = null;
+    if (!a2Type && budgetPlanId && costCenterId) {
+      const cc = await prisma.costCenter.findUnique({ where: { id: Number(costCenterId) } });
+      if (!cc) {
+        return res.status(400).json({ error: 'Kostenstelle nicht gefunden' });
+      }
+      if (cc.budget_planId !== Number(budgetPlanId)) {
+        return res.status(400).json({ error: 'Kostenstelle gehört nicht zum Budgetplan' });
+      }
+      costCenterIdNum = cc.id;
+    }
 
-    const amountNum = Math.abs(Number(amount));
-    if (!isFinite(amountNum) || amountNum <= 0) {
+    const attachmentId = file ? await saveAttachment(file) : null;
+
+    const amountNum = parsePositiveAmount(amount);
+    if (amountNum === null) {
       return res.status(400).json({ error: 'Ungültiger Betrag' });
     }
-    const amt1 = (String(account1Negative) === 'true') ? -amountNum : amountNum;
-    const amt2 = acc2Id ? ((String(account2Negative) === 'true') ? -amountNum : amountNum) : null;
+
+    const a1Neg = normalizeBoolean(account1Negative, false);
+    const a2Neg = a2Type ? computeAccount2Negative(a1Type, a2Type as AccountTypeStr, a1Neg) : null;
+
+    const amt1 = a1Neg ? -amountNum : amountNum;
+    const amt2 = acc2Id ? (a2Neg ? -amountNum : amountNum) : null;
 
     try {
       const result = await prisma.$transaction(async (p) => {
@@ -178,7 +228,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             account: { connect: { id: acc1Id } },
             accountValueAfter: newBal1,
             ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
-            ...(costCenterId ? { costCenter: { connect: { id: Number(costCenterId) } } } : {}),
+            // Budget/Kostenstelle nur ohne Gegenkonto setzen
+            ...(!a2Type && costCenterIdNum ? { costCenter: { connect: { id: costCenterIdNum } } } : {}),
           },
         });
         await p.account.update({ where: { id: acc1Id }, data: { balance: newBal1 } });
@@ -199,7 +250,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             account: { connect: { id: acc2Id } },
             accountValueAfter: newBal2,
             ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
-            ...(costCenterId ? { costCenter: { connect: { id: Number(costCenterId) } } } : {}),
+            // explizit keine Kostenstelle bei Gegenkonto
           },
         });
         await p.account.update({ where: { id: acc2Id }, data: { balance: newBal2 } });

@@ -5,6 +5,7 @@ import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import fs from "fs";
 import { jwtDecode } from "jwt-decode";
 import { BulkTransactionType } from "@prisma/client";
+import { isAllowedAttachment, isAllowedMainAccountForBulk, isAllowedRowTypeForBulk, parsePositiveAmount } from "@/lib/validation";
 
 export const config = {
   api: {
@@ -22,7 +23,7 @@ function extractUserFromToken(authHeader: string | undefined) {
       token = match[1];
       try {
         jwt = jwtDecode(token);
-        userId = jwt.sub || jwt.userId || jwt.id || null;
+        userId = (jwt as any).sub || (jwt as any).userId || (jwt as any).id || null;
       } catch {}
     }
   }
@@ -41,11 +42,11 @@ async function parseForm(req: NextApiRequest) {
       if (err) return reject(err);
       const normFields: Record<string, any> = {};
       Object.keys(fields).forEach(key => {
-        normFields[key] = Array.isArray(fields[key]) ? fields[key][0] : fields[key];
+        normFields[key] = Array.isArray(fields[key]) ? (fields as any)[key][0] : (fields as any)[key];
       });
       const normFiles: Record<string, any> = {};
       Object.keys(files).forEach(key => {
-        const file = Array.isArray(files[key]) ? files[key][0] : files[key];
+        const file: any = Array.isArray(files[key]) ? (files as any)[key][0] : (files as any)[key];
         if (file && file.filepath) {
           normFiles[key] = {
             filename: file.originalFilename || file.newFilename || "Anhang",
@@ -97,7 +98,7 @@ async function saveAttachment(file: any) {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { token, userId, jwt } = extractUserFromToken(req.headers["authorization"] as string || req.headers["Authorization"] as string);
+  const { token, userId, jwt } = extractUserFromToken((req.headers["authorization"] as string) || (req.headers["Authorization"] as string));
 
   if (req.method === "POST") {
     if (!userId) {
@@ -127,41 +128,95 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!Array.isArray(rows) || rows.length === 0) {
       return res.status(400).json({ error: "Mindestens eine Einzelbuchung erforderlich" });
     }
+
+    // Attachment-Typ prüfen
+    if (file && !isAllowedAttachment(file.mimetype)) {
+      return res.status(400).json({ error: "Dateityp nicht erlaubt (nur Bilder oder PDF)" });
+    }
+
+    // Einzugsart prüfen und erlaubte Hauptkontotypen sicherstellen
+    const bulkTypeLower = String(bulkType).toLowerCase();
+    let bulkTypeEnum: BulkTransactionType | null = null;
+    if (bulkTypeLower === "auszahlung") bulkTypeEnum = BulkTransactionType.payout;
+    if (bulkTypeLower === "einzug") bulkTypeEnum = BulkTransactionType.collection;
+    if (bulkTypeLower === "einzahlung") bulkTypeEnum = BulkTransactionType.deposit;
+    if (!bulkTypeEnum) {
+      return res.status(400).json({ error: "Ungültige Einzugsart" });
+    }
+    if (!isAllowedMainAccountForBulk(bulkTypeLower as any, accountType)) {
+      return res.status(400).json({ error: "Auswahltyp für Hauptkonto passt nicht zur Einzugsart" });
+    }
+
     // Hauptkonto auflösen
     const mainAccountId = await resolveAccountId(accountType, accountId);
     if (!mainAccountId) {
       return res.status(400).json({ error: "Hauptkonto konnte nicht aufgelöst werden" });
     }
 
-    // Einzugsart-Logik
     // Zeichen der Hauptbuchung (Summe)
     let mainSign = 1; // +
-    let bulkTypeEnum: BulkTransactionType = BulkTransactionType.collection;
-    if (bulkType === "auszahlung") { mainSign = -1; bulkTypeEnum = BulkTransactionType.payout; }
-    if (bulkType === "einzug") { mainSign = 1; bulkTypeEnum = BulkTransactionType.collection; }
-    if (bulkType === "einzahlung") { mainSign = 1; bulkTypeEnum = BulkTransactionType.deposit; }
+    if (bulkTypeLower === "auszahlung") { mainSign = -1; }
+    if (bulkTypeLower === "einzug") { mainSign = 1; }
+    if (bulkTypeLower === "einzahlung") { mainSign = 1; }
 
     // Für Einzelzeilen: Zeichen auf Gegenkonto
     function rowAmountSigned(raw: number): number {
-      if (bulkType === "einzug") return -Math.abs(raw);      // Einzug: Gegenkonto -
-      if (bulkType === "auszahlung") return Math.abs(raw);   // Auszahlung: Gegenkonto +
-      if (bulkType === "einzahlung") return Math.abs(raw);   // Einzahlung: Gegenkonto +
+      if (bulkTypeLower === "einzug") return -Math.abs(raw);      // Einzug: Gegenkonto -
+      if (bulkTypeLower === "auszahlung") return Math.abs(raw);   // Auszahlung: Gegenkonto +
+      if (bulkTypeLower === "einzahlung") return Math.abs(raw);   // Einzahlung: Gegenkonto +
       return Math.abs(raw);
     }
 
-    // Einzelbuchungen vorbereiten
-    const preparedRows: Array<{ accountId: number, amount: number, description: string, reference?: string, costCenterId?: number }>
-      = [];
+    // Einzelbuchungen vorbereiten mit Validierung
+    type PreparedRow = { accountId: number, amount: number, description: string, reference?: string, costCenterId?: number };
+    const preparedRows: PreparedRow[] = [];
     let totalAmount = 0;
 
-    for (const row of rows) {
-      if (!row.id || !row.amount) continue; // leere Zeilen überspringen
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const idxInfo = `Zeile ${i + 1}`;
+      // Typ validieren
+      if (!isAllowedRowTypeForBulk(row.type)) {
+        return res.status(400).json({ error: `${idxInfo}: Ungültiger Typ (erlaubt: Nutzer, Verrechnungskonto)` });
+      }
+      // Betrag prüfen
+      const amountNum = parsePositiveAmount(row.amount);
+      if (amountNum === null) {
+        return res.status(400).json({ error: `${idxInfo}: Ungültiger Betrag` });
+      }
+
+      // Budget/Kostenstelle Konsistenz pro Zeile
+      if (row.id && (row.budgetPlanId || row.costCenterId)) {
+        return res.status(400).json({ error: `${idxInfo}: Budgetplan/Kostenstelle nicht erlaubt, wenn eine Auswahl getroffen wurde` });
+      }
+      if (row.costCenterId && !row.budgetPlanId) {
+        return res.status(400).json({ error: `${idxInfo}: Kostenstelle ohne Budgetplan nicht erlaubt` });
+      }
+      let rowCostCenterId: number | undefined = undefined;
+      if (row.budgetPlanId && row.costCenterId) {
+        const cc = await prisma.costCenter.findUnique({ where: { id: Number(row.costCenterId) } });
+        if (!cc) {
+          return res.status(400).json({ error: `${idxInfo}: Kostenstelle nicht gefunden` });
+        }
+        if (cc.budget_planId !== Number(row.budgetPlanId)) {
+          return res.status(400).json({ error: `${idxInfo}: Kostenstelle gehört nicht zum Budgetplan` });
+        }
+        rowCostCenterId = cc.id;
+      }
+
+      if (!row.id) {
+        // Ohne Auswahlkonto akzeptieren wir die Zeile nicht als Transaktion, sie würde sonst ins Leere laufen
+        // (Frontend lässt leere Zeilen zu; wir erzwingen hier, dass nur gültige Zeilen gezählt werden)
+        continue;
+      }
+
       const accId = await resolveAccountId(row.type, row.id);
-      if (!accId) continue;
-      let amount = Number(row.amount);
-      if (!isFinite(amount) || amount <= 0) continue;
-      const signed = rowAmountSigned(amount);
-      totalAmount += Math.abs(amount);
+      if (!accId) {
+        return res.status(400).json({ error: `${idxInfo}: Konto konnte nicht aufgelöst werden` });
+      }
+
+      const signed = rowAmountSigned(amountNum);
+      totalAmount += Math.abs(amountNum);
       let txDescription = description;
       if (row.description) txDescription += " - " + row.description;
       preparedRows.push({
@@ -169,10 +224,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         amount: signed,
         description: txDescription,
         reference,
-        costCenterId: row.costCenterId ? Number(row.costCenterId) : undefined,
+        ...(rowCostCenterId ? { costCenterId: rowCostCenterId } : {}),
       });
     }
 
+    if (preparedRows.length === 0) {
+      return res.status(400).json({ error: "Mindestens eine gültige Einzelbuchung erforderlich" });
+    }
     if (totalAmount === 0) {
       return res.status(400).json({ error: "Kein Betrag angegeben" });
     }

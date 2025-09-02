@@ -109,6 +109,15 @@ export default function NewTransactionPage() {
         }
     }, [formData.account1Type, formData.account2Type, account1Negative]);
 
+    // Wenn Gegenkonto gewählt ist, Budgetplan/Kostenstelle zurücksetzen
+    useEffect(() => {
+        // Wenn Gegenkonto gewählt ist, Budgetplan/Kostenstelle zurücksetzen
+        if (formData.account2Type) {
+            setBudgetPlanId("");
+            setCostCenterId("");
+        }
+    }, [formData.account2Type]);
+
     // Handler
     const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -353,6 +362,7 @@ export default function NewTransactionPage() {
                         className="form-select form-select-max"
                         value={budgetPlanId}
                         onChange={e => setBudgetPlanId(e.target.value)}
+                        disabled={!!formData.account2Type}
                         style={{ maxWidth: "220px" }}
                     >
                         <option value="">Kein Budgetplan</option>
