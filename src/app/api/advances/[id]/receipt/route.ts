@@ -3,20 +3,21 @@ import prisma from "@/lib/prisma";
 
 export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const txId = Number(id);
-  if (!txId || isNaN(txId)) {
-    return NextResponse.json({ error: "Ungültige Transaktions-ID" }, { status: 400 });
+  const advId = Number(id);
+  if (!advId || isNaN(advId)) {
+    return NextResponse.json({ error: "Ungültige Auslagen-ID" }, { status: 400 });
   }
-  // Transaktion auslesen
-  const transaction = await prisma.transaction.findUnique({
-    where: { id: txId },
+
+  const advance = await prisma.advances.findUnique({
+    where: { id: advId },
     include: { attachment: true },
   });
-  if (!transaction || !transaction.attachmentId || !transaction.attachment) {
-    return NextResponse.json({ error: "Kein Beleg für diese Transaktion vorhanden." }, { status: 404 });
+
+  if (!advance || !advance.attachmentId || !advance.attachment) {
+    return NextResponse.json({ error: "Kein Beleg für diese Auslage vorhanden." }, { status: 404 });
   }
-  // Attachment auslesen und inline liefern
-  const attachment = transaction.attachment;
+
+  const attachment = advance.attachment;
   const mime = attachment.mimeType || "application/octet-stream";
   const blob = new Blob([attachment.data], { type: mime });
   return new Response(blob, {

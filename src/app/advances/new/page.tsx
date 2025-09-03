@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import NewAdvanceForm from "./NewAdvanceForm.tsx";
+import NewAdvanceForm from "./NewAdvanceForm";
 
 export default async function NewAdvancePage() {
   const accounts = await prisma.clearingAccount.findMany({ select: { id: true, name: true } });

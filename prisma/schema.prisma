@@ -212,6 +212,7 @@ enum budgetPlanState {
 
 enum advanceState {
   open
+  cancelled
   accepted
   rejected
 }
