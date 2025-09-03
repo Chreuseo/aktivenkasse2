@@ -33,6 +33,7 @@ const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
         ],
     Transaktionen: [
         { label: 'Auslage erfassen', href: '/transactions/expense/new' },
+        { label: 'Meine Auslagen', href: '/transactions/expense/mine' },
         { label: 'Auslagenübersicht', href: '/transactions/expenses' },
         { label: 'Letze Transaktionen', href: '/transactions/recent' },
         { label: 'Neue Transaktion', href: '/transactions/new' },
