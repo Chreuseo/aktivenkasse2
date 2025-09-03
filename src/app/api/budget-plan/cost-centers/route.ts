@@ -1,11 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import {NextRequest, NextResponse} from "next/server";
 import prisma from "@/lib/prisma";
+import {AuthorizationType, ResourceType} from "@/app/types/authorization";
+import {checkPermission} from "@/services/authService";
+
 
 // GET: /api/budget-plan/cost-centers?planId=123
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const planId = searchParams.get("planId");
   if (!planId) return NextResponse.json([], { status: 400 });
+
+  const perm = await checkPermission(req, ResourceType.budget_plan, AuthorizationType.read_all)
+
   const costCenters = await prisma.costCenter.findMany({
     where: { budget_planId: Number(planId) },
     select: {
@@ -25,6 +31,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const data = await req.json();
   if (!data.name || !data.budget_planId) return NextResponse.json({ error: "Name und budget_planId erforderlich" }, { status: 400 });
+    const perm = await checkPermission(req, ResourceType.budget_plan, AuthorizationType.write_all)
+        if (!perm.allowed) {
+            return NextResponse.json({ error: "Keine Berechtigung für write_all auf budget_plan" }, { status: 403 });
+        }
   const cc = await prisma.costCenter.create({
     data: {
       name: data.name,

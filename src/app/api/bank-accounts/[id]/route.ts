@@ -25,20 +25,11 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
     const { id: requestedId } = await context.params;
     // Rechtevalidierung für Bankkonto-Detailansicht
     const { userId: tokenUserId } = extractTokenAndUserId(req);
-    let requiredPermission = AuthorizationType.read_all;
     // Prüfe, ob das Konto "eigen" ist (über Nutzer-Account-Verknüpfung)
-    if (tokenUserId && !isNaN(Number(tokenUserId))) {
-        const user = await prisma.user.findUnique({
-            where: { id: Number(tokenUserId) },
-            include: { account: true },
-        });
-        if (user?.accountId && String(user.accountId) === requestedId) {
-            requiredPermission = AuthorizationType.read_own;
-        }
-    }
-    const perm = await checkPermission(req, ResourceType.bank_accounts, requiredPermission);
+
+    const perm = await checkPermission(req, ResourceType.bank_accounts, AuthorizationType.read_all);
     if (!perm.allowed) {
-        return NextResponse.json({ error: `Keine Berechtigung für ${requiredPermission} auf bankAccount`, debug: perm }, { status: 403 });
+        return NextResponse.json({ error: "Keine Berechtigung für read_all auf bank_accounts" }, { status: 403 });
     }
     try {
         const bankAccountId = Number(requestedId);

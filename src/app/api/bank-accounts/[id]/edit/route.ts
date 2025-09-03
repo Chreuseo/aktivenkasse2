@@ -11,20 +11,12 @@ export async function PUT(req: Request, context: { params: { id: string } }) {
   const acc = await prisma.bankAccount.findUnique({ where: { id: idNum } });
   if (!acc) return NextResponse.json({ error: "Bankkonto nicht gefunden" }, { status: 404 });
   // Admin-/Globale Berechtigung zuerst prüfen
-  const permAll = await checkPermission(req, ResourceType.bank_accounts, AuthorizationType.write_all);
-  // Debug: Header, UserId, Permission loggen
-  const debugInfo = {
-    headers: Object.fromEntries(req.headers.entries()),
-    userId,
-    permAll,
-  };
-  if (!permAll.allowed) {
-    const permOwn = await checkPermission(req, ResourceType.bank_accounts, AuthorizationType.read_own);
-    debugInfo.permOwn = permOwn;
-    if (!permOwn.allowed) {
-      return NextResponse.json({ error: "Keine Berechtigung für read_own auf bank_accounts", debug: debugInfo }, { status: 403 });
+
+    const perm = await checkPermission(req, ResourceType.bank_accounts, AuthorizationType.write_all);
+    if (!perm.allowed) {
+      return NextResponse.json({ error: "Keine Berechtigung für write_all auf bank_accounts" }, { status: 403 });
     }
-  }
+
   let data;
   try {
     data = await req.json();
