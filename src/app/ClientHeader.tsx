@@ -32,7 +32,7 @@ const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
         { label: 'Haushaltsabschluss', href: '/budget-plan/finalization' },
         ],
     Transaktionen: [
-        { label: 'Auslage erfassen', href: '/transactions/expense/new' },
+        { label: 'Auslage erfassen', href: '/advances/new' },
         { label: 'Meine Auslagen', href: '/transactions/expense/mine' },
         { label: 'Auslagenübersicht', href: '/transactions/expenses' },
         { label: 'Letze Transaktionen', href: '/transactions/recent' },
