@@ -93,7 +93,7 @@ export default function BulkTransactionPage() {
   const handleRowChange = (idx: number, field: string, value: string) => {
     setRows(prev => prev.map((row, i) => {
       if (i !== idx) return row;
-      let newRow = { ...row, [field]: value };
+      let newRow = { ...row, [field]: value } as any;
       // Wenn Budgetplan geändert, Kostenstelle zurücksetzen
       if (field === "budgetPlanId") newRow.costCenterId = "";
       return newRow;
@@ -125,6 +125,25 @@ export default function BulkTransactionPage() {
     setMessage("");
     setLoading(true);
     try {
+      // Jede Zeile validieren: wenn keine Auswahl (id leer), dann Budgetplan & Kostenstelle Pflicht
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        if (!r.id) {
+          if (!r.budgetPlanId || !r.costCenterId) {
+            setMessage(`❌ Zeile ${i + 1}: Kostenstelle ist Pflicht ohne Auswahl (Budgetplan und Kostenstelle angeben)`);
+            setLoading(false);
+            return;
+          }
+        }
+        // Betrag positiv prüfen
+        const amt = Number(r.amount);
+        if (!isFinite(amt) || amt <= 0) {
+          setMessage(`❌ Zeile ${i + 1}: Ungültiger Betrag`);
+          setLoading(false);
+          return;
+        }
+      }
+
       const token = extractToken(session);
       const formDataObj = new FormData();
       formDataObj.append("date_valued", formData.date_valued);

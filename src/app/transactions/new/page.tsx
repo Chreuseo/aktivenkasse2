@@ -148,6 +148,15 @@ export default function NewTransactionPage() {
         setMessage("");
         setLoading(true);
         try {
+            // Client-Validierung: Ohne Gegenkonto sind Budgetplan & Kostenstelle Pflicht
+            if (!formData.account2Type) {
+                if (!budgetPlanId || !costCenterId) {
+                    setMessage("❌ Kostenstelle ist Pflicht ohne Gegenkonto (Budgetplan und Kostenstelle angeben)");
+                    setLoading(false);
+                    return;
+                }
+            }
+
             const token = extractToken(session);
             const formDataObj = new FormData();
             formDataObj.append("amount", Math.abs(Number(formData.amount)).toString());
@@ -356,13 +365,14 @@ export default function NewTransactionPage() {
                     </label>
                 </div>
                 <label>
-                    Budgetplan (optional)
+                    Budgetplan {formData.account2Type ? "(optional)" : "(Pflicht ohne Gegenkonto)"}
                     <select
                         name="budgetPlanId"
                         className="form-select form-select-max"
                         value={budgetPlanId}
                         onChange={e => setBudgetPlanId(e.target.value)}
                         disabled={!!formData.account2Type}
+                        required={!formData.account2Type}
                         style={{ maxWidth: "220px" }}
                     >
                         <option value="">Kein Budgetplan</option>
@@ -372,13 +382,14 @@ export default function NewTransactionPage() {
                     </select>
                 </label>
                 <label>
-                    Kostenstelle
+                    Kostenstelle {formData.account2Type ? "(optional)" : "(Pflicht ohne Gegenkonto)"}
                     <select
                         name="costCenterId"
                         className="form-select form-select-max"
                         value={costCenterId}
                         onChange={e => setCostCenterId(e.target.value)}
                         disabled={!budgetPlanId}
+                        required={!formData.account2Type}
                         style={{ maxWidth: "220px" }}
                     >
                         <option value="">Bitte wählen</option>

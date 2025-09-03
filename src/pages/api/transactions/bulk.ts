@@ -121,21 +121,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (!row.id) {
-        // Wenn keine Auswahl, aber Kostenstelle angegeben -> als Kostenstellen-Zeile behandeln
-        if (rowCostCenterId) {
-          const signed = mainSign * Math.abs(amountNum); // Kostenstellen-Buchungen spiegeln nun das Vorzeichen der Sammelbuchung
-          let txDescription = description;
-          if (row.description) txDescription += " - " + row.description;
-          costCenterRows.push({
-            amount: signed,
-            description: txDescription,
-            reference,
-            costCenterId: rowCostCenterId,
-          });
-          // NICHT in die Gesamt-Summe aufnehmen
-          continue;
+        // Wenn keine Auswahl, dann MUSS eine Kostenstelle angegeben sein (Budgetplan + Kostenstelle)
+        if (!rowCostCenterId) {
+          return res.status(400).json({ error: `${idxInfo}: Kostenstelle ist Pflicht ohne Auswahl (Budgetplan und Kostenstelle angeben)` });
         }
-        // Ohne Auswahlkonto und ohne Kostenstelle nicht buchen (Frontend erlaubt leere Zeilen)
+        const signed = mainSign * Math.abs(amountNum); // gleiche Richtung wie Hauptbuchung
+        let txDescription = description;
+        if (row.description) txDescription += " - " + row.description;
+        costCenterRows.push({
+          amount: signed,
+          description: txDescription,
+          reference,
+          costCenterId: rowCostCenterId,
+        });
+        // NICHT in die Gesamt-Summe aufnehmen
         continue;
       }
 
@@ -165,11 +164,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
       const result = await prisma.$transaction(async (p) => {
-        // Hauptbuchung anlegen (Summe, ohne Gegenbuchungen der Kostenstellen)
+        // Hauptbuchung anlegen (Summe, ohne Gegenbuchungen der Kostenstellen-Zeilen)
         const mainAcc = await p.account.findUnique({ where: { id: mainAccountId } });
         const mainBal = mainAcc ? Number(mainAcc.balance) : 0;
-        const mainAmt = mainSign * totalAmount; // Kostenstellen sind hier ausgeschlossen
-        let mainNewBal = mainBal + mainAmt;
+        const mainAmt = mainSign * totalAmount; // nur Summe der Gegenkonten-Zeilen
+        const mainNewBal = mainBal + mainAmt;
 
         const mainTx = await p.transaction.create({
           data: {
@@ -202,7 +201,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const acc = await p.account.findUnique({ where: { id: r.accountId } });
           const bal = acc ? Number(acc.balance) : 0;
           const newBal = bal + r.amount;
-          await p.transaction.create({
+          const tx = await p.transaction.create({
             data: {
               amount: r.amount,
               date_valued: new Date(date_valued),
@@ -217,13 +216,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           });
           await p.account.update({ where: { id: r.accountId }, data: { balance: newBal } });
 
-          // we also link mainTx -> counter via counter_transaction relation is symmetric in schema; ensure mainTx remains main
+          // Gegenverknüpfung entsteht implizit über Relation
         }
 
-        // Kostenstellen-Zeilen als eigene Einzelbuchungen anlegen (mit Kostenstelle)
+        // Kostenstellen-Zeilen als eigene Einzelbuchungen anlegen (mit Kostenstelle) auf dem Hauptkonto
         if (costCenterRows.length > 0) {
           for (const ccRow of costCenterRows) {
-            // Buchung auf Hauptkonto in der gleichen Richtung wie mainTx (mainSign)
             const acct = await p.account.findUnique({ where: { id: mainAccountId } });
             const accBal = acct ? Number(acct.balance) : 0;
             const newMainBal2 = accBal + ccRow.amount;
@@ -238,7 +236,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
                 costCenter: { connect: { id: ccRow.costCenterId } },
                 transactionBulk: { connect: { id: bulk.id } },
-                // keine counter_transaction: separate Einzelbuchung
+                // keine counter_transaction
               },
             });
             await p.account.update({ where: { id: mainAccountId }, data: { balance: newMainBal2 } });

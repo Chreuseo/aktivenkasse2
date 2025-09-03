@@ -82,9 +82,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Ungültiger account2Type' });
     }
 
-    // Budget-/Kostenstellen-Konsistenz: Nur OHNE Gegenkonto erlaubt
-    if (a2Type && (budgetPlanId || costCenterId)) {
-      return res.status(400).json({ error: 'Budgetplan/Kostenstelle nur ohne Gegenkonto erlaubt' });
+    // Budget-/Kostenstellen-Konsistenz
+    if (a2Type) {
+      // Mit Gegenkonto sind Budgetplan/Kostenstelle nicht erlaubt
+      if (budgetPlanId || costCenterId) {
+        return res.status(400).json({ error: 'Budgetplan/Kostenstelle nur ohne Gegenkonto erlaubt' });
+      }
+    } else {
+      // Ohne Gegenkonto sind Budgetplan UND Kostenstelle Pflicht
+      if (!budgetPlanId || !costCenterId) {
+        return res.status(400).json({ error: 'Kostenstelle ist Pflicht ohne Gegenkonto (Budgetplan und Kostenstelle angeben)' });
+      }
     }
     if (costCenterId && !budgetPlanId) {
       return res.status(400).json({ error: 'Kostenstelle ohne Budgetplan nicht erlaubt' });
@@ -104,7 +112,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Budget-/Kostenstelle prüfen (Existenz/Zuordnung)
     let costCenterIdNum: number | null = null;
-    if (!a2Type && budgetPlanId && costCenterId) {
+    if (!a2Type) {
+      // Pflicht geprüft; jetzt Existenz und Zugehörigkeit prüfen
       const cc = await prisma.costCenter.findUnique({ where: { id: Number(costCenterId) } });
       if (!cc) {
         return res.status(400).json({ error: 'Kostenstelle nicht gefunden' });
