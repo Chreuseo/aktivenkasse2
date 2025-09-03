@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { checkPermission, getUserIdFromRequest } from "@/services/authService";
+import {getClearingAccountRole} from "@/lib/getUserAuthContext";
 
 function inferOtherFromAccount(acc: any) {
   if (!acc) return null;
@@ -22,7 +23,8 @@ function inferOtherFromAccount(acc: any) {
 
 export async function GET(req: Request, context: any) {
   const { id } = await context.params;
-  const userId = await getUserIdFromRequest(req);
+    const keycloakId = getUserIdFromRequest(req);
+    if (!keycloakId) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
   const idNum = Number(id);
   if (isNaN(idNum)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
   const ca = await prisma.clearingAccount.findUnique({
@@ -35,20 +37,28 @@ export async function GET(req: Request, context: any) {
   });
   if (!ca) return NextResponse.json({ error: "Verrechnungskonto nicht gefunden" }, { status: 404 });
   // Berechtigungsprüfung
-  const permAll = await checkPermission(req, ResourceType.clearing_accounts, AuthorizationType.write_all);
-  let canEdit = false;
-  if (permAll.allowed) {
-    canEdit = true;
-  } else {
-    const isResponsible = ca.responsibleId === Number(userId);
-    if (isResponsible) {
-      const permOwn = await checkPermission(req, ResourceType.clearing_accounts, AuthorizationType.read_own);
-      if (permOwn.allowed) {
-        canEdit = true;
-      }
+  const user_role = await getClearingAccountRole(idNum, keycloakId);
+    switch (user_role) {
+        case "none":
+            const perm = await checkPermission(req, ResourceType.clearing_accounts, AuthorizationType.read_all);
+            if (!perm.allowed) {
+                return NextResponse.json({ error: "Keine Berechtigung für read_all auf clearing_accounts" }, { status: 403 });
+            }
+            break;
+        case "responsible":
+            const perm_resp = await checkPermission(req, ResourceType.clearing_accounts, AuthorizationType.read_own);
+            if (!perm_resp.allowed) {
+                return NextResponse.json({ error: "Keine Berechtigung für read_own auf clearing_accounts" }, { status: 403 });
+            }
+        case "member":
+            const perm_member = await checkPermission(req, ResourceType.clearing_accounts, AuthorizationType.read_own);
+            if (!perm_member.allowed) {
+                return NextResponse.json({ error: "Keine Berechtigung für read_own auf clearing_accounts" }, { status: 403 });
+            }
+            break;
     }
-  }
-  // Transaktionen des zugehörigen Accounts (neues Schema)
+
+    // Transaktionen des zugehörigen Accounts (neues Schema)
   let transactions: any[] = [];
   if (ca.account) {
     transactions = await prisma.transaction.findMany({
@@ -84,9 +94,6 @@ export async function GET(req: Request, context: any) {
     responsibleMail: ca.responsible ? ca.responsible.mail : null,
     balance: ca.account?.balance ? Number(ca.account.balance) : 0,
     reimbursementEligible: ca.reimbursementEligible,
-    // Mitglieder werden entfernt
-    // members: ca.members.map(m => m.user ? { id: m.user.id, name: `${m.user.first_name} ${m.user.last_name}`, mail: m.user.mail } : null).filter(Boolean),
-    canEdit,
     transactions: txs,
   });
 }

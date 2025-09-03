@@ -58,13 +58,6 @@ export default function ClearingAccountOverviewPage({ params }: { params: Promis
       </div>
       <h3 style={{ marginBottom: "0.8rem" }}>Transaktionen</h3>
       <TransactionTable transactions={data.transactions} />
-      {data.canEdit && (
-        <div style={{ marginTop: "2rem" }}>
-          <a href={`/clearing-accounts/${data.id}/edit`}>
-            <button className="button">Bearbeiten</button>
-          </a>
-        </div>
-      )}
     </div>
   );
 }
