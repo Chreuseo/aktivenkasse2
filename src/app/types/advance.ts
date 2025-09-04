@@ -27,4 +27,5 @@ export type AdvanceListItem = {
   user?: string; // zugeordneter Nutzer (Vollname)
   canCancel: boolean;
   receiptUrl?: string;
+  reason?: string;
 };

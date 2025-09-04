@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const advances = await prisma.advances.findMany({
     where,
     orderBy: { date_advance: 'desc' },
-    include: { attachment: true, clearingAccount: true, user: true },
+    include: { attachment: true, clearingAccount: true, user: true, reviewer: true },
   });
 
   const res = advances.map(a => ({
@@ -35,6 +35,8 @@ export async function GET(req: Request) {
     description: a.description,
     state: a.state,
     user: a.user ? `${a.user.first_name} ${a.user.last_name}` : undefined,
+    reviewer: a.reviewer ? { first_name: a.reviewer.first_name, last_name: a.reviewer.last_name } : null,
+    reason: a.reason || undefined,
     clearingAccountId: a.clearingAccountId || undefined,
     clearingAccountName: a.clearingAccount ? a.clearingAccount.name : undefined,
     attachmentId: a.attachmentId || undefined,
@@ -43,4 +45,3 @@ export async function GET(req: Request) {
 
   return NextResponse.json({ advances: res });
 }
-

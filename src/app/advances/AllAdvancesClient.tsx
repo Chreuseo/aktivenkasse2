@@ -119,6 +119,7 @@ export default function AllAdvancesClient() {
         user: a.user || undefined,
         canCancel: false,
         receiptUrl: a.receiptUrl || undefined,
+        reason: a.reason || undefined,
       }));
       setItems(norm);
 
@@ -132,7 +133,7 @@ export default function AllAdvancesClient() {
           budgetPlanId: "",
           costCenterId: "",
           file: null,
-          reason: "",
+          reason: it.reason || "",
           costCenters: [],
         };
       }
@@ -330,7 +331,7 @@ export default function AllAdvancesClient() {
               <th>Bearbeiter</th>
             </tr>
             <tr>
-              <th></th>
+              <th>Einreicher</th>
               <th>Betrag</th>
               <th>Beleg</th>
               <th>Kostenstelle</th>
@@ -404,7 +405,7 @@ export default function AllAdvancesClient() {
                         {it.receiptUrl ? (
                           <a className="button" href={it.receiptUrl} target="_blank" rel="noopener noreferrer">Beleg herunterladen</a>
                         ) : (
-                          <input type="file" onChange={(e) => handleRowChange(it.id, 'file', e.target.files?.[0] || null)} accept="image/*,application/pdf" />
+                          <input type="file" onChange={(e) => handleRowChange(it.id, 'file', (e.target as HTMLInputElement).files?.[0] || null)} accept="image/*,application/pdf" />
                         )}
                       </td>
                       <td>
