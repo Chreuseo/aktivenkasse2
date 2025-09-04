@@ -17,12 +17,13 @@ export default function GeneralTransactionTable({ transactions }: GeneralTransac
           <th>Beschreibung</th>
           <th>Referenz</th>
           <th>Gegenkonto</th>
+          <th>Kostenstelle</th>
           <th>Beleg</th>
         </tr>
       </thead>
       <tbody>
         {transactions.length === 0 && (
-          <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Transaktionen vorhanden</td></tr>
+          <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Transaktionen vorhanden</td></tr>
         )}
         {transactions.map((tx: Transaction) => (
           <tr key={tx.id} className="kc-row">
@@ -48,6 +49,7 @@ export default function GeneralTransactionTable({ transactions }: GeneralTransac
                 </span>
               ) : <span style={{ color: "var(--muted)" }}>-</span>}
             </td>
+            <td>{tx.costCenterLabel ? tx.costCenterLabel : <span style={{ color: "var(--muted)" }}>-</span>}</td>
             <td>
               {tx.receiptUrl ? (
                 <a href={`/api/transactions/${tx.id}/receipt`} target="_blank" rel="noopener noreferrer">
@@ -61,4 +63,3 @@ export default function GeneralTransactionTable({ transactions }: GeneralTransac
     </table>
   );
 }
-

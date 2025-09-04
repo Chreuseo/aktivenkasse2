@@ -39,23 +39,27 @@ export async function GET(req: Request, context: any) {
   // Berechtigungsprüfung
   const user_role = await getClearingAccountRole(idNum, keycloakId);
     switch (user_role) {
-        case "none":
+        case "none": {
             const perm = await checkPermission(req, ResourceType.clearing_accounts, AuthorizationType.read_all);
             if (!perm.allowed) {
                 return NextResponse.json({ error: "Keine Berechtigung für read_all auf clearing_accounts" }, { status: 403 });
             }
             break;
-        case "responsible":
+        }
+        case "responsible": {
             const perm_resp = await checkPermission(req, ResourceType.clearing_accounts, AuthorizationType.read_own);
             if (!perm_resp.allowed) {
                 return NextResponse.json({ error: "Keine Berechtigung für read_own auf clearing_accounts" }, { status: 403 });
             }
-        case "member":
+            break;
+        }
+        case "member": {
             const perm_member = await checkPermission(req, ResourceType.clearing_accounts, AuthorizationType.read_own);
             if (!perm_member.allowed) {
                 return NextResponse.json({ error: "Keine Berechtigung für read_own auf clearing_accounts" }, { status: 403 });
             }
             break;
+        }
     }
 
     // Transaktionen des zugehörigen Accounts (neues Schema)
@@ -70,12 +74,15 @@ export async function GET(req: Request, context: any) {
             account: { include: { users: true, bankAccounts: true, clearingAccounts: true } },
           },
         },
+        costCenter: { include: { budget_plan: true } },
+        attachment: true,
       },
     });
   }
   // Für jede Transaktion: Gegenkonto bestimmen und Details extrahieren
   const txs = transactions.map((tx: any) => {
     const other = tx.counter_transaction ? inferOtherFromAccount(tx.counter_transaction.account) : null;
+    const costCenterLabel = tx.costCenter && tx.costCenter.budget_plan ? `${tx.costCenter.budget_plan.name} - ${tx.costCenter.name}` : undefined;
     return {
       id: tx.id,
       amount: Number(tx.amount),
@@ -84,7 +91,8 @@ export async function GET(req: Request, context: any) {
       reference: tx.reference || undefined,
       other,
       attachmentId: tx.attachmentId || undefined,
-      receiptUrl: tx.attachmentId ? `/api/attachments/${tx.attachmentId}/download` : undefined,
+      receiptUrl: tx.attachmentId ? `/api/transactions/${tx.id}/receipt` : undefined,
+      costCenterLabel,
     };
   });
   return NextResponse.json({

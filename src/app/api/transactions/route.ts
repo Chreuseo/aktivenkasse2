@@ -216,11 +216,13 @@ export async function GET(req: Request) {
       account: { include: { users: true, bankAccounts: true, clearingAccounts: true } },
       counter_transaction: { include: { account: { include: { users: true, bankAccounts: true, clearingAccounts: true } } } },
       attachment: true,
+      costCenter: { include: { budget_plan: true } },
     } as any,
   });
 
   const ui = txs.map((t: any) => {
     const other = t.counter_transaction ? inferOtherFromAccount(t.counter_transaction.account) : null;
+    const costCenterLabel = t.costCenter && t.costCenter.budget_plan ? `${t.costCenter.budget_plan.name} - ${t.costCenter.name}` : undefined;
     return {
       id: t.id,
       amount: Number(t.amount),
@@ -230,6 +232,7 @@ export async function GET(req: Request) {
       other,
       attachmentId: (t as any).attachmentId || undefined,
       receiptUrl: (t as any).attachmentId ? `/api/transactions/${t.id}/receipt` : undefined,
+      costCenterLabel,
     };
   });
 

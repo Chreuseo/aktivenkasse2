@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
-import { checkPermission, extractTokenAndUserId } from "@/services/authService";
+import { checkPermission } from "@/services/authService";
 
 function inferOtherFromAccount(acc: any) {
     if (!acc) return null;
@@ -23,9 +23,7 @@ function inferOtherFromAccount(acc: any) {
 export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
     // params asynchron auflösen
     const { id: requestedId } = await context.params;
-    // Rechtevalidierung für Bankkonto-Detailansicht
-    const { userId: tokenUserId } = extractTokenAndUserId(req);
-    // Prüfe, ob das Konto "eigen" ist (über Nutzer-Account-Verknüpfung)
+    // Rechtevalidierung für Bankkonto-Detailansicht (Token wird nicht weiter genutzt)
 
     const perm = await checkPermission(req, ResourceType.bank_accounts, AuthorizationType.read_all);
     if (!perm.allowed) {
@@ -70,10 +68,13 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
                         account: { include: { users: true, bankAccounts: true, clearingAccounts: true } },
                     },
                 },
+                costCenter: { include: { budget_plan: true } },
+                attachment: true,
             },
         });
         const transactions = transactionsRaw.map((tx: any) => {
             const other = tx.counter_transaction ? inferOtherFromAccount(tx.counter_transaction.account) : null;
+            const costCenterLabel = tx.costCenter && tx.costCenter.budget_plan ? `${tx.costCenter.budget_plan.name} - ${tx.costCenter.name}` : undefined;
             return {
                 id: tx.id,
                 amount: Number(tx.amount),
@@ -82,7 +83,8 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
                 reference: tx.reference || undefined,
                 other,
                 attachmentId: tx.attachmentId || undefined,
-                receiptUrl: tx.attachmentId ? `/api/attachments/${tx.attachmentId}/download` : undefined,
+                receiptUrl: tx.attachmentId ? `/api/transactions/${tx.id}/receipt` : undefined,
+                costCenterLabel,
             };
         });
         // Rückgabe im erwarteten Format

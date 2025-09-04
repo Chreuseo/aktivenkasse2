@@ -40,11 +40,13 @@ export default async function UserDetailPage({ params }: { params: { id: string 
         },
       },
       attachment: true,
+      costCenter: { include: { budget_plan: true } },
     },
   });
 
   const transactions: Transaction[] = transactionsRaw.map((tx: any) => {
     const other = tx.counter_transaction ? inferOtherFromAccount(tx.counter_transaction.account) : null;
+    const costCenterLabel = tx.costCenter && tx.costCenter.budget_plan ? `${tx.costCenter.budget_plan.name} - ${tx.costCenter.name}` : undefined;
     return {
       id: tx.id,
       amount: Number(tx.amount),
@@ -54,6 +56,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
       other,
       attachmentId: tx.attachmentId || undefined,
       receiptUrl: tx.attachmentId ? `/api/attachments/${tx.attachmentId}/download` : undefined,
+      costCenterLabel,
     };
   });
 

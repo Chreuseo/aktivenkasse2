@@ -32,11 +32,13 @@ export default async function GeneralTransactionsPage() {
     include: {
       account: { include: { users: true, bankAccounts: true, clearingAccounts: true } },
       attachment: true,
+        costCenter: { include: { budget_plan: true } },
     } as any,
   });
 
   const transactions: Transaction[] = txsRaw.map((tx: any) => {
     const main = tx.account ? inferOtherFromAccount(tx.account) : null;
+    const costCenterLabel = tx.costCenter && tx.costCenter.budget_plan ? `${tx.costCenter.budget_plan.name} - ${tx.costCenter.name}` : undefined;
     return {
       id: tx.id,
       // Beträge aus Sicht der Kasse negiert anzeigen
@@ -48,6 +50,7 @@ export default async function GeneralTransactionsPage() {
       main,
       attachmentId: tx.attachmentId || undefined,
       receiptUrl: tx.attachmentId ? `/api/transactions/${tx.id}/receipt` : undefined,
+      costCenterLabel,
     };
   });
 
@@ -58,4 +61,3 @@ export default async function GeneralTransactionsPage() {
     </div>
   );
 }
-

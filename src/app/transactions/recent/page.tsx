@@ -29,12 +29,14 @@ export default async function RecentTransactionsPage() {
       account: { include: { users: true, bankAccounts: true, clearingAccounts: true } },
       counter_transaction: { include: { account: { include: { users: true, bankAccounts: true, clearingAccounts: true } } } },
       attachment: true,
+      costCenter: { include: { budget_plan: true } },
     } as any,
   });
 
   const transactions: Transaction[] = txsRaw.map((tx: any) => {
     const main = tx.account ? inferOtherFromAccount(tx.account) : null;
     const other = tx.counter_transaction ? inferOtherFromAccount(tx.counter_transaction.account) : null;
+    const costCenterLabel = tx.costCenter && tx.costCenter.budget_plan ? `${tx.costCenter.budget_plan.name} - ${tx.costCenter.name}` : undefined;
     return {
       id: tx.id,
       amount: Number(tx.amount),
@@ -45,6 +47,7 @@ export default async function RecentTransactionsPage() {
       main,
       attachmentId: tx.attachmentId || undefined,
       receiptUrl: tx.attachmentId ? `/api/transactions/${tx.id}/receipt` : undefined,
+      costCenterLabel,
     };
   });
 

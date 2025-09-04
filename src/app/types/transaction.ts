@@ -20,4 +20,5 @@ export type Transaction = {
     } | null;
     attachmentId?: number; // ID des Belegs
     receiptUrl?: string; // URL zum Download des Belegs
+    costCenterLabel?: string; // Anzeigeformat: "Budgetplan - Kostenstelle"
 };
