@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
-import {getClearingAccountRole} from "@/lib/getUserAuthContext";
 
 export async function GET(req: Request) {
   // Berechtigungsprüfung: read_all für clearing_accounts
