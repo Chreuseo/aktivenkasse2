@@ -45,7 +45,6 @@ const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
         ],
     Konto: [
         { label: 'Übersicht', href: '/account' },
-        { label: 'Einstellungen', href: '/account/settings' },
         { label: 'Abmelden', href: '/api/auth/signout' }
         ],
 };

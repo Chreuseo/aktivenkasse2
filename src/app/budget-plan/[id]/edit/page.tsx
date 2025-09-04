@@ -8,7 +8,6 @@ import "../../../css/edit-form.css";
 
 const budgetPlanStates = [
   { value: "draft", label: "Entwurf" },
-  { value: "default", label: "Standard" },
   { value: "active", label: "Aktiv" },
   { value: "closed", label: "Geschlossen" },
 ];
@@ -24,6 +23,8 @@ export default function EditBudgetPlanPage({ params }: { params: Promise<{ id: s
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [formLoading, setFormLoading] = useState(true);
+
+  const isClosed = formData.state === "closed";
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -57,12 +58,17 @@ export default function EditBudgetPlanPage({ params }: { params: Promise<{ id: s
   }, [session, status, id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    if (isClosed) return;
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage("");
+    if (isClosed) {
+      setMessage("❌ Dieser Haushaltsplan ist geschlossen und kann nicht bearbeitet werden.");
+      return;
+    }
     setLoading(true);
     if (status !== "authenticated") {
       setMessage("❌ Keine Session oder Token gefunden. Bitte neu einloggen.");
@@ -108,7 +114,7 @@ export default function EditBudgetPlanPage({ params }: { params: Promise<{ id: s
         <form onSubmit={handleSubmit} className="edit-form">
           <label>
             Name
-            <input type="text" name="name" value={formData.name} onChange={handleChange} required />
+            <input type="text" name="name" value={formData.name} onChange={handleChange} required disabled={isClosed} />
           </label>
           <label>
             Beschreibung <span className="desc-optional">(optional)</span>
@@ -119,17 +125,21 @@ export default function EditBudgetPlanPage({ params }: { params: Promise<{ id: s
               rows={4}
               className="edit-form-description"
               placeholder="Beschreibe den Haushaltsplan, z.B. Zweck, Zeitraum oder Besonderheiten ..."
+              disabled={isClosed}
             />
           </label>
           <label>
             Status
-            <select name="state" value={formData.state} onChange={handleChange} className="edit-form-select" required>
+            <select name="state" value={formData.state} onChange={handleChange} className="edit-form-select" required disabled={isClosed}>
               {budgetPlanStates.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
           </label>
-          <button className="button" type="submit" disabled={loading}>Speichern</button>
+          <button className="button" type="submit" disabled={loading || isClosed}>Speichern</button>
+          {isClosed && (
+            <p className="edit-message">Dieser Haushaltsplan ist geschlossen und kann nicht mehr bearbeitet werden.</p>
+          )}
         </form>
       )}
       {message && <p className="edit-message">{message}</p>}

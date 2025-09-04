@@ -128,6 +128,14 @@ export async function POST(req: Request) {
     if (cc.budget_planId !== Number(budgetPlanId)) {
       return NextResponse.json({ error: 'Kostenstelle gehört nicht zum Budgetplan' }, { status: 400 });
     }
+    // Budgetplan muss aktiv sein
+    const plan = await prisma.budgetPlan.findUnique({ where: { id: Number(budgetPlanId) }, select: { state: true } });
+    if (!plan) {
+      return NextResponse.json({ error: 'Budgetplan nicht gefunden' }, { status: 400 });
+    }
+    if (plan.state !== 'active') {
+      return NextResponse.json({ error: 'Budgetplan ist nicht aktiv' }, { status: 400 });
+    }
     costCenterIdNum = cc.id;
   }
 

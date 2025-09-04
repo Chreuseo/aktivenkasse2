@@ -17,10 +17,13 @@ export async function POST(req: Request, context: { params: { id: string } }) {
     return NextResponse.json({ error: "Keine Berechtigung für write_all auf budget_plan" }, { status: 403 });
   }
 
-  // Prüfen, ob Plan existiert
-  const plan = await prisma.budgetPlan.findUnique({ where: { id: planId }, select: { id: true } });
+  // Prüfen, ob Plan existiert und nicht geschlossen ist
+  const plan = await prisma.budgetPlan.findUnique({ where: { id: planId }, select: { id: true, state: true } });
   if (!plan) {
     return NextResponse.json({ error: "BudgetPlan nicht gefunden" }, { status: 404 });
+  }
+  if (plan.state === "closed") {
+    return NextResponse.json({ error: "BudgetPlan ist geschlossen und kann nicht bearbeitet werden" }, { status: 409 });
   }
 
   // Kostenstellen des Plans laden
@@ -39,33 +42,30 @@ export async function POST(req: Request, context: { params: { id: string } }) {
     select: { costCenterId: true, amount: true },
   });
 
-  const updates: Promise<unknown>[] = [];
   const results: Array<{ id: number; earnings_actual: number; costs_actual: number }> = [];
 
-  // Äußere Schleife: Kostenstellen; Innere Schleife: Transaktionen
-  for (const cc of costCenters) {
-    let earnings = 0; // Einnahmen (positiver Betrag, absolut)
-    let costs = 0; // Ausgaben (positiver Betrag, absolut)
-    for (const t of transactions) {
-      if (t.costCenterId !== cc.id) continue;
-      const val = Number(t.amount);
-      // Aus Sicht der Kasse: negative Beträge sind Einnahmen, positive Ausgaben
-      if (val < 0) {
-        earnings += Math.abs(val);
-      } else if (val > 0) {
-        costs += val;
+  // Transaktionale Aktualisierung
+  await prisma.$transaction(async (tx) => {
+    for (const cc of costCenters) {
+      let earnings = 0; // Einnahmen (positiver Betrag, absolut)
+      let costs = 0; // Ausgaben (positiver Betrag, absolut)
+      for (const t of transactions) {
+        if (t.costCenterId !== cc.id) continue;
+        const val = Number(t.amount);
+        // Aus Sicht der Kasse: negative Beträge sind Einnahmen, positive Ausgaben
+        if (val < 0) {
+          earnings += Math.abs(val);
+        } else if (val > 0) {
+          costs += val;
+        }
       }
+      await tx.costCenter.update({
+        where: { id: cc.id },
+        data: { earnings_actual: earnings, costs_actual: costs },
+      });
+      results.push({ id: cc.id, earnings_actual: earnings, costs_actual: costs });
     }
-    updates.push(prisma.costCenter.update({
-      where: { id: cc.id },
-      data: { earnings_actual: earnings, costs_actual: costs },
-    }));
-    results.push({ id: cc.id, earnings_actual: earnings, costs_actual: costs });
-  }
-
-  if (updates.length > 0) {
-    await prisma.$transaction(updates);
-  }
+  });
 
   return NextResponse.json({ success: true, updated: results });
 }

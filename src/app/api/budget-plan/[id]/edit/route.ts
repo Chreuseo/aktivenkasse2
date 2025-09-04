@@ -12,6 +12,14 @@ export async function PUT(req: Request, context: { params: { id: string } }) {
   if (!perm.allowed) {
     return NextResponse.json({ error: "Keine Berechtigung für write_all auf budget_plan" }, { status: 403 });
   }
+  // Plan laden und auf Status prüfen
+  const existing = await prisma.budgetPlan.findUnique({ where: { id: idNum }, select: { state: true } });
+  if (!existing) {
+    return NextResponse.json({ error: "BudgetPlan nicht gefunden" }, { status: 404 });
+  }
+  if (existing.state === "closed") {
+    return NextResponse.json({ error: "BudgetPlan ist geschlossen und kann nicht bearbeitet werden" }, { status: 409 });
+  }
   let data;
   try {
     data = await req.json();
@@ -34,4 +42,3 @@ export async function PUT(req: Request, context: { params: { id: string } }) {
     return NextResponse.json({ error: "Fehler beim Aktualisieren", detail: error?.message }, { status: 500 });
   }
 }
-

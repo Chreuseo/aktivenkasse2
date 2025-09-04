@@ -55,23 +55,30 @@ export default function CostCentersPage() {
     load();
   }, [planId, session]);
 
+  const isClosed = plan?.state === 'closed';
+
   function handleEdit(id: number, field: keyof CostCenter, value: any) {
+    if (isClosed) return;
     setEditRows(r => ({ ...r, [id]: { ...r[id], [field]: value } }));
   }
 
   function handleAddNewRow() {
+    if (isClosed) return;
     setNewRows(rows => [...rows, { name: "", earnings_expected: 0, costs_expected: 0 }]);
   }
 
   function handleNewRowChange(index: number, field: keyof CostCenter, value: any) {
+    if (isClosed) return;
     setNewRows(rows => rows.map((row, i) => i === index ? { ...row, [field]: value } : row));
   }
 
   function handleDeleteNewRow(index: number) {
+    if (isClosed) return;
     setNewRows(rows => rows.filter((_, i) => i !== index));
   }
 
   async function handleSave() {
+    if (isClosed) return;
     setSaving(true);
     setError(null);
     try {
@@ -114,13 +121,13 @@ export default function CostCentersPage() {
             earnings_expected: newRows[i].earnings_expected ?? 0,
             costs_expected: newRows[i].costs_expected ?? 0,
             nextCostCenter: undefined,
-          });
+          } as CostCenter);
         }
       }
       // Setze nextCostCenter für jede Kostenstelle
       for (let i = 0; i < allCostCenters.length; i++) {
         const cc = allCostCenters[i];
-        const nextId = allCostCenters[i + 1]?.id ?? null;
+        const nextId = (allCostCenters[i + 1] as CostCenter | undefined)?.id ?? null;
         await fetchJson(`/api/budget-plan/cost-centers/${cc.id}`, {
           method: "PATCH",
           headers: {
@@ -169,6 +176,7 @@ export default function CostCentersPage() {
   }
 
   async function handleDelete(id: number) {
+    if (isClosed) return;
     setSaving(true);
     setError(null);
     try {
@@ -204,16 +212,17 @@ export default function CostCentersPage() {
   const sortedCostCenters = getSortedCostCenters(plan, costCenters);
 
   const handleMoveUp = async (idx: number) => {
-    if (idx === 0) return;
+    if (isClosed || idx === 0) return;
     await updateOrder(idx, idx - 1);
   };
 
   const handleMoveDown = async (idx: number) => {
-    if (idx === sortedCostCenters.length - 1) return;
+    if (isClosed || idx === sortedCostCenters.length - 1) return;
     await updateOrder(idx, idx + 1);
   };
 
   const updateOrder = (fromIdx: number, toIdx: number) => {
+    if (isClosed) return;
     const arr = [...sortedCostCenters];
     const moved = arr.splice(fromIdx, 1)[0];
     arr.splice(toIdx, 0, moved);
@@ -257,36 +266,36 @@ export default function CostCentersPage() {
           {sortedCostCenters.map((cc, idx) => (
             <tr key={cc.id} className="kc-row">
               <td>
-                <input type="text" className="kc-input" value={editRows[cc.id]?.name ?? cc.name} onChange={e => handleEdit(cc.id, "name", e.target.value)} />
+                <input type="text" className="kc-input" value={editRows[cc.id]?.name ?? cc.name} onChange={e => handleEdit(cc.id, "name", e.target.value)} disabled={isClosed} />
               </td>
               <td>
-                <input type="number" className="kc-input" value={editRows[cc.id]?.earnings_expected ?? cc.earnings_expected} onChange={e => handleEdit(cc.id, "earnings_expected", parseFloat(e.target.value))} />
+                <input type="number" className="kc-input" value={editRows[cc.id]?.earnings_expected ?? cc.earnings_expected} onChange={e => handleEdit(cc.id, "earnings_expected", parseFloat(e.target.value))} disabled={isClosed} />
               </td>
               <td>
-                <input type="number" className="kc-input" value={editRows[cc.id]?.costs_expected ?? cc.costs_expected} onChange={e => handleEdit(cc.id, "costs_expected", parseFloat(e.target.value))} />
+                <input type="number" className="kc-input" value={editRows[cc.id]?.costs_expected ?? cc.costs_expected} onChange={e => handleEdit(cc.id, "costs_expected", parseFloat(e.target.value))} disabled={isClosed} />
               </td>
               <td>
                 {((editRows[cc.id]?.earnings_expected ?? cc.earnings_expected) - (editRows[cc.id]?.costs_expected ?? cc.costs_expected)).toFixed(2)} €
               </td>
               <td style={{ display: "flex", gap: "0.3rem" }}>
-                <button className="button" onClick={() => handleMoveUp(idx)} disabled={idx === 0}>↑</button>
-                <button className="button" onClick={() => handleMoveDown(idx)} disabled={idx === sortedCostCenters.length - 1}>↓</button>
+                <button className="button" onClick={() => handleMoveUp(idx)} disabled={isClosed || idx === 0}>↑</button>
+                <button className="button" onClick={() => handleMoveDown(idx)} disabled={isClosed || idx === sortedCostCenters.length - 1}>↓</button>
               </td>
               <td>
-                <button className="button" onClick={() => handleDelete(cc.id)}>Löschen</button>
+                <button className="button" onClick={() => handleDelete(cc.id)} disabled={isClosed}>Löschen</button>
               </td>
             </tr>
           ))}
           {newRows.map((row, idx) => (
             <tr key={"new-"+idx} className="kc-row">
               <td>
-                <input type="text" className="kc-input" value={row.name ?? ""} onChange={e => handleNewRowChange(idx, "name", e.target.value)} placeholder="Neue Kostenstelle" />
+                <input type="text" className="kc-input" value={row.name ?? ""} onChange={e => handleNewRowChange(idx, "name", e.target.value)} placeholder="Neue Kostenstelle" disabled={isClosed} />
               </td>
               <td>
-                <input type="number" className="kc-input" value={row.earnings_expected ?? ""} onChange={e => handleNewRowChange(idx, "earnings_expected", parseFloat(e.target.value))} placeholder="Einnahmen" />
+                <input type="number" className="kc-input" value={row.earnings_expected ?? ""} onChange={e => handleNewRowChange(idx, "earnings_expected", parseFloat(e.target.value))} placeholder="Einnahmen" disabled={isClosed} />
               </td>
               <td>
-                <input type="number" className="kc-input" value={row.costs_expected ?? ""} onChange={e => handleNewRowChange(idx, "costs_expected", parseFloat(e.target.value))} placeholder="Ausgaben" />
+                <input type="number" className="kc-input" value={row.costs_expected ?? ""} onChange={e => handleNewRowChange(idx, "costs_expected", parseFloat(e.target.value))} placeholder="Ausgaben" disabled={isClosed} />
               </td>
               <td>
                 {((row.earnings_expected ?? 0) - (row.costs_expected ?? 0)).toFixed(2)} €
@@ -296,15 +305,15 @@ export default function CostCentersPage() {
                 <button className="button" disabled>↓</button>
               </td>
               <td>
-                <button className="button" onClick={() => handleDeleteNewRow(idx)} disabled={saving}>Löschen</button>
+                <button className="button" onClick={() => handleDeleteNewRow(idx)} disabled={saving || isClosed}>Löschen</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
       <div style={{ display: "flex", gap: "1rem", marginTop: "1.2rem" }}>
-        <button className="button" onClick={handleAddNewRow} disabled={saving}>Zeile hinzufügen</button>
-        <button className="button" onClick={handleSave} disabled={saving}>Speichern</button>
+        <button className="button" onClick={handleAddNewRow} disabled={saving || isClosed}>Zeile hinzufügen</button>
+        <button className="button" onClick={handleSave} disabled={saving || isClosed}>Speichern</button>
       </div>
       <div style={{ marginTop: "1rem" }}>
         <Link href="/budget-plan">

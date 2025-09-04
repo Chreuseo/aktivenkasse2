@@ -130,12 +130,15 @@ export async function POST(req: Request) {
     }
     let rowCostCenterId: number | undefined = undefined;
     if (row.budgetPlanId && row.costCenterId) {
-      const cc = await prisma.costCenter.findUnique({ where: { id: Number(row.costCenterId) } });
+      const cc = await prisma.costCenter.findUnique({ where: { id: Number(row.costCenterId) }, include: { budget_plan: { select: { id: true, state: true } } } as any });
       if (!cc) {
         return NextResponse.json({ error: `${idxInfo}: Kostenstelle nicht gefunden` }, { status: 400 });
       }
       if (cc.budget_planId !== Number(row.budgetPlanId)) {
         return NextResponse.json({ error: `${idxInfo}: Kostenstelle gehört nicht zum Budgetplan` }, { status: 400 });
+      }
+      if (!cc.budget_plan || cc.budget_plan.state !== 'active') {
+        return NextResponse.json({ error: `${idxInfo}: Budgetplan ist nicht aktiv` }, { status: 400 });
       }
       rowCostCenterId = cc.id;
     }

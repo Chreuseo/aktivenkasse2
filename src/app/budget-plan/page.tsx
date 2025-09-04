@@ -52,37 +52,44 @@ export default function BudgetPlanOverview() {
             <th>Status</th>
             <th>Bearbeiten</th>
             <th>Kostenstellen</th>
-              <th>Details</th>
+            <th>Details</th>
           </tr>
         </thead>
         <tbody>
-          {plans.map(plan => (
-            <tr key={plan.id} className="kc-row">
-              <td>{plan.name}</td>
-              <td>{new Date(plan.createdAt).toLocaleDateString("de-DE")}</td>
-              <td>{new Date(plan.updatedAt).toLocaleDateString("de-DE")}</td>
-              <td>{statusNames[plan.state] ?? plan.state}</td>
-              <td>
-                <Link href={`/budget-plan/${plan.id}/edit`}>
-                  <button className="button">
-                    Bearbeiten
-                  </button>
-                </Link>
-              </td>
-              <td>
-                <Link href={`/budget-plan/cost-centers/?planId=${plan.id}`}>
-                  <button className="button">Kostenstellen</button>
-                </Link>
-              </td>
+          {plans.map(plan => {
+            const isClosed = plan.state === 'closed';
+            return (
+              <tr key={plan.id} className="kc-row">
+                <td>{plan.name}</td>
+                <td>{new Date(plan.createdAt).toLocaleDateString("de-DE")}</td>
+                <td>{new Date(plan.updatedAt).toLocaleDateString("de-DE")}</td>
+                <td>{statusNames[plan.state] ?? plan.state}</td>
+                <td>
+                  {isClosed ? (
+                    <button className="button" disabled>Bearbeiten</button>
+                  ) : (
+                    <Link href={`/budget-plan/${plan.id}/edit`}>
+                      <button className="button">Bearbeiten</button>
+                    </Link>
+                  )}
+                </td>
+                <td>
+                  {isClosed ? (
+                    <button className="button" disabled>Kostenstellen</button>
+                  ) : (
+                    <Link href={`/budget-plan/cost-centers/?planId=${plan.id}`}>
+                      <button className="button">Kostenstellen</button>
+                    </Link>
+                  )}
+                </td>
                 <td>
                   <Link href={`/budget-plan/${plan.id}/details`}>
-                    <button className="button">
-                      Details
-                    </button>
+                    <button className="button">Details</button>
                   </Link>
                 </td>
-            </tr>
-          ))}
+              </tr>
+            );
+          })}
           {plans.length === 0 && !loading && (
             <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Haushaltspläne gefunden</td></tr>
           )}

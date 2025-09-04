@@ -72,7 +72,7 @@ export default function AllAdvancesClient() {
       const res = await fetch("/api/budget-plan", { headers });
       if (!res.ok) return setBudgetPlans([]);
       const json = await res.json();
-      if (Array.isArray(json)) setBudgetPlans(json);
+      if (Array.isArray(json)) setBudgetPlans(json.filter((p: any) => p?.state === "active"));
       else setBudgetPlans([]);
     } catch {
       setBudgetPlans([]);

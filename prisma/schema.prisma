@@ -210,7 +210,6 @@ enum AuthorizationType {
 
 enum budgetPlanState {
   draft
-  default
   active
   closed
 }

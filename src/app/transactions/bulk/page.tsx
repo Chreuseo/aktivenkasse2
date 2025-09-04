@@ -63,7 +63,7 @@ export default function BulkTransactionPage() {
     fetchJson("/api/users", { headers }).then(setUserOptions).catch(() => setUserOptions([]));
     fetchJson("/api/bank-accounts", { headers }).then(setBankOptions).catch(() => setBankOptions([]));
     fetchJson("/api/clearing-accounts", { headers }).then(setClearingOptions).catch(() => setClearingOptions([]));
-    fetchJson("/api/budget-plan", { headers }).then(setBudgetPlans).catch(() => setBudgetPlans([]));
+    fetchJson("/api/budget-plan", { headers }).then(list => setBudgetPlans(Array.isArray(list) ? list.filter((p: any) => p?.state === 'active') : [])).catch(() => setBudgetPlans([]));
   }, [session]);
 
   useEffect(() => {

@@ -58,9 +58,10 @@ export default function BudgetPlanDetailsPage() {
   }, [planId, session]);
 
   const sortedCostCenters = getSortedCostCenters(plan, costCenters);
+  const isClosed = plan?.state === 'closed';
 
   async function handleRecalculate() {
-    if (!plan) return;
+    if (!plan || isClosed) return;
     setRecalculating(true);
     setError(null);
     try {
@@ -115,7 +116,7 @@ export default function BudgetPlanDetailsPage() {
       {loading && <div style={{ color: "var(--muted)", marginBottom: 12 }}>Lade Daten ...</div>}
       {error && <div style={{ color: "var(--accent)", marginBottom: 12 }}>{error}</div>}
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
-        <button className="button" onClick={handleRecalculate} disabled={recalculating || loading || !costCenters.length}>
+        <button className="button" onClick={handleRecalculate} disabled={isClosed || recalculating || loading || !costCenters.length}>
           {recalculating ? "Berechne ..." : "Neu berechnen"}
         </button>
       </div>
