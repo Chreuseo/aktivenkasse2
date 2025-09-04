@@ -95,13 +95,23 @@ export async function GET(req: Request, context: any) {
       costCenterLabel,
     };
   });
+
+  // Mitglieder in das erwartete Frontend-Format mappen
+  const members = (ca.members || []).map((m: any) => ({
+    id: m.user.id,
+    name: `${m.user.first_name} ${m.user.last_name}`,
+    mail: m.user.mail,
+  }));
+
   return NextResponse.json({
     id: ca.id,
     name: ca.name,
     responsible: ca.responsible ? `${ca.responsible.first_name} ${ca.responsible.last_name}` : null,
     responsibleMail: ca.responsible ? ca.responsible.mail : null,
+    responsibleId: ca.responsibleId ?? null,
     balance: ca.account?.balance ? Number(ca.account.balance) : 0,
     reimbursementEligible: ca.reimbursementEligible,
+    members,
     transactions: txs,
   });
 }

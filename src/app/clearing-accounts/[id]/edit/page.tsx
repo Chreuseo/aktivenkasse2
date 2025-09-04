@@ -22,18 +22,9 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
 
     useEffect(() => {
         async function loadData() {
+            const token = extractToken(session);
+            // 1) Clearing-Account zuerst laden (damit Mitglieder immer angezeigt werden)
             try {
-                const token = extractToken(session);
-                // Alle User
-                const usersJson = await fetchJson("/api/users", {
-                    method: "GET",
-                    headers: {
-                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                        "Content-Type": "application/json",
-                    },
-                });
-                setUsers(usersJson);
-                // Kontodaten
                 const caJson = await fetchJson(`/api/clearing-accounts/${id}`, {
                     method: "GET",
                     headers: {
@@ -42,13 +33,30 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
                     },
                 });
                 setFormData({
-                    name: caJson.name,
+                    name: caJson.name || "",
                     responsibleId: caJson.responsibleId ? String(caJson.responsibleId) : "",
                     reimbursementEligible: !!caJson.reimbursementEligible,
                 });
-                setMembers(caJson.members || []);
+                setMembers(Array.isArray(caJson.members) ? caJson.members : []);
             } catch (err: any) {
-                setMessage("❌ Fehler beim Laden: " + err.message);
+                setMessage("❌ Fehler beim Laden des Kontos: " + err.message);
+                return; // Ohne Konto keine Bearbeitung möglich
+            }
+
+            // 2) Nutzerliste getrennt laden; Fehler hier sollen die Mitgliederanzeige nicht verhindern
+            try {
+                const usersJson = await fetchJson("/api/users", {
+                    method: "GET",
+                    headers: {
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                        "Content-Type": "application/json",
+                    },
+                });
+                setUsers(usersJson);
+            } catch (err: any) {
+                // Keine harten Fehler; Anzeige der Mitglieder weiterhin möglich
+                setMessage(prev => prev ? prev + "\n" : "" + "⚠️ Nutzerliste konnte nicht geladen werden: " + err.message);
+                setUsers([]);
             }
         }
         loadData();
