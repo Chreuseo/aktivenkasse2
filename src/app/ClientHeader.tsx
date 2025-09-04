@@ -37,12 +37,11 @@ const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
         { label: 'Auslagenübersicht', href: '/advances' },
         { label: 'Letze Transaktionen', href: '/transactions/recent' },
         { label: 'Neue Transaktion', href: '/transactions/new' },
-        { label: 'Sammeltransaktionen', href: '/transactions/bulk' }
+        { label: 'Sammeltransaktion', href: '/transactions/bulk' }
         ],
     Prozesse: [
         { label: 'Mailversand', href: '/processes/mail' },
-        { label: 'Daten-Export', href: '/processes/export' },
-        { label: 'geplante Aufgaben', href: '/processes/scheduled-tasks' }
+        { label: 'Daten-Export', href: '/processes/export' }
         ],
     Konto: [
         { label: 'Übersicht', href: '/account' },

@@ -24,6 +24,7 @@ export type AdvanceListItem = {
   attachmentId: number | null;
   state: AdvanceState;
   reviewer: { first_name: string; last_name: string } | null;
+  user?: string; // zugeordneter Nutzer (Vollname)
   canCancel: boolean;
   receiptUrl?: string;
 };

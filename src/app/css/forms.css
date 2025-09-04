@@ -133,3 +133,112 @@
     width: 100%;
     max-width: 1600px;
 }
+
+/* Styles for inputs/selects inside advances table */
+.advances-table input[type="text"],
+.advances-table input[type="number"],
+.advances-table select,
+.advances-table input[type="file"] {
+    padding: 0.4rem 0.5rem;
+    border: 1px solid #3b3b44;
+    border-radius: 6px;
+    background: #141416;
+    color: #e6e6e6;
+    font-size: 0.95rem;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.advances-table input[type="text"]:focus,
+.advances-table input[type="number"]:focus,
+.advances-table select:focus,
+.advances-table input[type="file"]:focus {
+    outline: none;
+    border-color: #facc15;
+    box-shadow: 0 0 0 3px rgba(250,204,21,0.08);
+}
+
+/* Narrow file input appearance */
+.advances-table input[type="file"] {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.85rem;
+}
+
+/* Table buttons styling */
+.advances-table .button {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.95rem;
+    border-radius: 6px;
+    background-color: #1e293b;
+    color: #facc15;
+    border: 1px solid transparent;
+    cursor: pointer;
+}
+
+.advances-table .button:hover {
+    background-color: #263248;
+}
+
+/* Accept / Decline visual cues */
+.advances-table button[title="Annehmen"] {
+    background-color: #10b981;
+    color: white;
+}
+.advances-table button[title="Annehmen"]:hover {
+    background-color: #0ea46d;
+}
+
+.advances-table button[title="Ablehnen"] {
+    background-color: #ef4444;
+    color: white;
+}
+.advances-table button[title="Ablehnen"]:hover {
+    background-color: #dc2626;
+}
+
+/* Reduce visual clutter in table cells */
+.kc-table td input, .kc-table td select {
+    width: 100%;
+    max-width: 220px;
+}
+
+.kc-table td {
+    vertical-align: middle;
+}
+
+/* Reason input shorter */
+.kc-table td input[type="text"] {
+    padding: 0.35rem 0.45rem;
+}
+
+/* Small responsive adjustments */
+@media (max-width: 900px) {
+    .kc-table td input, .kc-table td select {
+        max-width: 140px;
+    }
+}
+
+/* Disabled select styling to make it more obvious (advances table) */
+.advances-table select:disabled,
+.advances-table select[disabled] {
+    background: linear-gradient(180deg, #1f1f22 0%, #252528 100%);
+    color: #9ca3af; /* muted text */
+    border: 1px dashed #3a3a3f;
+    cursor: not-allowed;
+    opacity: 1; /* keep color visible */
+    font-style: italic;
+}
+
+/* Disabled file input appearance */
+.advances-table input[type="file"]:disabled {
+    background: #1f1f22;
+    color: #9ca3af;
+    border: 1px dashed #3a3a3f;
+    cursor: not-allowed;
+    font-style: italic;
+}
+
+/* Slightly stronger contrast for placeholder / muted value in disabled selects */
+.advances-table select:disabled option[value=""] {
+    color: #9ca3af;
+}

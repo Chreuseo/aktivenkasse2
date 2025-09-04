@@ -21,6 +21,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Keine Berechtigung für write_all auf transactions' }, { status: 403 });
   }
 
+  // Aktuellen DB-User ermitteln (numeric ID oder Keycloak-ID)
+  const currentUser = !isNaN(Number(userId))
+    ? await prisma.user.findUnique({ where: { id: Number(userId) } })
+    : await prisma.user.findUnique({ where: { keycloak_id: String(userId) } });
+  if (!currentUser) {
+    return NextResponse.json({ error: 'Benutzer nicht gefunden' }, { status: 403 });
+  }
+
   let formData: FormData;
   try {
     formData = await req.formData();
@@ -177,6 +185,7 @@ export async function POST(req: Request) {
           account: { connect: { id: mainAccountId } },
           accountValueAfter: mainNewBal,
           ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
+          createdBy: { connect: { id: currentUser.id } },
         },
       });
       await p.account.update({ where: { id: mainAccountId }, data: { balance: mainNewBal } });
@@ -208,6 +217,7 @@ export async function POST(req: Request) {
             ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
             transactionBulk: { connect: { id: bulk.id } },
             counter_transaction: { connect: { id: mainTx.id } },
+            createdBy: { connect: { id: currentUser.id } },
           },
         });
         await p.account.update({ where: { id: r.accountId }, data: { balance: newBal } });
@@ -229,6 +239,7 @@ export async function POST(req: Request) {
               ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
               costCenter: { connect: { id: ccRow.costCenterId } },
               transactionBulk: { connect: { id: bulk.id } },
+              createdBy: { connect: { id: currentUser.id } },
             },
           });
           await p.account.update({ where: { id: mainAccountId }, data: { balance: newMainBal2 } });

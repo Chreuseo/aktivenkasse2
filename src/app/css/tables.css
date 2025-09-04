@@ -51,6 +51,11 @@
   border-bottom: 1px solid #ccc;
 }
 
+/* Dickere Trennlinie am Ende eines Eintrags (zweite Zeile) */
+.kc-table tbody tr.kc-entry-end {
+  border-bottom: 4px solid #9aa4b2; /* etwas dunkler als Standardlinie */
+}
+
 /* hover & selectable */
 .kc-row {
   transition: background 0.12s ease;
