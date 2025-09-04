@@ -31,6 +31,7 @@ export default function BudgetPlanDetailsPage() {
         const token = extractToken(session);
         const planRes = await fetchJson(`/api/budget-plan/${planId}`, {
           method: "GET",
+          cache: "no-store",
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
             "Content-Type": "application/json",
@@ -39,14 +40,16 @@ export default function BudgetPlanDetailsPage() {
         setPlan(planRes);
         const ccRes = await fetchJson(`/api/budget-plan/cost-centers?planId=${planId}`, {
           method: "GET",
+          cache: "no-store",
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
             "Content-Type": "application/json",
           },
         });
         setCostCenters(ccRes);
-      } catch (e: any) {
-        setError(e?.message || String(e));
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : String(e);
+        setError(message);
       } finally {
         setLoading(false);
       }
@@ -57,32 +60,32 @@ export default function BudgetPlanDetailsPage() {
   const sortedCostCenters = getSortedCostCenters(plan, costCenters);
 
   async function handleRecalculate() {
-    if (!plan || !costCenters.length) return;
+    if (!plan) return;
     setRecalculating(true);
     setError(null);
     try {
       const token = extractToken(session);
-      // Für jede Kostenstelle recalculation ausführen
-      for (const cc of costCenters) {
-        await fetchJson(`/api/budget-plan/cost-centers/${cc.id}/recalculate`, {
-          method: "POST",
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            "Content-Type": "application/json",
-          },
-        });
-      }
+      // Recalculate für den gesamten Budget-Plan in einem Aufruf
+      await fetchJson(`/api/budget-plan/${planId}/recalculate`, {
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          "Content-Type": "application/json",
+        },
+      });
       // Nach Abschluss neu laden
       const ccRes = await fetchJson(`/api/budget-plan/cost-centers?planId=${planId}`, {
         method: "GET",
+        cache: "no-store",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           "Content-Type": "application/json",
         },
       });
       setCostCenters(ccRes);
-    } catch (e: any) {
-      setError(e?.message || String(e));
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
     } finally {
       setRecalculating(false);
     }

@@ -11,6 +11,9 @@ export async function GET(req: NextRequest) {
   if (!planId) return NextResponse.json([], { status: 400 });
 
   const perm = await checkPermission(req, ResourceType.budget_plan, AuthorizationType.read_all)
+  if (!perm.allowed) {
+    return NextResponse.json({ error: "Keine Berechtigung für read_all auf budget_plan" }, { status: 403 });
+  }
 
   const costCenters = await prisma.costCenter.findMany({
     where: { budget_planId: Number(planId) },
@@ -20,6 +23,8 @@ export async function GET(req: NextRequest) {
       description: true,
       earnings_expected: true,
       costs_expected: true,
+      earnings_actual: true,
+      costs_actual: true,
       nextCostCenter: true,
     },
     orderBy: { id: "asc" },

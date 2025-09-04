@@ -1,10 +1,10 @@
-import {NextRequest, NextResponse} from "next/server";
+import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import {checkPermission} from "@/services/authService";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 
 // POST: /api/budget-plan/cost-centers/[id]/recalculate
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: { id: string } }) {
   const id = Number(params.id);
   if (!id) return NextResponse.json({ error: "ID erforderlich" }, { status: 400 });
 
@@ -13,18 +13,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Keine Berechtigung für write_all auf budget_plan" }, { status: 403 });
   }
 
-  // Hole alle Transaktionen mit costCenterId = id (neues Schema, signed amounts)
+  // Hole alle Transaktionen mit costCenterId = id (signed amounts)
   const transactions = await prisma.transaction.findMany({
     where: { costCenterId: id },
     select: { amount: true },
   });
 
-  // Einnahmen/Ausgaben berechnen
+  // Einnahmen/Ausgaben berechnen (Sicht der Kasse: negativ = Einnahmen, positiv = Ausgaben)
   let earnings = 0;
   let costs = 0;
   for (const t of transactions) {
     const val = Number(t.amount);
-    if (val > 0) earnings += val; else costs += Math.abs(val);
+    if (val < 0) {
+      earnings += Math.abs(val);
+    } else if (val > 0) {
+      costs += val;
+    }
   }
 
   // Update Kostenstelle
