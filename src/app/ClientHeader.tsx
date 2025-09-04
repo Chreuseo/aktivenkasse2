@@ -15,7 +15,8 @@ const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
         { label: 'Übersicht', href: '/users' },
         { label: 'Neuer Benutzer', href: '/users/new' },
         { label: 'Rollen', href: '/users/roles' },
-        { label: 'Keycloak-Import', href: '/users/keycloak-import' }
+        { label: 'Keycloak-Import', href: '/users/keycloak-import' },
+        { label: 'Deaktivierte Benutzer', href: '/users/deactivated' }
     ],
     Bankkonten: [
         { label: 'Übersicht', href: '/bank-accounts' },
