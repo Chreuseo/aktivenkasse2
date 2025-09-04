@@ -19,14 +19,27 @@ export async function GET(req: Request) {
         members: { include: { user: true } },
       },
     });
-    const result = clearingAccounts.map(ca => ({
+
+    const result = clearingAccounts.map((ca) => ({
       id: ca.id,
       name: ca.name,
       responsible: ca.responsible ? `${ca.responsible.first_name} ${ca.responsible.last_name}` : null,
+      responsibleMail: ca.responsible ? ca.responsible.mail : null,
       balance: ca.account?.balance ? Number(ca.account.balance) : 0,
       reimbursementEligible: ca.reimbursementEligible,
-      members: ca.members.map(m => m.user ? `${m.user.first_name} ${m.user.last_name}` : null).filter(Boolean),
+      members: (ca.members || [])
+        .map((m) =>
+          m.user
+            ? {
+                id: m.user.id,
+                name: `${m.user.first_name} ${m.user.last_name}`,
+                mail: m.user.mail,
+              }
+            : null
+        )
+        .filter((x): x is { id: number; name: string; mail: string } => Boolean(x)),
     }));
+
     return NextResponse.json(result);
   } catch (error: any) {
     console.error(error);
@@ -46,12 +59,12 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "Ungültige JSON-Daten" }, { status: 400 });
   }
-  const { name, responsibleId, reimbursementEligible, members } = data;
+  const { name, responsibleId, reimbursementEligible, members } = data as any;
   if (!name) {
     return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
   }
   // Prüfe, ob Verantwortlicher existiert, aber nur wenn angegeben
-  let responsible = null;
+  let responsible = null as any;
   if (responsibleId) {
     responsible = await prisma.user.findUnique({ where: { id: Number(responsibleId) } });
     if (!responsible) {
@@ -78,7 +91,10 @@ export async function POST(req: Request) {
   // Mitglieder zuweisen (optional)
   let memberIds: number[] = [];
   if (members && typeof members === "string" && members.trim().length > 0) {
-    memberIds = members.split(",").map((id: string) => Number(id.trim())).filter((id: number) => !isNaN(id));
+    memberIds = members
+      .split(",")
+      .map((id: string) => Number(id.trim()))
+      .filter((id: number) => !isNaN(id));
     for (const userId of memberIds) {
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (user) {

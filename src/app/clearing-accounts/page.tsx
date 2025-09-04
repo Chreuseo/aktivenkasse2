@@ -1,33 +1,49 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import "@/app/css/tables.css";
-import prisma from "@/lib/prisma";
-import { ClearingAccount, Member } from "@/app/types/clearingAccount";
+import { useSession } from "next-auth/react";
+import { extractToken, fetchJson } from "@/lib/utils";
+import { ClearingAccount } from "@/app/types/clearingAccount";
 
-export default async function ClearingAccountsPage() {
-  const clearingAccounts = await prisma.clearingAccount.findMany({
-    include: {
-      responsible: true,
-      account: { select: { balance: true } },
-      members: { include: { user: true } },
-    },
-  });
+export default function ClearingAccountsPage() {
+  const { data: session } = useSession();
+  const [accounts, setAccounts] = useState<ClearingAccount[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
 
-  const accounts: ClearingAccount[] = clearingAccounts.map((ca: any) => ({
-    id: ca.id,
-    name: ca.name,
-    responsible: ca.responsible ? `${ca.responsible.first_name} ${ca.responsible.last_name}` : null,
-    responsibleMail: ca.responsible ? ca.responsible.mail : null,
-    balance: ca.account?.balance ? Number(ca.account.balance) : 0,
-    reimbursementEligible: ca.reimbursementEligible,
-    members: (ca.members as any[])
-      .map((m: any) => m.user ? { id: m.user.id, name: `${m.user.first_name} ${m.user.last_name}`, mail: m.user.mail } : null)
-      .filter(Boolean) as Member[],
-  }));
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const token = extractToken(session);
+        const data = await fetchJson("/api/clearing-accounts", {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!cancelled) setAccounts(data as ClearingAccount[]);
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || "Fehler beim Laden");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
 
   return (
     <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
       <h2 style={{ marginBottom: "1.2rem" }}>Verrechnungskonten Übersicht</h2>
+      {error && (
+        <div style={{ color: "#e11d48", marginBottom: "0.8rem" }}>❌ {error}</div>
+      )}
       <table className="kc-table">
         <thead>
           <tr>
@@ -41,10 +57,17 @@ export default async function ClearingAccountsPage() {
           </tr>
         </thead>
         <tbody>
-          {accounts.length === 0 && (
-            <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Verrechnungskonten vorhanden</td></tr>
+          {loading && (
+            <tr>
+              <td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Laden…</td>
+            </tr>
           )}
-          {accounts.map((acc: ClearingAccount) => (
+          {!loading && accounts.length === 0 && (
+            <tr>
+              <td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Verrechnungskonten vorhanden</td>
+            </tr>
+          )}
+          {!loading && accounts.map((acc: ClearingAccount) => (
             <tr key={acc.id} className="kc-row">
               <td>{acc.name}</td>
               <td>{acc.responsible || <span style={{ color: "var(--muted)" }}>-</span>}</td>
