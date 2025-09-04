@@ -227,7 +227,7 @@ export default function NewTransactionPage() {
             <h1>Neue Transaktion anlegen</h1>
             <form onSubmit={handleSubmit} className="form">
                 <label>
-                    Wertstellung (optional)
+                    Datum (optional)
                     <input
                         type="date"
                         name="date_valued"

@@ -205,7 +205,7 @@ export default function BulkTransactionPage() {
       <form onSubmit={e => { e.preventDefault(); handleSubmit(); }} className="form">
         <div className="form-container">
           <label>
-          Wertstellung
+          Datum
           <input
             type="date"
             name="date_valued"
