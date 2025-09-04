@@ -4,6 +4,7 @@ export enum ResourceType {
   clearing_accounts = "clearing_accounts",
   bank_accounts = "bank_accounts",
   transactions = "transactions",
+  advances = "advances",
 }
 
 export enum AuthorizationType {

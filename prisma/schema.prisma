@@ -33,6 +33,7 @@ model User {
   advancesFrom                Advances[]              @relation("FromUser")
   advancesReviewed            Advances[]              @relation("Reviewer")
   mails                       Mail[]
+  TransactionCreated          Transaction[]
 }
 
 model Role {
@@ -120,6 +121,8 @@ model Transaction {
   reference             String?
   accountId             Int
   account               Account          @relation(fields: [accountId], references: [id])
+  createdById           Int
+  createdBy             User             @relation(fields: [createdById], references: [id])
   accountValueAfter     Decimal
   counter_transactionId Int?
   counter_transaction   Transaction?     @relation("CounterTransaction", fields: [counter_transactionId], references: [id])
@@ -165,6 +168,8 @@ model Advances {
   reviewerId        Int?
   reviewer          User?            @relation("Reviewer", fields: [reviewerId], references: [id])
   state             advanceState     @default(open)
+  reason            String?
+  decidedAt         DateTime?
   attachmentId      Int?
   attachment        Attachment?      @relation(fields: [attachmentId], references: [id])
 }

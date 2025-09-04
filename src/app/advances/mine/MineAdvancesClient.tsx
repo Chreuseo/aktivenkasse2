@@ -25,7 +25,7 @@ export default function MineAdvancesClient() {
     setError(null);
     try {
       const token = extractToken(session);
-      const res = await fetch("/api/advances", {
+      const res = await fetch("/api/advances/mine", {
         method: "GET",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
