@@ -1,9 +1,10 @@
 "use client";
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 type SubmenuLink = { label: string; href: string };
 type MenuKey = 'Allgemein' | 'Benutzer' | 'Bankkonten' | 'Verrechnungskonten' | 'Haushaltsplan' | 'Transaktionen' | 'Prozesse' | 'Konto';
+type FilterMode = 'Standard' | 'Aktive' | 'Erweitert';
 
 const menuItems: MenuKey[] = ['Allgemein', 'Benutzer', 'Bankkonten', 'Verrechnungskonten', 'Haushaltsplan', 'Transaktionen', 'Prozesse', 'Konto'];
 const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
@@ -53,6 +54,7 @@ const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
 export default function ClientHeader() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [submenuOpen, setSubmenuOpen] = useState<{ [key in MenuKey]?: boolean }>({});
+    const [filterMode, setFilterMode] = useState<FilterMode>('Standard');
 
     const toggleSubmenu = (key: MenuKey) => {
         setSubmenuOpen(prev => ({ ...prev, [key]: !prev[key] }));
@@ -69,12 +71,48 @@ export default function ClientHeader() {
         closeMenus();
     };
 
+    // Filter-Auswahl aus localStorage laden
+    useEffect(() => {
+        try {
+            const saved = typeof window !== 'undefined' ? window.localStorage.getItem('headerFilterMode') : null;
+            if (saved === 'Standard' || saved === 'Aktive' || saved === 'Erweitert') {
+                setFilterMode(saved);
+            }
+        } catch {
+            // ignore
+        }
+    }, []);
+
+    // Filter-Auswahl speichern
+    useEffect(() => {
+        try {
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem('headerFilterMode', filterMode);
+            }
+        } catch {
+            // ignore
+        }
+    }, [filterMode]);
+
+    // Welche Menüpunkte je Modus angezeigt werden
+    const itemsToRender: MenuKey[] = (() => {
+        switch (filterMode) {
+            case 'Aktive':
+                return ['Allgemein', 'Verrechnungskonten', 'Transaktionen', 'Konto'];
+            case 'Erweitert':
+                return menuItems;
+            case 'Standard':
+            default:
+                return ['Transaktionen', 'Verrechnungskonten', 'Konto'];
+        }
+    })();
+
     return (
         <header className="bg-gray-800 text-white">
             <nav className="max-w-6xl mx-auto px-4 flex items-center justify-between h-16">
                 <div className="text-xl font-bold">Aktivenkasse { process.env.NEXT_PUBLIC_COMPANY }</div>
                 <ul className="hidden md:flex space-x-6">
-                    {menuItems.map(item => (
+                    {itemsToRender.map(item => (
                         <li key={item} className="relative group">
                             <button
                                 className="flex items-center space-x-1"
@@ -93,6 +131,21 @@ export default function ClientHeader() {
                         </li>
                     ))}
                 </ul>
+                {/* Rechts im Desktop-Header: Auswahl der Ansicht */}
+                <div className="hidden md:flex items-center gap-2">
+                    <label htmlFor="header-filter" className="text-sm text-gray-300">Ansicht</label>
+                    <select
+                        id="header-filter"
+                        className="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 text-sm"
+                        value={filterMode}
+                        onChange={(e) => { setFilterMode(e.target.value as FilterMode); closeMenus(); }}
+                        aria-label="Header-Ansicht auswählen"
+                    >
+                        <option value="Standard">Standard</option>
+                        <option value="Aktive">Aktive</option>
+                        <option value="Erweitert">Erweitert</option>
+                    </select>
+                </div>
                 <div className="md:hidden">
                     <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
                         ☰
@@ -101,7 +154,7 @@ export default function ClientHeader() {
             </nav>
             <div className={`md:hidden bg-gray-800 text-white ${mobileMenuOpen ? 'block' : 'hidden'}`}>
                 <ul className="flex flex-col space-y-2 p-4">
-                    {menuItems.map(item => (
+                    {itemsToRender.map(item => (
                         <li key={item}>
                             <button className="flex justify-between w-full" onClick={() => toggleSubmenu(item)}>
                                 {item} <span>{submenuOpen[item] ? '▲' : '▼'}</span>
@@ -118,6 +171,21 @@ export default function ClientHeader() {
                         </li>
                     ))}
                 </ul>
+                {/* Unten im mobilen Menü: Auswahl der Ansicht */}
+                <div className="p-4 border-t border-gray-700 flex items-center justify-between gap-3">
+                    <label htmlFor="header-filter-mobile" className="text-sm text-gray-300">Ansicht</label>
+                    <select
+                        id="header-filter-mobile"
+                        className="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 text-sm w-40"
+                        value={filterMode}
+                        onChange={(e) => { setFilterMode(e.target.value as FilterMode); closeMenus(); }}
+                        aria-label="Header-Ansicht auswählen (mobil)"
+                    >
+                        <option value="Standard">Standard</option>
+                        <option value="Aktive">Aktive</option>
+                        <option value="Erweitert">Erweitert</option>
+                    </select>
+                </div>
             </div>
         </header>
     );
