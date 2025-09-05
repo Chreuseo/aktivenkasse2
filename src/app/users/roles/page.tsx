@@ -36,6 +36,14 @@ export default function RolesPage() {
   const [users, setUsers] = useState<{id: number, first_name: string, last_name: string, mail: string}[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
+  // Neu: Keycloak-Rollenverwaltung unterhalb der Tabelle
+  type KcMember = { id: string; username?: string; email?: string; firstName?: string; lastName?: string; localUserId?: number | null };
+  const [selectedKcRoleId, setSelectedKcRoleId] = useState<number | null>(null);
+  const [kcMembers, setKcMembers] = useState<KcMember[]>([]);
+  const [kcLoading, setKcLoading] = useState(false);
+  const [kcMsg, setKcMsg] = useState<string | null>(null);
+  const [kcAddUserId, setKcAddUserId] = useState<number | null>(null);
+
   // Token aus Session extrahieren
   function getToken() {
     // In unseren NextAuth-Callbacks wird das Access Token als session.token gesetzt
@@ -76,6 +84,81 @@ export default function RolesPage() {
       const json = await res.json();
       if (res.ok && Array.isArray(json)) setUsers(json);
     } catch {}
+  }
+
+  // Neu: Mitglieder einer Keycloak-Rolle laden
+  async function loadKcMembers(roleId: number) {
+    if (!roleId) return;
+    setKcLoading(true);
+    setKcMsg(null);
+    try {
+      const token = getToken();
+      const res = await fetch(`/api/roles/members?roleId=${roleId}`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setKcMembers([]);
+        setKcMsg(json?.error || 'Fehler beim Laden der Mitglieder');
+      } else {
+        setKcMembers(Array.isArray(json?.members) ? json.members : []);
+      }
+    } catch (e: any) {
+      setKcMembers([]);
+      setKcMsg('Ladefehler: ' + (e?.message || String(e)));
+    } finally { setKcLoading(false); }
+  }
+
+  // Neu: Nutzer zur Keycloak-Rolle hinzufügen
+  async function addKcMember() {
+    if (!selectedKcRoleId || !kcAddUserId) { setKcMsg('Bitte Rolle und Nutzer wählen'); return; }
+    setKcLoading(true);
+    setKcMsg(null);
+    try {
+      const token = getToken();
+      const res = await fetch('/api/roles/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ roleId: selectedKcRoleId, userId: kcAddUserId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setKcMsg(json?.error || 'Fehler beim Hinzufügen');
+      } else {
+        await loadKcMembers(selectedKcRoleId);
+        setKcAddUserId(null);
+        setKcMsg('Hinzugefügt');
+      }
+    } catch (e: any) {
+      setKcMsg('Fehler: ' + (e?.message || String(e)));
+    } finally { setKcLoading(false); }
+  }
+
+  // Neu: Nutzer aus Keycloak-Rolle entfernen
+  async function removeKcMember(member: KcMember) {
+    if (!selectedKcRoleId) return;
+    setKcLoading(true);
+    setKcMsg(null);
+    try {
+      const token = getToken();
+      const payload: any = { roleId: selectedKcRoleId };
+      if (member.localUserId) payload.userId = member.localUserId;
+      else payload.userKeycloakId = member.id;
+      const res = await fetch('/api/roles/members', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setKcMsg(json?.error || 'Fehler beim Entfernen');
+      } else {
+        await loadKcMembers(selectedKcRoleId);
+        setKcMsg('Entfernt');
+      }
+    } catch (e: any) {
+      setKcMsg('Fehler: ' + (e?.message || String(e)));
+    } finally { setKcLoading(false); }
   }
 
   useEffect(() => {
@@ -300,6 +383,80 @@ export default function RolesPage() {
             </tr>
           </tbody>
         </table>
+
+        {/* Neue Sektion: Keycloak-Rollen-Mitglieder verwalten */}
+        <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #333' }}>
+          <h3 style={{ marginBottom: 12 }}>Keycloak-Rollen-Mitglieder</h3>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+            <select
+              className="kc-select"
+              value={selectedKcRoleId ?? ''}
+              onChange={async (e) => {
+                const v = Number(e.target.value) || null;
+                setSelectedKcRoleId(v);
+                setKcMembers([]);
+                if (v) await loadKcMembers(v);
+              }}
+              disabled={kcLoading}
+            >
+              <option value="">Rolle wählen…</option>
+              {roles.filter(r => !!r.keycloak_id).map(r => (
+                <option key={r.id} value={r.id}>{(r.name || '').replace(/^aktivenkasse_/, '')}</option>
+              ))}
+            </select>
+            <button className="button" onClick={() => selectedKcRoleId ? loadKcMembers(selectedKcRoleId) : undefined} disabled={kcLoading || !selectedKcRoleId}>Mitglieder laden</button>
+          </div>
+          {kcMsg && <div style={{ marginBottom: 12, fontWeight: 600, color: "var(--secondary-color, #facc15)" }}>{kcMsg}</div>}
+
+          {/* Mitgliederliste */}
+          {selectedKcRoleId && (
+            <div style={{ marginBottom: 16 }}>
+              <table className="kc-table compact">
+                <thead>
+                  <tr>
+                    <th>Nutzer</th>
+                    <th>E-Mail</th>
+                    <th>Aktion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kcMembers.length === 0 && (
+                    <tr>
+                      <td colSpan={3}><em>Keine Mitglieder gefunden</em></td>
+                    </tr>
+                  )}
+                  {kcMembers.map(m => {
+                    const local = m.localUserId ? users.find(u => u.id === m.localUserId) : undefined;
+                    const name = local ? `${local.first_name} ${local.last_name}` : (m.firstName || m.lastName ? `${m.firstName || ''} ${m.lastName || ''}`.trim() : m.username || m.email || m.id);
+                    const email = local ? local.mail : (m.email || '');
+                    return (
+                      <tr key={m.id}>
+                        <td>{name}</td>
+                        <td>{email}</td>
+                        <td>
+                          <button className="button" onClick={() => removeKcMember(m)} disabled={kcLoading}>Entfernen</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Hinzufügen */}
+          {selectedKcRoleId && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <select className="kc-select" value={kcAddUserId ?? ''} onChange={e => setKcAddUserId(Number(e.target.value) || null)} disabled={kcLoading}>
+                <option value="">Nutzer wählen…</option>
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.mail})</option>
+                ))}
+              </select>
+              <button className="button" onClick={addKcMember} disabled={kcLoading || !kcAddUserId}>Zur Rolle hinzufügen</button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
