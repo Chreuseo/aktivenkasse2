@@ -52,8 +52,8 @@ export default function ClearingAccountsPage() {
             <th>Kontostand</th>
             <th>Erstattungsberechtigt</th>
             <th>Mitglieder</th>
-            <th>Bearbeiten</th>
             <th>Details</th>
+              <th>Bearbeiten</th>
           </tr>
         </thead>
         <tbody>
@@ -74,8 +74,8 @@ export default function ClearingAccountsPage() {
               <td style={{ fontWeight: 600, color: "var(--primary)" }}>{acc.balance.toFixed(2)} €</td>
               <td>{acc.reimbursementEligible ? "Ja" : "Nein"}</td>
               <td>{acc.members.length > 0 ? acc.members.map(m => m.name).join(", ") : <span style={{ color: "var(--muted)" }}>-</span>}</td>
+                <td><Link href={`/clearing-accounts/${acc.id}`}><button className="button">Details</button></Link></td>
               <td><Link href={`/clearing-accounts/${acc.id}/edit`}><button className="button">Bearbeiten</button></Link></td>
-              <td><Link href={`/clearing-accounts/${acc.id}`}><button className="button">Details</button></Link></td>
             </tr>
           ))}
         </tbody>

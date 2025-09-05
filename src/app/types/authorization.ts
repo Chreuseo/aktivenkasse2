@@ -1,4 +1,6 @@
 export enum ResourceType {
+    overview = "overview",
+    mails = "mails",
   budget_plan = "budget_plan", // vorher: household
   userAuth = "userAuth",
   clearing_accounts = "clearing_accounts",

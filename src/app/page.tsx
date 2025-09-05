@@ -1,18 +1,31 @@
 import React from 'react';
 import { headers } from 'next/headers';
 
+export const dynamic = 'force-dynamic';
+
 async function getOverviewData() {
-  const hdrs = await headers();
-  const host = hdrs.get('x-forwarded-host') ?? hdrs.get('host');
-  const proto = hdrs.get('x-forwarded-proto') ?? (process.env.NODE_ENV === 'development' ? 'http' : 'https');
-  if (!host) throw new Error('Fehlender Host-Header');
-  const baseUrl = `${proto}://${host}`;
-  const cookie = hdrs.get('cookie') ?? '';
-  const resp = await fetch(`${baseUrl}/api/overview`, {
-    cache: 'no-store',
-    headers: { cookie },
-  });
-  if (!resp.ok) throw new Error('Fehler beim Laden der Übersicht');
+  const hdrs = await headers(); // headers() ist jetzt async
+  const cookie = hdrs.get('cookie') || '';
+  const auth = hdrs.get('authorization') || hdrs.get('Authorization') || '';
+  const host = hdrs.get('x-forwarded-host') || hdrs.get('host') || process.env.NEXT_PUBLIC_APP_HOST || 'localhost:3000';
+  const proto = hdrs.get('x-forwarded-proto') || (host.startsWith('localhost') ? 'http' : 'https');
+  const base = `${proto}://${host}`;
+
+  const forward: Record<string, string> = {};
+  if (cookie) forward.cookie = cookie;
+  if (auth) forward.authorization = auth;
+
+  let resp: Response;
+  try {
+    resp = await fetch(`${base}/api/overview`, {
+      cache: 'no-store',
+      headers: forward,
+      next: { revalidate: 0 },
+    });
+  } catch (e: any) {
+    throw new Error(`Netzwerkfehler /api/overview: ${e?.message || String(e)}`);
+  }
+
   return resp.json();
 }
 
@@ -23,9 +36,9 @@ function formatCurrency(value: string | number) {
 
 export default async function Page() {
   const data = await getOverviewData();
-  const bankAccounts: Array<{ id: number; name: string; iban: string; balance: string }>= data.bankAccounts ?? [];
+  const bankAccounts: Array<{ id: number; name: string; iban: string; balance: string }> = data.bankAccounts ?? [];
   const bankTotal: string = data.bankTotal ?? '0';
-  const clearingAccounts: Array<{ id: number; name: string; reimbursementEligible: boolean; balance: string }>= data.clearingAccounts ?? [];
+  const clearingAccounts: Array<{ id: number; name: string; reimbursementEligible: boolean; balance: string }> = data.clearingAccounts ?? [];
   const clearingTotal: string = data.clearingTotal ?? '0';
   const users = data.users ?? { liabilities: { sum: '0', count: 0, max: '0' }, receivables: { sum: '0', count: 0, max: '0' } };
   const totals = data.totals ?? { assets: '0', liabilities: '0', net: '0' };

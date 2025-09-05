@@ -43,6 +43,8 @@ model Role {
   keycloak_id       String?           @unique
   userId            Int?
   user              User?             @relation(fields: [userId], references: [id])
+  overview          AuthorizationType @default(none)
+  mails             AuthorizationType @default(none)
   budget_plan       AuthorizationType @default(none)
   userAuth          AuthorizationType @default(none)
   clearing_accounts AuthorizationType @default(none)

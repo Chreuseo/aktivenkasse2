@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { checkPermission } from "@/services/authService";
+import { AuthorizationType, ResourceType } from "@/app/types/authorization";
 
 // Hilfsfunktion zum sicheren Number-Parse (Decimal -> number)
 function toNumberSafely(v: unknown): number {
@@ -8,7 +10,16 @@ function toNumberSafely(v: unknown): number {
   return isFinite(n) ? n : 0;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  // Berechtigungsprüfung analog zu /api/users
+  const perm = await checkPermission(req, ResourceType.overview, AuthorizationType.read_all);
+  if (!perm.allowed) {
+    return NextResponse.json(
+      { error: "Keine Berechtigung für read_all auf overview" },
+      { status: 403 }
+    );
+  }
+
   try {
     // Bankkonten inkl. zugehörigem Account (für Saldo)
     const bankAccounts = await prisma.bankAccount.findMany({
@@ -24,7 +35,10 @@ export async function GET() {
       balance: String(b.account?.balance ?? 0),
     }));
 
-    const bankTotal = bankAccounts.reduce((acc, b) => acc + toNumberSafely(b.account?.balance), 0);
+    const bankTotal = bankAccounts.reduce(
+      (acc, b) => acc + toNumberSafely(b.account?.balance),
+      0
+    );
 
     // Verrechnungskonten inkl. Account (für Saldo) und reimbursementEligible
     const clearingAccounts = await prisma.clearingAccount.findMany({
@@ -39,7 +53,10 @@ export async function GET() {
       balance: String(c.account?.balance ?? 0),
     }));
 
-    const clearingTotal = clearingAccounts.reduce((acc, c) => acc + toNumberSafely(c.account?.balance), 0);
+    const clearingTotal = clearingAccounts.reduce(
+      (acc, c) => acc + toNumberSafely(c.account?.balance),
+      0
+    );
 
     // Nutzerübersicht anhand User-Account-Balances
     const usersWithBalances = await prisma.user.findMany({
@@ -48,31 +65,51 @@ export async function GET() {
 
     const balances = usersWithBalances.map((u) => toNumberSafely(u.account?.balance));
     const userLiabilitiesList = balances.filter((x) => x > 0); // wir schulden dem Nutzer
-    const userReceivablesList = balances.filter((x) => x < 0).map((x) => Math.abs(x)); // Nutzer schuldet uns
+    const userReceivablesList = balances
+      .filter((x) => x < 0)
+      .map((x) => Math.abs(x)); // Nutzer schuldet uns
 
     const userLiabilities = {
       sum: String(userLiabilitiesList.reduce((a, b) => a + b, 0)),
       count: userLiabilitiesList.length,
-      max: String(userLiabilitiesList.length ? Math.max(...userLiabilitiesList) : 0),
+      max: String(
+        userLiabilitiesList.length ? Math.max(...userLiabilitiesList) : 0
+      ),
     };
 
     const userReceivables = {
       sum: String(userReceivablesList.reduce((a, b) => a + b, 0)),
       count: userReceivablesList.length,
-      max: String(userReceivablesList.length ? Math.max(...userReceivablesList) : 0),
+      max: String(
+        userReceivablesList.length ? Math.max(...userReceivablesList) : 0
+      ),
     };
 
     // Vermögensstände
     const clearingEligibleNegative = clearingAccounts
-      .filter((c) => c.reimbursementEligible && toNumberSafely(c.account?.balance) < 0)
-      .reduce((acc, c) => acc + Math.abs(toNumberSafely(c.account?.balance)), 0);
+      .filter(
+        (c) =>
+          c.reimbursementEligible && toNumberSafely(c.account?.balance) < 0
+      )
+      .reduce(
+        (acc, c) => acc + Math.abs(toNumberSafely(c.account?.balance)),
+        0
+      );
 
     const clearingEligiblePositive = clearingAccounts
-      .filter((c) => c.reimbursementEligible && toNumberSafely(c.account?.balance) > 0)
+      .filter(
+        (c) =>
+          c.reimbursementEligible && toNumberSafely(c.account?.balance) > 0
+      )
       .reduce((acc, c) => acc + toNumberSafely(c.account?.balance), 0);
 
-    const assetsFinal = bankTotal + userReceivablesList.reduce((a, b) => a + b, 0) + clearingEligibleNegative;
-    const liabilitiesFinal = userLiabilitiesList.reduce((a, b) => a + b, 0) + clearingEligiblePositive;
+    const assetsFinal =
+      bankTotal +
+      userReceivablesList.reduce((a, b) => a + b, 0) +
+      clearingEligibleNegative;
+    const liabilitiesFinal =
+      userLiabilitiesList.reduce((a, b) => a + b, 0) +
+      clearingEligiblePositive;
     const netFinal = assetsFinal - liabilitiesFinal;
 
     return NextResponse.json({
@@ -92,6 +129,9 @@ export async function GET() {
     });
   } catch (err: unknown) {
     console.error("/api/overview error", err);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }

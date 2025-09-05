@@ -74,6 +74,8 @@ export async function GET(req: Request) {
           data: {
             name: kr.name,
             keycloak_id: kr.id,
+            overview: "none",
+            mails: "none",
             budget_plan: "none",
             userAuth: "none",
             clearing_accounts: "none",
@@ -110,6 +112,8 @@ export async function POST(req: Request) {
         data: {
           name,
           userId,
+          overview: "none",
+          mails: "none",
           budget_plan: "none",
           userAuth: "none",
           clearing_accounts: "none",
@@ -128,6 +132,8 @@ export async function POST(req: Request) {
       data: {
         name: kc.name,
         keycloak_id: kc.id,
+        overview: "none",
+        mails: "none",
         budget_plan: "none",
         userAuth: "none",
         clearing_accounts: "none",
@@ -153,6 +159,8 @@ export async function PUT(req: Request) {
     const id = Number(body?.id || 0);
     if (!id) return NextResponse.json({ error: "ID fehlt" }, { status: 400 });
     const allowed: Record<string, true> = {
+      overview: true,
+      mails: true,
       budget_plan: true,
       userAuth: true,
       clearing_accounts: true,
