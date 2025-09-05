@@ -36,119 +36,127 @@ export default async function Page() {
         {/* Kachel 1: Bankkonten */}
         <section className="kc-infobox">
           <h2 className="tile-header">Bankkonten</h2>
-          <table className="kc-table" role="table" aria-label="Bankkonten">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>IBAN</th>
-                <th style={{ textAlign: 'right' }}>Kontostand</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bankAccounts.length === 0 ? (
+          <div className="table-center">
+            <table className="kc-table" role="table" aria-label="Bankkonten">
+              <thead>
                 <tr>
-                  <td colSpan={3} style={{ color: 'var(--muted)' }}>Keine Daten</td>
+                  <th>Name</th>
+                  <th>IBAN</th>
+                  <th style={{ textAlign: 'right' }}>Kontostand</th>
                 </tr>
-              ) : (
-                bankAccounts.map((b) => (
-                  <tr className="kc-row" key={b.id}>
-                    <td>{b.name}</td>
-                    <td>{b.iban}</td>
-                    <td style={{ textAlign: 'right' }}>{formatCurrency(b.balance)}</td>
+              </thead>
+              <tbody>
+                {bankAccounts.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} style={{ color: 'var(--muted)' }}>Keine Daten</td>
                   </tr>
-                ))
-              )}
-              <tr className="kc-sum-row">
-                <td colSpan={2}>Summe</td>
-                <td style={{ textAlign: 'right' }}>{formatCurrency(bankTotal)}</td>
-              </tr>
-            </tbody>
-          </table>
+                ) : (
+                  bankAccounts.map((b) => (
+                    <tr className="kc-row" key={b.id}>
+                      <td>{b.name}</td>
+                      <td>{b.iban}</td>
+                      <td style={{ textAlign: 'right' }}>{formatCurrency(b.balance)}</td>
+                    </tr>
+                  ))
+                )}
+                <tr className="kc-sum-row">
+                  <td colSpan={2}>Summe</td>
+                  <td style={{ textAlign: 'right' }}>{formatCurrency(bankTotal)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         {/* Kachel 2: Verrechnungskonten */}
         <section className="kc-infobox">
           <h2 className="tile-header">Verrechnungskonten</h2>
-          <table className="kc-table" role="table" aria-label="Verrechnungskonten">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Erstattungsfähig</th>
-                <th style={{ textAlign: 'right' }}>Saldo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clearingAccounts.length === 0 ? (
+          <div className="table-center">
+            <table className="kc-table" role="table" aria-label="Verrechnungskonten">
+              <thead>
                 <tr>
-                  <td colSpan={3} style={{ color: 'var(--muted)' }}>Keine Daten</td>
+                  <th>Name</th>
+                  <th>Erstattungsfähig</th>
+                  <th style={{ textAlign: 'right' }}>Saldo</th>
                 </tr>
-              ) : (
-                clearingAccounts.map((c) => (
-                  <tr className="kc-row" key={c.id}>
-                    <td>{c.name}</td>
-                    <td>{c.reimbursementEligible ? 'Ja' : 'Nein'}</td>
-                    <td style={{ textAlign: 'right' }}>{formatCurrency(c.balance)}</td>
+              </thead>
+              <tbody>
+                {clearingAccounts.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} style={{ color: 'var(--muted)' }}>Keine Daten</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  clearingAccounts.map((c) => (
+                    <tr className="kc-row" key={c.id}>
+                      <td>{c.name}</td>
+                      <td>{c.reimbursementEligible ? 'Ja' : 'Nein'}</td>
+                      <td style={{ textAlign: 'right' }}>{formatCurrency(c.balance)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </section>
 
         {/* Kachel 3: Nutzerübersicht */}
         <section className="kc-infobox">
           <h2 className="tile-header">Nutzerübersicht</h2>
-          <table className="kc-table" role="table" aria-label="Nutzerübersicht">
-            <thead>
-              <tr>
-                <th></th>
-                <th>Summe</th>
-                <th>Anzahl</th>
-                <th>Maximum</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="kc-row">
-                <td>Verbindlichkeiten</td>
-                <td>{formatCurrency(users.liabilities?.sum ?? '0')}</td>
-                <td>{users.liabilities?.count ?? 0}</td>
-                <td>{formatCurrency(users.liabilities?.max ?? '0')}</td>
-              </tr>
-              <tr className="kc-row kc-entry-end">
-                <td>Offene Forderungen</td>
-                <td>{formatCurrency(users.receivables?.sum ?? '0')}</td>
-                <td>{users.receivables?.count ?? 0}</td>
-                <td>{formatCurrency(users.receivables?.max ?? '0')}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div className="table-center">
+            <table className="kc-table" role="table" aria-label="Nutzerübersicht">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Summe</th>
+                  <th>Anzahl</th>
+                  <th>Maximum</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="kc-row">
+                  <td>Verbindlichkeiten</td>
+                  <td>{formatCurrency(users.liabilities?.sum ?? '0')}</td>
+                  <td>{users.liabilities?.count ?? 0}</td>
+                  <td>{formatCurrency(users.liabilities?.max ?? '0')}</td>
+                </tr>
+                <tr className="kc-row kc-entry-end">
+                  <td>Offene Forderungen</td>
+                  <td>{formatCurrency(users.receivables?.sum ?? '0')}</td>
+                  <td>{users.receivables?.count ?? 0}</td>
+                  <td>{formatCurrency(users.receivables?.max ?? '0')}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         {/* Kachel 4: Vermögensstände */}
         <section className="kc-infobox">
           <h2 className="tile-header">Vermögensstände</h2>
-          <table className="kc-table" role="table" aria-label="Vermögensstände">
-            <thead>
-              <tr>
-                <th>Position</th>
-                <th style={{ textAlign: 'right' }}>Betrag</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="kc-row">
-                <td>Guthaben und offene Forderungen</td>
-                <td style={{ textAlign: 'right' }}>{formatCurrency(totals.assets)}</td>
-              </tr>
-              <tr className="kc-row kc-entry-end">
-                <td>Verbindlichkeiten</td>
-                <td style={{ textAlign: 'right' }}>{formatCurrency(totals.liabilities)}</td>
-              </tr>
-              <tr className="kc-sum-row">
-                <td>Restgeld</td>
-                <td style={{ textAlign: 'right' }}>{formatCurrency(totals.net)}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div className="table-center">
+            <table className="kc-table" role="table" aria-label="Vermögensstände">
+              <thead>
+                <tr>
+                  <th>Position</th>
+                  <th style={{ textAlign: 'right' }}>Betrag</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="kc-row">
+                  <td>Guthaben und offene Forderungen</td>
+                  <td style={{ textAlign: 'right' }}>{formatCurrency(totals.assets)}</td>
+                </tr>
+                <tr className="kc-row kc-entry-end">
+                  <td>Verbindlichkeiten</td>
+                  <td style={{ textAlign: 'right' }}>{formatCurrency(totals.liabilities)}</td>
+                </tr>
+                <tr className="kc-sum-row">
+                  <td>Restgeld</td>
+                  <td style={{ textAlign: 'right' }}>{formatCurrency(totals.net)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </div>
     </div>

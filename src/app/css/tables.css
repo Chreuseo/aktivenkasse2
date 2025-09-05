@@ -255,6 +255,7 @@
   white-space: nowrap;
   margin: 0 auto;
   -webkit-overflow-scrolling: touch;
+  width: max-content; /* anhand Inhalt, damit sichtbar zentriert */
 }
 
 /* Minimale Breite für die Auslagen-Tabelle, damit Spalten nicht quetschen */

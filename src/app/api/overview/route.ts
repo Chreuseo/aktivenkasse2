@@ -41,20 +41,14 @@ export async function GET() {
 
     const clearingTotal = clearingAccounts.reduce((acc, c) => acc + toNumberSafely(c.account?.balance), 0);
 
-    // Nutzerkennzahlen aus offenen Vorgängen (Advances)
-    // Annahme:
-    //  - amount > 0 => Verbindlichkeit (wir schulden dem Nutzer)
-    //  - amount < 0 => offene Forderung (Nutzer schuldet uns)
-    //  - nur state == 'open'
-    const advances = await prisma.advances.findMany({
-      where: { state: "open" },
-      select: { amount: true },
+    // Nutzerübersicht anhand User-Account-Balances
+    const usersWithBalances = await prisma.user.findMany({
+      select: { id: true, account: { select: { balance: true } } },
     });
 
-    const amounts = advances.map((a) => toNumberSafely(a.amount));
-
-    const userLiabilitiesList = amounts.filter((x) => x > 0);
-    const userReceivablesList = amounts.filter((x) => x < 0).map((x) => Math.abs(x));
+    const balances = usersWithBalances.map((u) => toNumberSafely(u.account?.balance));
+    const userLiabilitiesList = balances.filter((x) => x > 0); // wir schulden dem Nutzer
+    const userReceivablesList = balances.filter((x) => x < 0).map((x) => Math.abs(x)); // Nutzer schuldet uns
 
     const userLiabilities = {
       sum: String(userLiabilitiesList.reduce((a, b) => a + b, 0)),
