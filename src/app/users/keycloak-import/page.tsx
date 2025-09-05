@@ -17,6 +17,7 @@ type Row = {
   firstName: string;
   lastName: string;
   email: string;
+  enabled: boolean;
   status: "new" | "changed" | "same";
   diffs: { first_name: null | { from: string; to: string }; last_name: null | { from: string; to: string }; mail: null | { from: string; to: string } };
 };
@@ -94,6 +95,31 @@ export default function KeycloakImportPage() {
     } finally { setLoading(false); }
   }
 
+  async function toggleEnabled(row: Row) {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const token = getToken();
+      const res = await fetch("/api/keycloak-sync", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ id: row.keycloak_id, enabled: !row.enabled })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsg("Update-Fehler: " + (json?.error || "unbekannt"));
+      } else {
+        // Nach erfolgreichem Toggle neu laden, damit Status & evtl. weitere Felder aktuell sind
+        await load();
+      }
+    } catch (e: any) {
+      setMsg("Update-Fehler: " + (e?.message || String(e)));
+    } finally { setLoading(false); }
+  }
+
   return (
     <div style={{ maxWidth: 1100, margin: "1.5rem auto", padding: "1rem" }}>
       <h2 style={{ marginBottom: 12 }}>Keycloak Import</h2>
@@ -111,6 +137,7 @@ export default function KeycloakImportPage() {
             <th>Vorname</th>
             <th>Nachname</th>
             <th>Status</th>
+            <th>Keycloak (Login)</th>
           </tr>
         </thead>
         <tbody>
@@ -143,6 +170,11 @@ export default function KeycloakImportPage() {
               </td>
               <td>
                 <span className={`kc-badge ${r.status}`}>{r.status}</span>
+              </td>
+              <td>
+                <button className="button" onClick={() => toggleEnabled(r)} disabled={loading}>
+                  {r.enabled ? "Deaktivieren" : "Aktivieren"}
+                </button>
               </td>
             </tr>
           ))}
