@@ -31,6 +31,15 @@
     color: #ededed;
 }
 
+/* Klarere Optik für deaktivierte bzw. schreibgeschützte Felder */
+.form input:disabled,
+.form input[readonly] {
+    background: #23232a;
+    color: #9ca3af;
+    border: 1px dashed #3a3a3f;
+    cursor: not-allowed;
+}
+
 .form-select {
     padding: 0.5rem;
     border: 1px solid #444;
