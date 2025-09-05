@@ -133,15 +133,70 @@
   border-color: #555;
 }
 
-/* select fields */
+/* =====================
+   Select fields (global)
+   ===================== */
+.kc-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border: 2px solid #3c3f46;
+  border-radius: 10px;
+  padding: 0.55em 2.2em 0.55em 0.9em; /* extra rechts für Caret */
+  background: linear-gradient(90deg, #23272e 78%, #23232a 100%);
+  color: #f3f3f3;
+  font-size: 1rem;
+  line-height: 1.2;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7l5 6 5-6' stroke='%23cbd5e1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 14px 14px;
+}
+.kc-select:hover {
+  border-color: #575b66;
+}
+.kc-select:focus,
+.kc-select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px #facc1533, 0 2px 8px rgba(250,204,21,0.10);
+  background: #23232a;
+}
+.kc-select:disabled {
+  background: repeating-linear-gradient(135deg, #2d2d36 0 10px, #292933 10px 20px);
+  color: #8b8fa1;
+  cursor: not-allowed;
+  opacity: 0.7;
+  border-color: #4b4f5a;
+}
+/* Größenvarianten */
+.kc-select--sm { font-size: 0.85rem; padding: 0.35em 1.8em 0.35em 0.6em; border-radius: 8px; }
+.kc-select--md { font-size: 1rem; }
+.kc-select--lg { font-size: 1.1rem; padding: 0.7em 2.4em 0.7em 1em; }
+.kc-select--fluid { width: 100%; }
+
+/* Fallback für sehr helle Themes */
+@media (prefers-color-scheme: light) {
+  .kc-select {
+    background: #ffffff;
+    color: #111827;
+    border-color: #d1d5db;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7l5 6 5-6' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+  .kc-select:hover { border-color: #9ca3af; }
+  .kc-select:disabled { background: #f3f4f6; color: #9ca3af; border-color: #e5e7eb; }
+}
+
+/* Tabellen-spezifische Select-Stile erhalten, aber auf .kc-select einschränken */
 .kc-table .kc-select {
   border: 2px solid #444;
   border-radius: 10px;
-  padding: 0.6em 1em;
+  padding: 0.6em 2.2em 0.6em 1em;
   background: linear-gradient(90deg, #23272e 80%, #23232a 100%);
   color: #f3f3f3;
   font-size: 1.08rem;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
   box-shadow: 0 1px 4px rgba(0,0,0,0.10);
 }
 .kc-table .kc-select:focus {

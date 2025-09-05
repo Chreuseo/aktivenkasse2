@@ -2,17 +2,40 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
-import { checkPermission } from "@/services/authService";
+import { checkPermission, getUserIdFromRequest } from "@/services/authService";
 
 export async function GET(req: Request) {
-  // Berechtigungsprüfung: read_all für clearing_accounts
-  const perm = await checkPermission(req, ResourceType.clearing_accounts, AuthorizationType.read_all);
-  if (!perm.allowed) {
-    return NextResponse.json({ error: "Keine Berechtigung für read_all auf clearing_accounts" }, { status: 403 });
+  // Berechtigungspr��fung: read_all für clearing_accounts
+  const permAll = await checkPermission(req, ResourceType.clearing_accounts, AuthorizationType.read_all);
+
+  // Erzeuge optionale WHERE-Klausel je nach Berechtigung
+  let whereClause: any = undefined;
+
+  if (!permAll.allowed) {
+    const permOwn = await checkPermission(req, ResourceType.clearing_accounts, AuthorizationType.read_own);
+    if (!permOwn.allowed) {
+      return NextResponse.json({ error: "Keine Berechtigung für read_own auf clearing_accounts" }, { status: 403 });
+    }
+    // read_own: Nur Konten, wo der Nutzer verantwortlich ist oder Mitglied
+    const keycloakId = getUserIdFromRequest(req);
+    if (!keycloakId) {
+      return NextResponse.json({ error: "Kein gültiger Benutzer im Token gefunden" }, { status: 401 });
+    }
+    const user = await prisma.user.findUnique({ where: { keycloak_id: keycloakId } });
+    if (!user) {
+      return NextResponse.json({ error: "Benutzer nicht gefunden" }, { status: 404 });
+    }
+    whereClause = {
+      OR: [
+        { responsibleId: user.id },
+        { members: { some: { userId: user.id } } },
+      ],
+    };
   }
 
   try {
     const clearingAccounts = await prisma.clearingAccount.findMany({
+      where: whereClause,
       include: {
         responsible: true,
         account: { select: { balance: true } },

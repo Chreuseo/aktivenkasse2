@@ -389,7 +389,7 @@ export default function RolesPage() {
           <h3 style={{ marginBottom: 12 }}>Keycloak-Rollen-Mitglieder</h3>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
             <select
-              className="kc-select"
+              className="kc-select kc-select--md"
               value={selectedKcRoleId ?? ''}
               onChange={async (e) => {
                 const v = Number(e.target.value) || null;
@@ -447,7 +447,7 @@ export default function RolesPage() {
           {/* Hinzufügen */}
           {selectedKcRoleId && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <select className="kc-select" value={kcAddUserId ?? ''} onChange={e => setKcAddUserId(Number(e.target.value) || null)} disabled={kcLoading}>
+              <select className="kc-select kc-select--md kc-select--fluid" value={kcAddUserId ?? ''} onChange={e => setKcAddUserId(Number(e.target.value) || null)} disabled={kcLoading}>
                 <option value="">Nutzer wählen…</option>
                 {users.map(u => (
                   <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.mail})</option>
