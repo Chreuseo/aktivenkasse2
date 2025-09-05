@@ -69,6 +69,7 @@ export default function UsersOverview() {
             <th>Kontostand</th>
             <th>Infomail</th>
             <th>Details</th>
+            <th>Bearbeiten</th>
           </tr>
         </thead>
         <tbody>
@@ -89,10 +90,15 @@ export default function UsersOverview() {
                   Details
                 </button>
               </td>
+              <td>
+                <button className="button" onClick={() => window.location.href = `/users/${u.id}/edit`}>
+                  Bearbeiten
+                </button>
+              </td>
             </tr>
           ))}
           {users.length === 0 && !loading && (
-            <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Nutzer gefunden</td></tr>
+            <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Nutzer gefunden</td></tr>
           )}
         </tbody>
       </table>

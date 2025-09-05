@@ -120,6 +120,7 @@ export async function GET(req: Request) {
 
     try {
         const users = await prisma.user.findMany({
+            where: { enabled: true },
             include: {
                 account: {
                     select: { balance: true }

@@ -23,6 +23,15 @@
     color: #ededed;
 }
 
+/* Checkbox als Toggle-Switch im Edit-Formular */
+.edit-form label:has(input[type="checkbox"]) {
+    /* Checkbox-Zeilen horizontal ausrichten */
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+
 .edit-form input,
 .edit-form-select {
     padding: 0.5rem;
@@ -127,4 +136,62 @@
     font-weight: 400;
     margin-left: 0.5rem;
     vertical-align: middle;
+}
+
+.edit-form input[type="checkbox"] {
+    /* eigene Darstellung aktivieren */
+    -webkit-appearance: none;
+    appearance: none;
+    width: 46px;
+    height: 26px;
+    padding: 0; /* überschreibt generischen Input-Style */
+    border-radius: 9999px;
+    background: #2b2b34;
+    border: 1px solid #444;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.edit-form input[type="checkbox"]::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    background: #e5e7eb; /* Knopf (hell) */
+    transform: translateY(-50%);
+    transition: left 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.45);
+}
+
+.edit-form input[type="checkbox"]:hover {
+    border-color: #555;
+}
+
+.edit-form input[type="checkbox"]:focus-visible {
+    outline: none;
+    border-color: #facc15;
+    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.18);
+}
+
+.edit-form input[type="checkbox"]:checked {
+    background: #facc15; /* Track aktiv in Akzentfarbe */
+    border-color: #facc15;
+}
+
+.edit-form input[type="checkbox"]:checked::after {
+    left: 24px;
+    background: #111827; /* Knopf dunkel auf hellem Track */
+}
+
+.edit-form input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.edit-form input[type="checkbox"]:disabled::after {
+    box-shadow: none;
 }

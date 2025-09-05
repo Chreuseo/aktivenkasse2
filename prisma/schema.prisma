@@ -25,6 +25,7 @@ model User {
   last_name                   String
   mail                        String                  @unique
   keycloak_id                 String                  @unique
+  enabled                     Boolean                 @default(true)
   accountId                   Int
   account                     Account                 @relation(fields: [accountId], references: [id])
   roles                       Role[]
