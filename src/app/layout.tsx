@@ -3,6 +3,7 @@ import "./globals.css";
 import "./css/tables.css";
 import "./css/infobox.css";
 import "./css/overview.css";
+import "./css/forms.css";
 import { ReactNode } from "react";
 import type { Metadata } from "next";
 import ClientHeader from "./ClientHeader";

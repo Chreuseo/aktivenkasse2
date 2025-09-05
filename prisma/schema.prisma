@@ -54,13 +54,14 @@ model Role {
 }
 
 model BankAccount {
-  id        Int     @id @default(autoincrement())
-  name      String
-  bank      String
-  iban      String  @unique
-  bic       String?
-  accountId Int
-  account   Account @relation(fields: [accountId], references: [id])
+  id             Int     @id @default(autoincrement())
+  name           String
+  bank           String
+  iban           String  @unique
+  bic            String?
+  accountId      Int
+  account        Account @relation(fields: [accountId], references: [id])
+  payment_method Boolean @default(false)
 }
 
 model ClearingAccount {
