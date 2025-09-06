@@ -15,6 +15,7 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
         iban: "",
         bic: "",
         balance: 0,
+        payment_method: false,
     });
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
@@ -44,6 +45,7 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
                     iban: accJson.iban ?? "",
                     bic: accJson.bic ?? "",
                     balance: typeof accJson.balance === "number" ? accJson.balance : 0,
+                    payment_method: !!(accJson as any).payment_method,
                 });
                 setFormLoading(false);
             } catch (err: any) {
@@ -54,7 +56,8 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
     }, [session, status, id]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, type, value, checked } = e.target;
+        setFormData({ ...formData, [name]: type === "checkbox" ? checked : value });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -85,6 +88,7 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
                     bank: formData.bank,
                     iban: formData.iban,
                     bic: formData.bic,
+                    payment_method: !!formData.payment_method,
                 }),
             });
             setMessage("✅ Änderungen gespeichert!");
@@ -117,6 +121,10 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
                 <label>
                     BIC (optional)
                     <input type="text" name="bic" value={formData.bic} onChange={handleChange} />
+                </label>
+                <label>
+                    In Zahlungsaufforderung anzeigen{" "}
+                    <input type="checkbox" name="payment_method" checked={!!formData.payment_method} onChange={handleChange} />
                 </label>
                 <label>
                     Kontostand

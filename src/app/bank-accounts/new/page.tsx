@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useState } from "react";
-import "../../css/forms.css";
+import "../../css/edit-form.css";
 import { extractToken, fetchJson } from "@/lib/utils";
 
 // Utility für Token-Extraktion
@@ -18,13 +18,15 @@ export default function NewBankAccountPage() {
         name: "",
         bank: "",
         iban: "",
-        bic: ""
+        bic: "",
+        payment_method: false,
     });
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, type, value, checked } = e.target;
+        setFormData({ ...formData, [name]: type === "checkbox" ? checked : value });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -39,21 +41,28 @@ export default function NewBankAccountPage() {
                     "Content-Type": "application/json",
                     ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({
+                    name: formData.name,
+                    bank: formData.bank,
+                    iban: formData.iban,
+                    bic: formData.bic,
+                    payment_method: !!formData.payment_method,
+                }),
             });
             setMessage("✅ Bankkonto erfolgreich angelegt!");
-            setFormData({ name: "", bank: "", iban: "", bic: "" });
-        } catch (error: any) {
-            setMessage("❌ " + (error?.message || "Serverfehler"));
+            setFormData({ name: "", bank: "", iban: "", bic: "", payment_method: false });
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setMessage("❌ " + (msg || "Serverfehler"));
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="form-container">
+        <div className="edit-form-container">
             <h1>Neues Bankkonto anlegen</h1>
-            <form onSubmit={handleSubmit} className="form">
+            <form onSubmit={handleSubmit} className="edit-form">
                 <label>
                     Name
                     <input type="text" name="name" value={formData.name} onChange={handleChange} required />
@@ -74,9 +83,14 @@ export default function NewBankAccountPage() {
                     <input type="text" name="bic" value={formData.bic} onChange={handleChange} />
                 </label>
 
+                <label>
+                    In Zahlungsaufforderung anzeigen{" "}
+                    <input type="checkbox" name="payment_method" checked={!!formData.payment_method} onChange={handleChange} />
+                </label>
+
                 <button className="button" type="submit" disabled={loading}>Anlegen</button>
             </form>
-            {message && <p className="message">{message}</p>}
+            {message && <p className="edit-message">{message}</p>}
         </div>
     );
 }

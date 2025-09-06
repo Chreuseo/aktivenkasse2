@@ -5,5 +5,6 @@ export type BankAccount = {
   iban: string;
   balance: number;
   bic?: string | null;
+  // Zahlungshinweis-Checkbox
+  payment_method?: boolean;
 };
-

@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Ungültige JSON-Daten" }, { status: 400 });
   }
 
-  const { name, bank, iban, bic } = data;
+  const { name, bank, iban, bic, payment_method } = data;
   if (!name || !bank || !iban) {
     return NextResponse.json({ error: "Name, Bank und IBAN sind Pflichtfelder" }, { status: 400 });
   }
@@ -67,13 +67,14 @@ export async function POST(req: Request) {
         type: "bank"
       }
     });
-    // Bankkonto anlegen
+    // Bankkonto anlegen (payment_method berücksichtigen)
     const bankAccount = await prisma.bankAccount.create({
       data: {
         name,
         bank,
         iban,
         bic: bic || null,
+        payment_method: !!payment_method,
         accountId: account.id
       }
     });
@@ -83,7 +84,8 @@ export async function POST(req: Request) {
       bank: bankAccount.bank,
       iban: bankAccount.iban,
       bic: bankAccount.bic,
-      balance: 0
+      balance: 0,
+      payment_method: bankAccount.payment_method,
     }, { status: 201 });
   } catch (error: any) {
     console.error(error);

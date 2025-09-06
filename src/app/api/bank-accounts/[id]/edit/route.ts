@@ -23,9 +23,9 @@ export async function PUT(req: Request, context: { params: { id: string } }) {
   } catch {
     return NextResponse.json({ error: "Ungültige JSON-Daten" }, { status: 400 });
   }
-  const { name, bank, iban, bic } = data;
+  const { name, bank, iban, bic, payment_method } = data ?? {};
   if (!name || !bank || !iban) return NextResponse.json({ error: "Name, Bank und IBAN sind erforderlich" }, { status: 400 });
-  // Update BankAccount
+  // Update BankAccount inkl. payment_method (boolean cast)
   await prisma.bankAccount.update({
     where: { id: idNum },
     data: {
@@ -33,6 +33,7 @@ export async function PUT(req: Request, context: { params: { id: string } }) {
       bank,
       iban,
       bic,
+      payment_method: !!payment_method,
     },
   });
   return NextResponse.json({ success: true });

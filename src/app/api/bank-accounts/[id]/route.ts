@@ -50,6 +50,7 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
             iban: bankAccount.iban ?? "",
             bic: bankAccount.bic ?? "",
             balance: typeof bankAccount.account?.balance === "number" ? bankAccount.account.balance : Number(bankAccount.account?.balance || 0),
+            payment_method: !!bankAccount.payment_method,
         };
         // Prüfe Query-Parameter
         const url = new URL(req.url);
