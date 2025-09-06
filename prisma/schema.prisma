@@ -191,7 +191,7 @@ model Attachment {
 model Mail {
   id          Int      @id @default(autoincrement())
   subject     String
-  body        String
+  body        String   @db.Text
   sentAt      DateTime @default(now())
   userId      Int?
   user        User?    @relation(fields: [userId], references: [id])

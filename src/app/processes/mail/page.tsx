@@ -189,19 +189,44 @@ export default function MailProcessPage() {
 
   const handleSend = useCallback(async () => {
     if (!canSend) return;
-    // Noch keine API. Placeholder: Erfolgsmeldung anzeigen.
-    setStatusMsg(
-      `Sendevorgang vorbereitet für ${recipients.length} Empfänger. API folgt.\n` +
-        (remark.trim() ? `Bemerkung: ${remark.trim()}` : "")
-    );
-  }, [canSend, recipients.length, remark]);
+    setLoading(true);
+    setError(null);
+    setStatusMsg(null);
+    try {
+      const chosen = rows.filter((r) => selected[r.key]);
+      const ids = chosen.map((r) => Number(r.source?.id)).filter((n) => Number.isFinite(n));
+      const type = mode === "Nutzer" ? "user" : "clearing";
+      const res = await fetch("/api/mails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipients: { type, ids }, remark: remark?.trim() || undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || `Fehler ${res.status}`);
+      }
+      const lines: string[] = [];
+      lines.push(`Versand angestoßen: ${data.success}/${data.total} erfolgreich.`);
+      if (data.failed) lines.push(`Fehlgeschlagen: ${data.failed}.`);
+      if (Array.isArray(data.errors) && data.errors.length) {
+        lines.push("— Details:");
+        data.errors.slice(0, 5).forEach((e: any) => lines.push(`  • ${e.to}: ${e.error}`));
+        if (data.errors.length > 5) lines.push(`  … und ${data.errors.length - 5} weitere`);
+      }
+      setStatusMsg(lines.join("\n"));
+    } catch (e: any) {
+      setError(e?.message || "Fehler beim Sendevorgang");
+    } finally {
+      setLoading(false);
+    }
+  }, [canSend, rows, selected, mode, remark]);
 
   const showNegHint = op === "kleiner" && parseAmount() > 0;
 
   return (
-    <div className="wide-container" style={{ width: "100%" }}>
+    <div className="wide-container" style={{ width: "100%", maxWidth: 900 }}>
       {/* Filterzeile */}
-      <section style={{ width: "100%", maxWidth: 1200, margin: "0 auto 1rem auto" }}>
+      <section style={{ width: "100%", margin: "0 auto 1rem auto" }}>
         <div
           style={{
             display: "flex",

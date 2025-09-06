@@ -4,12 +4,17 @@
 * (n) Mailversand
 * (n) Datenexport
 
-Baust du mir unter Verwendung der vorhandenen CSS eine Mailsendeseite mit folgendem Design:
+So, jetzt implementieren wir bitte eine API-Route, die das Mails senden übernimmt. Lager mir die Maillogik sowie die Texte bitte in einen Service aus, dass ich sowohl diese Mails auch von anderer Stelle verwenden kann, als auch generell andere Mails damit versenden kann.
 
-Oben ist eine Filterzeile beginnend mit einem Dropdown ( Nutzer | Verrechnungskonto), Kontostand: Dropdown ( kleiner | größer | ungleich | Betrag größer ), Eingabefeld €, Button ( Filtern ). Die Felder sollen responsive auch untereinander angezeigt werden.
+An Nutzer direkt (ohne Verrechnungskonto) wir gesendet, [env - mail.salutation] [prisma - Vorname] [prisma - Nachname],
 
-Unter der Filterzeile ist ein Eingabefeld (Textarea) Bemerkung (optional): Direkt darunter ein Button Senden.
+Info über Kontostand
 
-Darunter ist eine Tabelle " Checkbox | Verrechnungskonto | Name | Mail | Kontostand " mit allen dem Filter entsprechenden konten bzw. bei der Auswahl von Verrechnungskonten entsprechend bei Name dem zugehörigen Verantwortlichen. Verrechnungskonten werden nur angezeigt, wenn es einen Verantwortlichen gibt.
+optionaler Freitext (fett)
 
-Der Button senden ist disabled, bis erstmal gefiltert wurde, die Tabelle befüllt ist und mindestens eine Zeile per Checkbox angewählt ist. Per Klick auf Senden kann dann an alle angewählten eine Mail ausgelöst werden, aber bitte noch nicht umsetzen, die API für die Mails machen wir gleich danach.
+Hinweise Zahlungsinformationen: alle BankAccount, mit payment_method = true.
+
+[env - mail.closing]
+[Name des Mailauslösers]
+
+Bei Verrechnungskonto ist der Hinweis darauf noch dabei, dass der Kontostand eines Verrechnungskontos, für das er verantworlich ist betreffend ist.
