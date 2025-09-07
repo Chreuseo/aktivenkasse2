@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
@@ -20,7 +20,7 @@ function inferOtherFromAccount(acc: any) {
     return null;
 }
 
-export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
     // params asynchron auflösen
     const { id: requestedId } = await context.params;
     // Rechtevalidierung für Bankkonto-Detailansicht (Token wird nicht weiter genutzt)

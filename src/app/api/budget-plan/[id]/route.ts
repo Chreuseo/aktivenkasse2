@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
 
-export async function GET(req: Request, context: { params: { id: string } }) {
-  const { id } = context.params;
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
   const idNum = Number(id);
   if (isNaN(idNum)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
   // Berechtigungsprüfung: read_all für budget_plan
@@ -25,8 +25,8 @@ export async function GET(req: Request, context: { params: { id: string } }) {
   });
 }
 
-export async function PATCH(req: Request, context: { params: { id: string } }) {
-  const { id } = context.params;
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
   const idNum = Number(id);
   if (isNaN(idNum)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
   // Berechtigungsprüfung: write_all für budget_plan

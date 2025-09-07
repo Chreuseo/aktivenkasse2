@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const advId = Number(id);
   if (!advId || isNaN(advId)) {
@@ -19,8 +19,10 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
 
   const attachment = advance.attachment;
   const mime = attachment.mimeType || "application/octet-stream";
-  const blob = new Blob([attachment.data], { type: mime });
-  return new Response(blob, {
+  const u8 = attachment.data as unknown as Uint8Array;
+  const copied = u8.slice();
+  const ab: ArrayBuffer = copied.buffer;
+  return new Response(ab, {
     status: 200,
     headers: {
       "Content-Type": mime,

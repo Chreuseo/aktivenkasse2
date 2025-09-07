@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { checkPermission } from "@/services/authService";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 
 // POST: /api/budget-plan/[id]/recalculate
-export async function POST(req: Request, context: { params: { id: string } }) {
-  const { id } = context.params;
+export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
   const planId = Number(id);
   if (isNaN(planId)) {
     return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
 
-export async function PUT(req: Request, context: { params: { id: string } }) {
-  const { id } = context.params;
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
   const idNum = Number(id);
   if (isNaN(idNum)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
   // Berechtigungsprüfung: write_all für budget_plan

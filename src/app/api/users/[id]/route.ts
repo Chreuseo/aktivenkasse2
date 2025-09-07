@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { checkPermission, extractTokenAndUserId } from "@/services/authService";
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
     // Rechtevalidierung für Nutzer-Detailansicht
-    const { userId: tokenUserId } = extractTokenAndUserId(req);
-    const requestedId = params.id;
+    const { userId: tokenUserId } = extractTokenAndUserId(req as any);
+    const { id: requestedId } = await context.params;
     let requiredPermission = AuthorizationType.read_all;
     if (tokenUserId && (requestedId === tokenUserId || requestedId === String(tokenUserId))) {
         requiredPermission = AuthorizationType.read_own;
@@ -16,7 +16,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         return NextResponse.json({ error: `Keine Berechtigung für ${requiredPermission} auf userAuth` }, { status: 403 });
     }
     try {
-        const userId = Number(params.id);
+        const userId = Number(requestedId);
         if (!userId || isNaN(userId)) {
             return NextResponse.json({ error: "Ungültige Nutzer-ID" }, { status: 400 });
         }

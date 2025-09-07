@@ -5,8 +5,9 @@ import {checkPermission} from "@/services/authService";
 
 
 // PUT: /api/budget-plan/cost-centers/:id
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const id = Number(params.id);
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id: idStr } = await context.params;
+  const id = Number(idStr);
   const data = await req.json();
   if (!id) return NextResponse.json({ error: "ID erforderlich" }, { status: 400 });
 
@@ -35,8 +36,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PATCH: /api/budget-plan/cost-centers/:id
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const id = Number(params.id);
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id: idStr } = await context.params;
+  const id = Number(idStr);
   if (!id) return NextResponse.json({ error: "ID erforderlich" }, { status: 400 });
   const perm = await checkPermission(req, ResourceType.budget_plan, AuthorizationType.write_all)
   if (!perm.allowed) {
@@ -63,8 +65,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE: /api/budget-plan/cost-centers/:id
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  const id = Number(params.id);
+export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id: idStr } = await context.params;
+  const id = Number(idStr);
   if (!id) return NextResponse.json({ error: "ID erforderlich" }, { status: 400 });
   const perm = await checkPermission(req, ResourceType.budget_plan, AuthorizationType.write_all)
   if (!perm.allowed) {

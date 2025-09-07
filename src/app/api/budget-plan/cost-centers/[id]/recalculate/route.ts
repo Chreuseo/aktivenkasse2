@@ -1,11 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import {checkPermission} from "@/services/authService";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 
 // POST: /api/budget-plan/cost-centers/[id]/recalculate
-export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const id = Number(params.id);
+export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id: idStr } = await context.params;
+  const id = Number(idStr);
   if (!id) return NextResponse.json({ error: "ID erforderlich" }, { status: 400 });
 
   const perm = await checkPermission(req, ResourceType.budget_plan, AuthorizationType.write_all);

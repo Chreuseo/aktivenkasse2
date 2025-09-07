@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { extractToken, fetchJson } from "@/lib/utils";
@@ -11,7 +11,7 @@ import type { BudgetPlan, CostCenter } from "../utils";
 import { getSortedCostCenters } from "../utils";
 import { statusNames } from "@/app/types/budgetPlanStatusName";
 
-export default function CostCentersPage() {
+function CostCentersPageInner() {
   const searchParams = useSearchParams();
   const planId = searchParams?.get("planId");
   const { data: session } = useSession();
@@ -228,7 +228,7 @@ export default function CostCentersPage() {
     arr.splice(toIdx, 0, moved);
     // Verkettung aktualisieren
     for (let i = 0; i < arr.length; i++) {
-      arr[i].nextCostCenter = arr[i + 1]?.id ?? null;
+      (arr[i] as any).nextCostCenter = (arr[i + 1] as any)?.id ?? null;
     }
     setCostCenters(arr);
     // firstCostCenter im Plan aktualisieren
@@ -321,5 +321,13 @@ export default function CostCentersPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function CostCentersPage() {
+  return (
+    <Suspense fallback={<div style={{ color: "var(--muted)", marginBottom: 12 }}>Lade Seite ...</div>}>
+      <CostCentersPageInner />
+    </Suspense>
   );
 }

@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const attachmentId = Number(id);
   if (!attachmentId || isNaN(attachmentId)) {
@@ -14,8 +14,11 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
   if (!attachment) {
     return NextResponse.json({ error: "Beleg nicht gefunden." }, { status: 404 });
   }
-  // Datei ausliefern
-  return new Response(attachment.data, {
+  // Datei ausliefern (ArrayBuffer über Kopie herstellen)
+  const u8 = attachment.data as unknown as Uint8Array;
+  const copied = u8.slice();
+  const ab: ArrayBuffer = copied.buffer;
+  return new Response(ab, {
     status: 200,
     headers: {
       "Content-Type": attachment.mimeType || "application/octet-stream",
@@ -23,4 +26,3 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
     },
   });
 }
-

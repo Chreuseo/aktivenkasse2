@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
@@ -13,7 +13,7 @@ async function getIdFromContext(context: { params: Promise<{ id: string }> | { i
   return (p?.id ?? "");
 }
 
-export async function GET(req: Request, context: { params: Promise<{ id: string }> | { id: string } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> | { id: string } }) {
   const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.write_all);
   if (!perm.allowed) {
     return NextResponse.json({ error: "Keine Berechtigung für Nutzer bearbeiten" }, { status: 403 });
@@ -32,7 +32,7 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
   });
 }
 
-export async function PUT(req: Request, context: { params: Promise<{ id: string }> | { id: string } }) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> | { id: string } }) {
   const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.write_all);
   if (!perm.allowed) {
     return NextResponse.json({ error: "Keine Berechtigung für Nutzer bearbeiten" }, { status: 403 });
