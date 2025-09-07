@@ -1,0 +1,40 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* Variablen werden beim Build benötigt (Next.js inlined sie)
+        NEXT_PUBLIC_COMPANY: ${NEXT_PUBLIC_COMPANY}
+    env_file:
+      - .env
+    environment:
+      # In-Container DB-URL (nutzt internen Service-Namen)
+      DATABASE_URL: ${DATABASE_URL_DOCKER:-mysql://aktivenkasse2:userpass@db:3306/aktivenkasse2}
+      # Wenn Keycloak auf dem Host (localhost:8700) läuft, von Container aus via host.docker.internal erreichbar
+      KEYCLOAK_BASE_URL: ${KEYCLOAK_BASE_URL_DOCKER}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER_DOCKER}
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  migrate:
+    build:
+      context: .
+      target: migrator
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL_DOCKER:-mysql://aktivenkasse2:userpass@db:3306/aktivenkasse2}
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ["tools"]
+    entrypoint: ["sh", "-lc", "npx prisma migrate deploy"]
+
+volumes:
+  db-data:
