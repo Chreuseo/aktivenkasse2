@@ -20,6 +20,7 @@ export type BuiltMail = {
   text: string;
   from: string;
   replyTo?: string;
+  recipientUserId?: number | null;
 };
 
 export interface MailTransport {
@@ -37,6 +38,7 @@ export class ConsoleTransport implements MailTransport {
       "\nFrom:",
       mail.from,
       mail.replyTo ? `\nReply-To: ${mail.replyTo}` : "",
+      "\nrecipientUserId:", mail.recipientUserId,
       "\n\n" + mail.text
     );
   }
@@ -49,6 +51,7 @@ export class DbTransport implements MailTransport {
         subject: mail.subject,
         body: mail.text,
         addressedTo: mail.to,
+        userId: mail.recipientUserId ?? undefined,
       },
     });
   }
@@ -265,9 +268,10 @@ export async function buildMail(
   });
 
   const to = input.kind === "user" ? input.user.mail : input.clearing.responsible.mail;
+  const recipientUserId = input.kind === "user" ? input.user.id : input.clearing.responsible.id;
   const from = buildFromAddress(initiatorName);
   const replyTo = initiatorEmail || undefined;
-  return { to, subject, text, from, replyTo };
+  return { to, subject, text, from, replyTo, recipientUserId };
 }
 
 export async function sendMails(

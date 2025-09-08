@@ -82,3 +82,28 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ total: inputs.length, success, failed: errors.length, errors });
 }
+
+export async function GET(req: NextRequest) {
+  const perm = await checkPermission(req as unknown as Request, ResourceType.mails, AuthorizationType.read_all);
+  if (!perm.allowed) {
+    return NextResponse.json({ error: perm.error || "Nicht erlaubt" }, { status: 403 });
+  }
+
+  try {
+    const mails = await prisma.mail.findMany({
+      orderBy: { sentAt: "desc" },
+      include: { user: true },
+    });
+
+    const result = mails.map((m) => ({
+      id: m.id,
+      subject: m.subject,
+      sentAt: m.sentAt,
+      user: m.user ? { id: m.user.id, first_name: m.user.first_name, last_name: m.user.last_name } : null,
+    }));
+
+    return NextResponse.json(result);
+  } catch (e: any) {
+    return NextResponse.json({ error: "Fehler beim Laden der Mails" }, { status: 500 });
+  }
+}

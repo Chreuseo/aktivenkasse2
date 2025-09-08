@@ -43,6 +43,7 @@ const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
         ],
     Prozesse: [
         { label: 'Mailversand', href: '/processes/mail' },
+        { label: 'Mail-Log', href: '/processes/mail-log' },
         { label: 'Daten-Export', href: '/processes/export' }
         ],
     Konto: [
