@@ -55,6 +55,7 @@ export default function ClientHeader() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [submenuOpen, setSubmenuOpen] = useState<{ [key in MenuKey]?: boolean }>({});
     const [filterMode, setFilterMode] = useState<FilterMode>('Standard');
+    const [company, setCompany] = useState<string>("");
 
     const toggleSubmenu = (key: MenuKey) => {
         setSubmenuOpen(prev => ({ ...prev, [key]: !prev[key] }));
@@ -94,6 +95,23 @@ export default function ClientHeader() {
         }
     }, [filterMode]);
 
+    // Firmenname zur Laufzeit laden
+    useEffect(() => {
+        let cancelled = false;
+        async function loadCompany() {
+            try {
+                const res = await fetch('/api/public-config', { cache: 'no-store' });
+                if (!res.ok) throw new Error(String(res.status));
+                const json = await res.json();
+                if (!cancelled) setCompany(String(json?.company || ''));
+            } catch {
+                if (!cancelled) setCompany(String(process.env.NEXT_PUBLIC_COMPANY || ''));
+            }
+        }
+        loadCompany();
+        return () => { cancelled = true; };
+    }, []);
+
     // Welche Menüpunkte je Modus angezeigt werden
     const itemsToRender: MenuKey[] = (() => {
         switch (filterMode) {
@@ -110,7 +128,7 @@ export default function ClientHeader() {
     return (
         <header className="bg-gray-800 text-white">
             <nav className="max-w-6xl mx-auto px-4 flex items-center justify-between h-16">
-                <div className="text-xl font-bold">Aktivenkasse { process.env.NEXT_PUBLIC_COMPANY }</div>
+                <div className="text-xl font-bold">Aktivenkasse { company }</div>
                 <ul className="hidden md:flex space-x-6">
                     {itemsToRender.map(item => (
                         <li key={item} className="relative group">

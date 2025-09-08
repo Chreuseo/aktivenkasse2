@@ -263,22 +263,22 @@
   min-width: 900px;
 }
 
-/* Spalten gezielt ausblenden für bessere Mobile-Darstellung */
+/* Spalten gezielt ausblenden für bessere Mobile-Darstellung
 @media (max-width: 1000px) {
   .kc-table th:nth-child(4),
-  .kc-table td:nth-child(4) { display: none; } /* Verrechnungskonto */
+  .kc-table td:nth-child(4) { display: none; } /* Verrechnungskonto
 }
 @media (max-width: 820px) {
   .kc-table th:nth-child(7),
-  .kc-table td:nth-child(7) { display: none; } /* Bearbeiter */
+  .kc-table td:nth-child(7) { display: none; } /* Bearbeiter
 }
 @media (max-width: 640px) {
   .kc-table th:nth-child(5),
-  .kc-table td:nth-child(5) { display: none; } /* Beleg */
+  .kc-table td:nth-child(5) { display: none; } /* Beleg
 }
 
-/* responsive */
+/* responsive
 @media (max-width: 900px) {
   .kc-table th:nth-child(4),
-  .kc-table td:nth-child(4) { display: none; } /* hide lastName on small */
-}
+  .kc-table td:nth-child(4) { display: none; } /* hide lastName on small
+}*/
