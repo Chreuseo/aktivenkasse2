@@ -18,6 +18,7 @@ const accountTypes = [
   { value: "user", label: "Nutzer" },
   { value: "bank", label: "Bankkonto" },
   { value: "clearing_account", label: "Verrechnungskonto" },
+  { value: "cost_center", label: "Kostenstelle" },
 ];
 
 function getOptions(type: string, userOptions: User[], bankOptions: BankAccount[], clearingOptions: ClearingAccount[]) {
@@ -42,8 +43,11 @@ export default function BulkTransactionPage() {
     description: "",
     reference: "",
     bulkType: "einzug",
-    accountType: "clearing_account",
+    accountType: "clearing_account" as "user" | "bank" | "clearing_account" | "cost_center",
     accountId: "",
+    // Globale Haushaltsplan/Kostenstelle, wenn accountType === 'cost_center'
+    globalBudgetPlanId: "",
+    globalCostCenterId: "",
     attachment: null as File | null,
   });
   const [userOptions, setUserOptions] = useState<User[]>([]);
@@ -73,33 +77,54 @@ export default function BulkTransactionPage() {
     }
   }, [formData.date_valued]);
 
-  // Auswahltyp-Logik je nach bulkType
+  // Auswahltyp-Logik je nach bulkType: erlaubte Werte und Defaults
   useEffect(() => {
-    if (formData.bulkType === "einzahlung") {
-      setFormData(prev => ({ ...prev, accountType: "bank" }));
-    } else {
-      setFormData(prev => ({ ...prev, accountType: "clearing_account" }));
-    }
+    setFormData(prev => {
+      if (prev.bulkType === 'einzahlung') {
+        // Bei Einzahlung nur Bankkonto, Kostenstellenmodus deaktivieren und leeren
+        return { ...prev, accountType: 'bank', globalBudgetPlanId: '', globalCostCenterId: '' };
+      }
+      // einzug/auszahlung: default auf Verrechnungskonto, falls vorher bank
+      if (prev.accountType === 'bank') return { ...prev, accountType: 'clearing_account' };
+      return prev;
+    });
   }, [formData.bulkType]);
+
+  // Kostenstellenliste für globalen Haushaltsplan laden
+  useEffect(() => {
+    if (formData.accountType === 'cost_center' && formData.globalBudgetPlanId) {
+      const token = extractToken(session);
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+      fetchJson(`/api/budget-plan/cost-centers?planId=${formData.globalBudgetPlanId}`, { headers })
+        .then(costCenters => setCostCentersByPlan(prev => ({ ...prev, [formData.globalBudgetPlanId]: costCenters })))
+        .catch(() => setCostCentersByPlan(prev => ({ ...prev, [formData.globalBudgetPlanId]: [] })));
+    }
+  }, [formData.accountType, formData.globalBudgetPlanId, session]);
+
+  // Wenn globaler Kostenstellenmodus aktiv ist, Werte in den Zeilen vorbefüllen und sperren
+  useEffect(() => {
+    if (formData.accountType === 'cost_center' && formData.globalBudgetPlanId && formData.globalCostCenterId) {
+      setRows(prev => prev.map(r => ({
+        ...r,
+        budgetPlanId: formData.globalBudgetPlanId,
+        costCenterId: formData.globalCostCenterId,
+      })));
+    }
+  }, [formData.accountType, formData.globalBudgetPlanId, formData.globalCostCenterId]);
 
   // Handler
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, attachment: e.target.files?.[0] || null }));
-  };
   const handleRowChange = (idx: number, field: string, value: string) => {
     setRows(prev => prev.map((row, i) => {
       if (i !== idx) return row;
       let newRow = { ...row, [field]: value } as any;
-      // Wenn Budgetplan geändert, Kostenstelle zurücksetzen
-      if (field === "budgetPlanId") newRow.costCenterId = "";
+      if (field === "budgetPlanId" && formData.accountType !== 'cost_center') newRow.costCenterId = "";
       return newRow;
     }));
-    // Kostenstellen für Budgetplan laden
-    if (field === "budgetPlanId" && value) {
+    if (field === "budgetPlanId" && value && formData.accountType !== 'cost_center') {
       const token = extractToken(session);
       const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
       fetchJson(`/api/budget-plan/cost-centers?planId=${value}`, { headers })
@@ -108,39 +133,54 @@ export default function BulkTransactionPage() {
     }
   };
   const addRow = () => {
-    setRows(prev => [...prev, { type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "" }]);
+    setRows(prev => [...prev, { type: "user", id: "", amount: "", description: "", budgetPlanId: formData.accountType === 'cost_center' ? formData.globalBudgetPlanId : "", costCenterId: formData.accountType === 'cost_center' ? formData.globalCostCenterId : "" }]);
   };
   const removeRow = () => {
     if (rows.length > 1) setRows(prev => prev.slice(0, -1));
   };
 
-  // Auswahltyp-Optionen für Einzelbuchungen
   const rowAccountTypes = [
     { value: "user", label: "Nutzer" },
     { value: "clearing_account", label: "Verrechnungskonto" },
   ];
 
-  // Absenden
   const handleSubmit = async () => {
     setMessage("");
     setLoading(true);
     try {
-      // Jede Zeile validieren: wenn keine Auswahl (id leer), dann Budgetplan & Kostenstelle Pflicht
+      if (formData.accountType === 'cost_center') {
+        if (!formData.globalBudgetPlanId || !formData.globalCostCenterId) {
+          setMessage('❌ Bitte Haushaltsplan und Kostenstelle oben auswählen.');
+          setLoading(false);
+          return;
+        }
+      } else {
+        if (!formData.accountId) {
+          setMessage('❌ Bitte ein Hauptkonto in der Auswahl wählen.');
+          setLoading(false);
+          return;
+        }
+      }
+
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i];
-        if (!r.id) {
-          if (!r.budgetPlanId || !r.costCenterId) {
-            setMessage(`❌ Zeile ${i + 1}: Kostenstelle ist Pflicht ohne Auswahl (Budgetplan und Kostenstelle angeben)`);
-            setLoading(false);
-            return;
-          }
+        if (!r.type || !r.id) {
+          setMessage(`❌ Zeile ${i + 1}: Typ und Auswahl sind Pflichtfelder`);
+          setLoading(false);
+          return;
         }
-        // Betrag positiv prüfen
         const amt = Number(r.amount);
         if (!isFinite(amt) || amt <= 0) {
           setMessage(`❌ Zeile ${i + 1}: Ungültiger Betrag`);
           setLoading(false);
           return;
+        }
+        if (formData.accountType === 'cost_center') {
+          if (r.budgetPlanId !== formData.globalBudgetPlanId || r.costCenterId !== formData.globalCostCenterId) {
+            setMessage(`❌ Zeile ${i + 1}: Abweichende Kostenstelle – bitte Seite aktualisieren.`);
+            setLoading(false);
+            return;
+          }
         }
       }
 
@@ -150,12 +190,25 @@ export default function BulkTransactionPage() {
       formDataObj.append("description", formData.description);
       formDataObj.append("reference", formData.reference);
       formDataObj.append("bulkType", formData.bulkType);
-      formDataObj.append("accountType", formData.accountType);
-      formDataObj.append("accountId", formData.accountId);
+
+      if (formData.accountType === 'cost_center') {
+        formDataObj.append("globalBudgetPlanId", formData.globalBudgetPlanId);
+        formDataObj.append("globalCostCenterId", formData.globalCostCenterId);
+      } else {
+        formDataObj.append("accountType", formData.accountType);
+        formDataObj.append("accountId", formData.accountId);
+      }
+
       if (formData.attachment) {
         formDataObj.append("attachment", formData.attachment);
       }
-      formDataObj.append("rows", JSON.stringify(rows));
+      const rowsToSend = rows.map(r => (
+        formData.accountType === 'cost_center'
+          ? { ...r, budgetPlanId: formData.globalBudgetPlanId, costCenterId: formData.globalCostCenterId }
+          : r
+      ));
+      formDataObj.append("rows", JSON.stringify(rowsToSend));
+
       const res = await fetch("/api/transactions/bulk", {
         method: "POST",
         headers: {
@@ -174,7 +227,7 @@ export default function BulkTransactionPage() {
         if (result?.error) msg += `\n${result.error}`;
         setMessage(msg);
       } else {
-        setMessage("✅ Sammeltransaktion erfolgreich angelegt!");
+        setMessage("✅ Transaktion(en) erfolgreich angelegt!");
         setFormData({
           date_valued: new Date().toISOString().slice(0, 10),
           description: "",
@@ -182,6 +235,8 @@ export default function BulkTransactionPage() {
           bulkType: "einzug",
           accountType: "clearing_account",
           accountId: "",
+          globalBudgetPlanId: "",
+          globalCostCenterId: "",
           attachment: null,
         });
         setRows([{ type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "" }]);
@@ -193,11 +248,7 @@ export default function BulkTransactionPage() {
     }
   };
 
-  // Auswahloptionen für das Hauptkonto
-  let mainAccountOptions: any[] = [];
-  if (formData.accountType === "user") mainAccountOptions = userOptions;
-  if (formData.accountType === "bank") mainAccountOptions = bankOptions;
-  if (formData.accountType === "clearing_account") mainAccountOptions = clearingOptions;
+  const globalCostCenters = formData.globalBudgetPlanId ? (costCentersByPlan[formData.globalBudgetPlanId] || []) : [];
 
   return (
     <div className="wide-container">
@@ -254,42 +305,72 @@ export default function BulkTransactionPage() {
             value={formData.accountType}
             onChange={handleChange}
             style={{ maxWidth: "220px" }}
-            disabled={formData.bulkType === "einzahlung"}
           >
             {accountTypes.filter(opt => {
-              if (formData.bulkType === "einzahlung") return opt.value === "bank";
-              if (["einzug", "auszahlung"].includes(formData.bulkType)) return ["user", "clearing_account"].includes(opt.value);
+              if (formData.bulkType === "einzahlung") return ["bank"].includes(opt.value);
+              if (["einzug", "auszahlung"].includes(formData.bulkType)) return ["user", "clearing_account", "cost_center"].includes(opt.value);
               return true;
             }).map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
         </label>
-        <label>
-          Auswahl
-          <select
-            name="accountId"
-            className="form-select form-select-max"
-            value={formData.accountId}
-            onChange={handleChange}
-            required
-            style={{ maxWidth: "220px" }}
-          >
-            <option value="">Bitte wählen</option>
-            {mainAccountOptions.map(opt => (
-              <option key={opt.id} value={opt.id}>{getAccountDisplayName(opt)}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Beleg
-          <input
-            type="file"
-            className="form-file-upload"
-            onChange={handleFileChange}
-            accept="image/*,application/pdf"
-          />
-        </label>
+
+        {formData.accountType !== 'cost_center' ? (
+          <label>
+            Auswahl
+            <select
+              name="accountId"
+              className="form-select form-select-max"
+              value={formData.accountId}
+              onChange={handleChange}
+              required
+              style={{ maxWidth: "220px" }}
+            >
+              <option value="">Bitte wählen</option>
+              {getOptions(formData.accountType, userOptions, bankOptions, clearingOptions).map(opt => (
+                <option key={opt.id} value={opt.id}>{getAccountDisplayName(opt)}</option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <>
+            <label>
+              Auswahl (Haushaltsplan)
+              <select
+                name="globalBudgetPlanId"
+                className="form-select form-select-max"
+                value={formData.globalBudgetPlanId}
+                onChange={handleChange}
+                required
+                style={{ maxWidth: "220px" }}
+              >
+                <option value="">Bitte wählen</option>
+                {budgetPlans.map(bp => (
+                  <option key={bp.id} value={bp.id}>{bp.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Kostenstelle
+              <select
+                name="globalCostCenterId"
+                className="form-select form-select-max"
+                value={formData.globalCostCenterId}
+                onChange={handleChange}
+                required
+                style={{ maxWidth: "220px" }}
+                disabled={!formData.globalBudgetPlanId}
+              >
+                <option value="">Bitte wählen</option>
+                {globalCostCenters.map(cc => (
+                  <option key={cc.id} value={cc.id}>{cc.name}</option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
+
       </div>
         <div className="form-table-wrapper">
           <table className="kc-table compact">
@@ -311,6 +392,7 @@ export default function BulkTransactionPage() {
                       className="kc-select"
                       value={row.type}
                       onChange={e => handleRowChange(idx, "type", e.target.value)}
+                      required
                     >
                       {rowAccountTypes.map(opt => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -322,8 +404,9 @@ export default function BulkTransactionPage() {
                       className="kc-select"
                       value={row.id}
                       onChange={e => handleRowChange(idx, "id", e.target.value)}
+                      required
                     >
-                      <option value="">---</option>
+                      <option value="">Bitte wählen</option>
                       {getOptions(row.type, userOptions, [], clearingOptions).map(opt => (
                         <option key={opt.id} value={opt.id}>{getAccountDisplayName(opt)}</option>
                       ))}
@@ -336,6 +419,7 @@ export default function BulkTransactionPage() {
                       value={row.amount}
                       onChange={e => handleRowChange(idx, "amount", e.target.value)}
                       min="0"
+                      required
                     />
                   </td>
                   <td>
@@ -351,7 +435,7 @@ export default function BulkTransactionPage() {
                       className="kc-select"
                       value={row.budgetPlanId || ""}
                       onChange={e => handleRowChange(idx, "budgetPlanId", e.target.value)}
-                      disabled={!!row.id}
+                      disabled={formData.accountType === 'cost_center' || !!row.id}
                     >
                       <option value="">Kein Budgetplan</option>
                       {budgetPlans.map(bp => (
@@ -364,7 +448,7 @@ export default function BulkTransactionPage() {
                       className="kc-select"
                       value={row.costCenterId || ""}
                       onChange={e => handleRowChange(idx, "costCenterId", e.target.value)}
-                      disabled={!!row.id || !row.budgetPlanId}
+                      disabled={formData.accountType === 'cost_center' || !!row.id || !row.budgetPlanId}
                     >
                       <option value="">Bitte wählen</option>
                       {(row.budgetPlanId && costCentersByPlan[row.budgetPlanId] ? costCentersByPlan[row.budgetPlanId] : []).map(cc => (

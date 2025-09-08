@@ -15,13 +15,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 403 });
   }
 
-
-    const perm = await checkPermission( req, ResourceType.transactions, AuthorizationType.write_all );
+  const perm = await checkPermission( req, ResourceType.transactions, AuthorizationType.write_all );
   if (!perm.allowed) {
     return NextResponse.json({ error: 'Keine Berechtigung für write_all auf transactions' }, { status: 403 });
   }
 
-  // Aktuellen DB-User ermitteln (numeric ID oder Keycloak-ID)
   const currentUser = !isNaN(Number(userId))
     ? await prisma.user.findUnique({ where: { id: Number(userId) } })
     : await prisma.user.findUnique({ where: { keycloak_id: String(userId) } });
@@ -51,10 +49,14 @@ export async function POST(req: Request) {
   const accountId = getField('accountId');
   const file = formData.get('attachment') as File | null;
   const rowsRaw = getField('rows');
+  const globalBudgetPlanId = getField('globalBudgetPlanId');
+  const globalCostCenterId = getField('globalCostCenterId');
 
-  if (!date_valued || !description || !bulkType || !accountType || !accountId) {
-    return NextResponse.json({ error: 'Pflichtfelder fehlen', fields: { date_valued, description, bulkType, accountType, accountId } }, { status: 400 });
+  if (!date_valued || !description || !bulkType) {
+    return NextResponse.json({ error: 'Pflichtfelder fehlen', fields: { date_valued, description, bulkType } }, { status: 400 });
   }
+
+  const isCostCenterMode = Boolean(globalBudgetPlanId && globalCostCenterId);
 
   // Attachment-Typ prüfen
   if (file && !isAllowedAttachment((file as any).type)) {
@@ -71,14 +73,44 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Ungültige Einzugsart' }, { status: 400 });
   }
 
-  if (!isAllowedMainAccountForBulk(bulkTypeLower as any, accountType)) {
-    return NextResponse.json({ error: 'Auswahltyp für Hauptkonto passt nicht zur Einzugsart' }, { status: 400 });
+  // Bei Einzahlung ist Kostenstellenmodus nicht erlaubt
+  if (bulkTypeLower === 'einzahlung' && isCostCenterMode) {
+    return NextResponse.json({ error: 'Kostenstelle ist bei Einzahlung nicht erlaubt. Bitte Bankkonto als Hauptkonto verwenden.' }, { status: 400 });
   }
 
-  // Hauptkonto auflösen
-  const mainAccountId = await resolveAccountIdUtil(prisma as any, String(accountType), String(accountId));
-  if (!mainAccountId) {
-    return NextResponse.json({ error: 'Hauptkonto konnte nicht aufgelöst werden' }, { status: 400 });
+  // Nur im Nicht-Kostenstellenmodus: Hauptkonto prüfen/auflösen
+  let mainAccountId: number | null = null;
+  if (!isCostCenterMode) {
+    if (!accountType || !accountId) {
+      return NextResponse.json({ error: 'Pflichtfelder fehlen', fields: { accountType, accountId } }, { status: 400 });
+    }
+    if (!isAllowedMainAccountForBulk(bulkTypeLower as any, accountType as any)) {
+      return NextResponse.json({ error: 'Auswahltyp für Hauptkonto passt nicht zur Einzugsart' }, { status: 400 });
+    }
+    mainAccountId = await resolveAccountIdUtil(prisma as any, String(accountType), String(accountId));
+    if (!mainAccountId) {
+      return NextResponse.json({ error: 'Hauptkonto konnte nicht aufgelöst werden' }, { status: 400 });
+    }
+  }
+
+  // Globaler Kostenstellenmodus prüfen
+  let globalCostCenterIdNum: number | undefined = undefined;
+  if ((globalBudgetPlanId && !globalCostCenterId) || (!globalBudgetPlanId && globalCostCenterId)) {
+    return NextResponse.json({ error: 'Globaler Modus: Haushaltsplan und Kostenstelle müssen beide gesetzt sein.' }, { status: 400 });
+  }
+  if (isCostCenterMode) {
+    const cc = await prisma.costCenter.findUnique({ where: { id: Number(globalCostCenterId) } });
+    if (!cc) {
+      return NextResponse.json({ error: 'Globale Kostenstelle nicht gefunden' }, { status: 400 });
+    }
+    if (cc.budget_planId !== Number(globalBudgetPlanId)) {
+      return NextResponse.json({ error: 'Globale Kostenstelle gehört nicht zum gewählten Haushaltsplan' }, { status: 400 });
+    }
+    const plan = await prisma.budgetPlan.findUnique({ where: { id: Number(globalBudgetPlanId) }, select: { state: true } });
+    if (!plan || plan.state !== 'active') {
+      return NextResponse.json({ error: 'Gewählter Haushaltsplan ist nicht aktiv' }, { status: 400 });
+    }
+    globalCostCenterIdNum = Number(cc.id);
   }
 
   // Parse rows
@@ -88,16 +120,9 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: 'Ungültige Einzelbuchungen' }, { status: 400 });
   }
-
   if (!Array.isArray(rows) || rows.length === 0) {
     return NextResponse.json({ error: 'Mindestens eine Einzelbuchung erforderlich' }, { status: 400 });
   }
-
-  // Main sign
-  let mainSign = 1;
-  if (bulkTypeLower === 'auszahlung') mainSign = -1;
-  if (bulkTypeLower === 'einzug') mainSign = 1;
-  if (bulkTypeLower === 'einzahlung') mainSign = 1;
 
   function rowAmountSigned(raw: number): number {
     if (bulkTypeLower === 'einzug') return -Math.abs(raw);
@@ -108,8 +133,7 @@ export async function POST(req: Request) {
 
   type PreparedRow = { accountId?: number, amount: number, description: string, reference?: string, costCenterId?: number };
   const preparedRows: PreparedRow[] = [];
-  const costCenterRows: PreparedRow[] = [];
-  let totalAmount = 0;
+  let totalAbsAmount = 0;
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -117,42 +141,21 @@ export async function POST(req: Request) {
     if (!isAllowedRowTypeForBulk(row.type)) {
       return NextResponse.json({ error: `${idxInfo}: Ungültiger Typ (erlaubt: Nutzer, Verrechnungskonto)` }, { status: 400 });
     }
+    if (!row.id) {
+      return NextResponse.json({ error: `${idxInfo}: Typ und Auswahl sind Pflichtfelder` }, { status: 400 });
+    }
     const amountNum = parsePositiveAmount(row.amount);
     if (amountNum === null) {
       return NextResponse.json({ error: `${idxInfo}: Ungültiger Betrag` }, { status: 400 });
     }
 
-    if (row.id && (row.budgetPlanId || row.costCenterId)) {
-      return NextResponse.json({ error: `${idxInfo}: Budgetplan/Kostenstelle nicht erlaubt, wenn eine Auswahl getroffen wurde` }, { status: 400 });
+    if ((row.budgetPlanId || row.costCenterId) && !globalCostCenterIdNum) {
+      return NextResponse.json({ error: `${idxInfo}: Budgetplan/Kostenstelle nur im globalen Kostenstellenmodus erlaubt` }, { status: 400 });
     }
-    if (row.costCenterId && !row.budgetPlanId) {
-      return NextResponse.json({ error: `${idxInfo}: Kostenstelle ohne Budgetplan nicht erlaubt` }, { status: 400 });
-    }
-    let rowCostCenterId: number | undefined = undefined;
-    if (row.budgetPlanId && row.costCenterId) {
-      const cc = await prisma.costCenter.findUnique({ where: { id: Number(row.costCenterId) } });
-      if (!cc) {
-        return NextResponse.json({ error: `${idxInfo}: Kostenstelle nicht gefunden` }, { status: 400 });
+    if (globalCostCenterIdNum) {
+      if ((row.costCenterId && Number(row.costCenterId) !== Number(globalCostCenterId)) || (row.budgetPlanId && Number(row.budgetPlanId) !== Number(globalBudgetPlanId))) {
+        return NextResponse.json({ error: `${idxInfo}: Abweichende Kostenstelle/Haushaltsplan zur globalen Auswahl` }, { status: 400 });
       }
-      if (cc.budget_planId !== Number(row.budgetPlanId)) {
-        return NextResponse.json({ error: `${idxInfo}: Kostenstelle gehört nicht zum Budgetplan` }, { status: 400 });
-      }
-      const plan = await prisma.budgetPlan.findUnique({ where: { id: Number(row.budgetPlanId) }, select: { state: true } });
-      if (!plan || plan.state !== 'active') {
-        return NextResponse.json({ error: `${idxInfo}: Budgetplan ist nicht aktiv` }, { status: 400 });
-      }
-      rowCostCenterId = cc.id;
-    }
-
-    if (!row.id) {
-      if (!rowCostCenterId) {
-        return NextResponse.json({ error: `${idxInfo}: Kostenstelle ist Pflicht ohne Auswahl (Budgetplan und Kostenstelle angeben)` }, { status: 400 });
-      }
-      const signed = mainSign * Math.abs(amountNum);
-      let txDescription = String(description);
-      if (row.description) txDescription += ' - ' + row.description;
-      costCenterRows.push({ amount: signed, description: txDescription, reference: String(reference || ''), costCenterId: rowCostCenterId });
-      continue;
     }
 
     const accId = await resolveAccountIdUtil(prisma as any, row.type, row.id);
@@ -161,23 +164,50 @@ export async function POST(req: Request) {
     }
 
     const signed = rowAmountSigned(amountNum);
-    totalAmount += Math.abs(amountNum);
+    totalAbsAmount += Math.abs(amountNum);
     let txDescription = String(description);
     if (row.description) txDescription += ' - ' + row.description;
-    preparedRows.push({ accountId: accId, amount: signed, description: txDescription, reference: String(reference || '') });
-  }
-
-  if (preparedRows.length === 0 && costCenterRows.length === 0) {
-    return NextResponse.json({ error: 'Mindestens eine gültige Einzelbuchung erforderlich' }, { status: 400 });
+    preparedRows.push({ accountId: accId, amount: signed, description: txDescription, reference: String(reference || ''), ...(globalCostCenterIdNum ? { costCenterId: globalCostCenterIdNum } : {}) });
   }
 
   const attachmentId = await saveAttachmentFromFormFile(prisma as any, file);
 
   try {
+    if (isCostCenterMode) {
+      // Nur Einzeltransaktionen anlegen, keine Bulk/Haupt-Transaktion
+      await prisma.$transaction(async (p: any) => {
+        for (const r of preparedRows) {
+          const acc = await p.account.findUnique({ where: { id: r.accountId } });
+          const bal = acc ? Number(acc.balance) : 0;
+          const newBal = bal + r.amount;
+          await p.transaction.create({
+            data: {
+              amount: r.amount,
+              date_valued: new Date(String(date_valued)),
+              description: r.description,
+              reference: r.reference,
+              account: { connect: { id: r.accountId } },
+              accountValueAfter: newBal,
+              ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
+              createdBy: { connect: { id: currentUser.id } },
+              ...(r.costCenterId ? { costCenter: { connect: { id: r.costCenterId } } } : {}),
+            },
+          });
+          await p.account.update({ where: { id: r.accountId }, data: { balance: newBal } });
+        }
+      });
+      return NextResponse.json({ count: preparedRows.length }, { status: 201 });
+    }
+
+    // Standard: Bulk mit Haupt- und Gegenbuchungen
     const result = await prisma.$transaction(async (p: any) => {
       const mainAcc = await p.account.findUnique({ where: { id: mainAccountId } });
       const mainBal = mainAcc ? Number(mainAcc.balance) : 0;
-      const mainAmt = mainSign * totalAmount;
+      let mainSign = 1;
+      if (bulkTypeLower === 'auszahlung') mainSign = -1;
+      if (bulkTypeLower === 'einzug') mainSign = 1;
+      if (bulkTypeLower === 'einzahlung') mainSign = 1;
+      const mainAmt = mainSign * totalAbsAmount;
       const mainNewBal = mainBal + mainAmt;
 
       const mainTx = await p.transaction.create({
@@ -222,32 +252,10 @@ export async function POST(req: Request) {
             transactionBulk: { connect: { id: bulk.id } },
             counter_transaction: { connect: { id: mainTx.id } },
             createdBy: { connect: { id: currentUser.id } },
+            ...(r.costCenterId ? { costCenter: { connect: { id: r.costCenterId } } } : {}),
           },
         });
         await p.account.update({ where: { id: r.accountId }, data: { balance: newBal } });
-      }
-
-      if (costCenterRows.length > 0) {
-        for (const ccRow of costCenterRows) {
-          const acct = await p.account.findUnique({ where: { id: mainAccountId } });
-          const accBal = acct ? Number(acct.balance) : 0;
-          const newMainBal2 = accBal + ccRow.amount;
-          await p.transaction.create({
-            data: {
-              amount: ccRow.amount,
-              date_valued: new Date(String(date_valued)),
-              description: ccRow.description,
-              reference: ccRow.reference,
-              account: { connect: { id: mainAccountId } },
-              accountValueAfter: newMainBal2,
-              ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
-              costCenter: { connect: { id: ccRow.costCenterId } },
-              transactionBulk: { connect: { id: bulk.id } },
-              createdBy: { connect: { id: currentUser.id } },
-            },
-          });
-          await p.account.update({ where: { id: mainAccountId }, data: { balance: newMainBal2 } });
-        }
       }
 
       await p.transaction.update({ where: { id: mainTx.id }, data: { transactionBulk: { connect: { id: bulk.id } } } });
