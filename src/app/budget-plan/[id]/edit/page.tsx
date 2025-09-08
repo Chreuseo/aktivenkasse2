@@ -59,6 +59,8 @@ export default function EditBudgetPlanPage({ params }: { params: Promise<{ id: s
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     if (isClosed) return;
+    // Sicherheitsnetz: verhindere das Setzen auf 'closed' über das Feld
+    if (e.target.name === "state" && e.target.value === "closed") return;
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -91,7 +93,8 @@ export default function EditBudgetPlanPage({ params }: { params: Promise<{ id: s
         body: JSON.stringify({
           name: formData.name,
           description: formData.description,
-          state: formData.state,
+          // Erzwinge, dass hier 'closed' nicht gesetzt werden kann
+          state: formData.state === "closed" ? "active" : formData.state,
         }),
       });
       setMessage("✅ Änderungen gespeichert!");
@@ -104,6 +107,9 @@ export default function EditBudgetPlanPage({ params }: { params: Promise<{ id: s
 
   if (status === "loading") return <div className="edit-form-container">Lade Session ...</div>;
   if (status === "unauthenticated") return <div className="edit-form-container">Bitte einloggen.</div>;
+
+  // Für die Bearbeitung: 'closed' nicht auswählbar
+  const editableStates = budgetPlanStates.filter((s) => s.value !== "closed");
 
   return (
     <div className="edit-form-container">
@@ -131,9 +137,18 @@ export default function EditBudgetPlanPage({ params }: { params: Promise<{ id: s
           <label>
             Status
             <select name="state" value={formData.state} onChange={handleChange} className="edit-form-select" required disabled={isClosed}>
-              {budgetPlanStates.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
+              {isClosed ? (
+                // Geschlossene Pläne bleiben sichtbar, aber nicht änderbar
+                budgetPlanStates
+                  .filter((opt) => opt.value === "closed")
+                  .map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))
+              ) : (
+                editableStates.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))
+              )}
             </select>
           </label>
           <button className="button" type="submit" disabled={loading || isClosed}>Speichern</button>

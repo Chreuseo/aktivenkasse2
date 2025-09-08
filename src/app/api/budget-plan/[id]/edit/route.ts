@@ -28,6 +28,10 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
   }
   const { name, description, state } = data;
   if (!name || !state) return NextResponse.json({ error: "Name und Status sind erforderlich" }, { status: 400 });
+  // Setzen auf 'closed' ist hier nicht erlaubt – erfolgt über Finalisierung
+  if (state === "closed") {
+    return NextResponse.json({ error: "Status 'closed' kann nicht über diese Route gesetzt werden (Finalisierung verwenden)." }, { status: 400 });
+  }
   try {
     await prisma.budgetPlan.update({
       where: { id: idNum },

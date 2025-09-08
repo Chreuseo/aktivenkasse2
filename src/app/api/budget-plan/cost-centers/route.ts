@@ -15,13 +15,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Keine Berechtigung für read_all auf budget_plan" }, { status: 403 });
   }
 
-  // Sicherstellen, dass nur aktive Pläne abrufbar sind
+  // Lesen erlauben, wenn aktiv oder geschlossen
   const plan = await prisma.budgetPlan.findUnique({ where: { id: Number(planId) }, select: { id: true, state: true } });
   if (!plan) {
     return NextResponse.json({ error: "BudgetPlan nicht gefunden" }, { status: 404 });
   }
-  if (plan.state !== "active") {
-    return NextResponse.json({ error: "BudgetPlan ist nicht aktiv" }, { status: 409 });
+  if (!(plan.state === "active" || plan.state === "closed")) {
+    return NextResponse.json({ error: "BudgetPlan ist weder aktiv noch geschlossen" }, { status: 409 });
   }
 
   const costCenters = await prisma.costCenter.findMany({
