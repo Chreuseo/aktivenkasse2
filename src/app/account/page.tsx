@@ -1,5 +1,3 @@
-'use client';
-
 import AccountClient from "./AccountClient";
 import { normalizeBaseUrl, resolveEnv, parseIssuer } from "@/lib/keycloakUtils";
 
