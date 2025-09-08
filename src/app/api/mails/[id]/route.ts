@@ -3,13 +3,14 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/services/authService";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const perm = await checkPermission(req as unknown as Request, ResourceType.mails, AuthorizationType.read_all);
   if (!perm.allowed) {
     return NextResponse.json({ error: perm.error || "Nicht erlaubt" }, { status: 403 });
   }
 
-  const id = Number(params.id);
+  const { id: idStr } = await ctx.params;
+  const id = Number(idStr);
   if (!Number.isFinite(id)) {
     return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
   }
@@ -34,4 +35,3 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: "Fehler beim Laden der Mail" }, { status: 500 });
   }
 }
-
