@@ -11,7 +11,20 @@ export async function GET(req: Request) {
   }
 
   try {
-    const plans = await prisma.budgetPlan.findMany();
+    const url = new URL(req.url);
+    const state = url.searchParams.get("state");
+
+    const where: any = {};
+    if (state) {
+      // nur validen Zustand akzeptieren
+      const allowed = ["draft", "active", "closed"];
+      if (!allowed.includes(state)) {
+        return NextResponse.json({ error: "Ungültiger state" }, { status: 400 });
+      }
+      where.state = state as any;
+    }
+
+    const plans = await prisma.budgetPlan.findMany({ where });
     // Nur relevante Felder zurückgeben
     const result = plans.map(plan => ({
       id: plan.id,

@@ -262,6 +262,253 @@ export async function generateTransactionsPdf(title: string, rows: ExportRow[]):
   return Buffer.from(bytes);
 }
 
+// --------- Budget-Plan Export ---------
+export type BudgetPlanSummaryRow = {
+  name: string;
+  expectedCosts: number;
+  actualCosts: number;
+  expectedEarnings: number;
+  actualEarnings: number;
+  expectedResult: number; // expectedEarnings - expectedCosts
+  actualResult: number;   // actualEarnings - actualCosts
+};
+
+export type BudgetPlanTxRow = { date: string; description: string; amount: number; other?: string };
+
+export type BudgetPlanExportData = {
+  planName: string;
+  variant: 'simpel' | 'anonym' | 'voll';
+  summaries: BudgetPlanSummaryRow[]; // in gewünschter Reihenfolge
+  details?: { name: string; txs: BudgetPlanTxRow[] }[]; // Reihenfolge kompatibel zu summaries
+};
+
+export async function generateBudgetPlanPdf(title: string, data: BudgetPlanExportData): Promise<Buffer> {
+  const pdfDoc = await PDFDocument.create();
+  const [pw, ph] = PageSizes.A4; // portrait width/height
+  const pageSize: [number, number] = [ph, pw]; // landscape
+  const margin = 40;
+
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const normalFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  let page = pdfDoc.addPage(pageSize);
+  let y = page.getHeight() - margin;
+
+  // Header
+  page.setFont(boldFont);
+  page.setFontSize(16);
+  page.drawText(title, { x: margin, y });
+  y -= 18;
+  page.setFont(normalFont);
+  page.setFontSize(10);
+  const createdAt = new Date().toLocaleString('de-DE');
+  page.drawText(`Erstellt am ${createdAt}`, { x: margin, y, color: rgb(0.4, 0.4, 0.4) });
+  y -= 24;
+
+  // Summary-Tabelle zeichnen
+  const bodyFontSize = 10;
+  const headerFontSize = 11;
+  const lineHeight = 12;
+  const headerLineHeight = 13;
+  const cellPaddingX = 2;
+  const rowGap = 2;
+
+  const summaryColumns = [
+    { key: 'name', label: 'Kostenstelle', base: 300, min: 160 },
+    { key: 'expectedCosts', label: 'Erwartete Ausgaben', base: 140, min: 100 },
+    { key: 'actualCosts', label: 'Tatsächliche Ausgaben', base: 140, min: 100 },
+    { key: 'expectedEarnings', label: 'Erwartete Einnahmen', base: 150, min: 110 },
+    { key: 'actualEarnings', label: 'Tatsächliche Einnahmen', base: 150, min: 110 },
+    { key: 'expectedResult', label: 'Erwartetes Ergebnis', base: 150, min: 110 },
+    { key: 'actualResult', label: 'Tatsächliches Ergebnis', base: 150, min: 110 },
+  ] as const;
+
+  function computeWidths(baseCols: readonly { base: number; min: number }[]) {
+    const usableWidth = page.getWidth() - 2 * margin;
+    const sumBase = baseCols.reduce((s, c) => s + c.base, 0);
+    let factor = Math.min(1, usableWidth / sumBase);
+    const widths = baseCols.map((c) => Math.max(c.min, Math.floor(c.base * factor)));
+    let sum = widths.reduce((s, w) => s + w, 0);
+    if (sum > usableWidth) {
+      let overflow = sum - usableWidth;
+      let safe = 2000;
+      while (overflow > 0 && safe-- > 0) {
+        let reduced = false;
+        for (let i = 0; i < widths.length && overflow > 0; i++) {
+          if (widths[i] > baseCols[i].min) {
+            widths[i] -= 1; overflow -= 1; reduced = true;
+          }
+        }
+        if (!reduced) break;
+      }
+    }
+    return widths;
+  }
+
+  function wrap(font: any, fs: number, text: string, maxWidth: number) {
+    const t = (text || '').toString();
+    if (!t) return [''];
+    const measure = (s: string) => font.widthOfTextAtSize(s, fs);
+    const words = t.split(/\s+/);
+    const lines: string[] = [];
+    let current = '';
+    for (let w of words) {
+      if (measure(w) > maxWidth) {
+        while (w.length > 0) {
+          let lo = 1, hi = w.length, fit = 1;
+          while (lo <= hi) {
+            const mid = (lo + hi) >> 1;
+            const part = w.slice(0, mid);
+            if (measure(part) <= maxWidth) { fit = mid; lo = mid + 1; } else { hi = mid - 1; }
+          }
+          const chunk = w.slice(0, fit);
+          w = w.slice(fit);
+          if (current) { lines.push(current.trim()); current = ''; }
+          lines.push(chunk);
+        }
+        continue;
+      }
+      const candidate = current ? `${current} ${w}` : w;
+      if (measure(candidate) <= maxWidth) current = candidate; else { if (current) lines.push(current.trim()); current = w; }
+    }
+    if (current) lines.push(current.trim());
+    return lines.length > 0 ? lines : [''];
+  }
+
+  function ensureSpace(requiredHeight: number, drawHeaderFn?: () => void) {
+    if (y - requiredHeight < margin) {
+      page = pdfDoc.addPage(pageSize);
+      y = page.getHeight() - margin;
+      if (drawHeaderFn) drawHeaderFn();
+    }
+  }
+
+  function drawSummaryTable() {
+    const widths = computeWidths(summaryColumns);
+    const columns = summaryColumns.map((c, i) => ({ ...c, width: widths[i] }));
+
+    // Header
+    page.setFont(boldFont); page.setFontSize(headerFontSize);
+    let maxHeaderLines = 1; const headerLinesPerCol: string[][] = [];
+    for (const c of columns) {
+      const lines = wrap(boldFont, headerFontSize, c.label, c.width - cellPaddingX * 2);
+      headerLinesPerCol.push(lines); if (lines.length > maxHeaderLines) maxHeaderLines = lines.length;
+    }
+    let x = margin; const headerStartY = y;
+    for (let i = 0; i < columns.length; i++) {
+      const c = columns[i]; const lines = headerLinesPerCol[i]; let yLocal = y;
+      for (let li = 0; li < lines.length; li++) { page.drawText(lines[li], { x: x + cellPaddingX, y: yLocal }); yLocal -= headerLineHeight; }
+      x += c.width;
+    }
+    y -= maxHeaderLines * headerLineHeight;
+    const totalWidth = columns.reduce((s, c) => s + c.width, 0);
+    page.drawLine({ start: { x: margin, y: y - 4 }, end: { x: margin + totalWidth, y: y - 4 }, color: rgb(0.8,0.8,0.8), thickness: 1 });
+    y -= lineHeight; page.setFont(normalFont); page.setFontSize(bodyFontSize);
+
+    // Rows
+    for (const r of data.summaries) {
+      const vals: Record<string, string> = {
+        name: r.name,
+        expectedCosts: formatCurrency(r.expectedCosts),
+        actualCosts: formatCurrency(r.actualCosts),
+        expectedEarnings: formatCurrency(r.expectedEarnings),
+        actualEarnings: formatCurrency(r.actualEarnings),
+        expectedResult: formatCurrency(r.expectedResult),
+        actualResult: formatCurrency(r.actualResult),
+      };
+      let maxLines = 1; const wrapped: Record<string, string[]> = {};
+      for (const c of columns) {
+        const lines = wrap(normalFont, bodyFontSize, vals[c.key as keyof typeof vals] ?? '', c.width - cellPaddingX * 2);
+        wrapped[c.key] = lines; if (lines.length > maxLines) maxLines = lines.length;
+      }
+      const required = maxLines * lineHeight + rowGap; ensureSpace(required, () => {
+        // redraw header on new page
+        y = headerStartY; // reset head pos for header drawing consistency
+        // draw header again
+        page.setFont(boldFont); page.setFontSize(headerFontSize);
+        let x2 = margin; for (let i = 0; i < columns.length; i++) {
+          const c = columns[i]; const lines = wrap(boldFont, headerFontSize, c.label, c.width - cellPaddingX * 2);
+          let yLocal = y; for (let li = 0; li < lines.length; li++) { page.drawText(lines[li], { x: x2 + cellPaddingX, y: yLocal }); yLocal -= headerLineHeight; }
+          x2 += c.width;
+        }
+        y -= maxHeaderLines * headerLineHeight; page.drawLine({ start: { x: margin, y: y - 4 }, end: { x: margin + totalWidth, y: y - 4 }, color: rgb(0.8,0.8,0.8), thickness: 1 }); y -= lineHeight; page.setFont(normalFont); page.setFontSize(bodyFontSize);
+      });
+
+      let x3 = margin; for (const c of columns) {
+        const lines = wrapped[c.key]; for (let i = 0; i < lines.length; i++) { page.drawText(lines[i], { x: x3 + cellPaddingX, y: y - i * lineHeight }); }
+        x3 += c.width;
+      }
+      y -= required;
+    }
+  }
+
+  drawSummaryTable();
+
+  // Details je Kostenstelle (anonym/voll)
+  if (data.variant === 'anonym' || data.variant === 'voll') {
+    // Abstand
+    y -= 8;
+
+    const detailColumnsBase = data.variant === 'voll'
+      ? [
+          { key: 'date', label: 'Datum', base: 120, min: 90 },
+          { key: 'description', label: 'Beschreibung', base: 480, min: 240 },
+          { key: 'amount', label: 'Betrag', base: 120, min: 90 },
+          { key: 'other', label: 'Konto', base: 180, min: 130 },
+        ] as const
+      : [
+          { key: 'date', label: 'Datum', base: 140, min: 100 },
+          { key: 'description', label: 'Beschreibung', base: 640, min: 380 },
+          { key: 'amount', label: 'Betrag', base: 140, min: 100 },
+        ] as const;
+    let widths = computeWidths(detailColumnsBase);
+
+    function drawDetailHeader(cols: any[]) {
+      page.setFont(boldFont); page.setFontSize(headerFontSize);
+      let x = margin; for (const c of cols) { page.drawText(c.label, { x: x + cellPaddingX, y }); x += c.width; }
+      y -= headerLineHeight; const totalWidth = cols.reduce((s, c) => s + c.width, 0);
+      page.drawLine({ start: { x: margin, y: y - 4 }, end: { x: margin + totalWidth, y: y - 4 }, color: rgb(0.8,0.8,0.8), thickness: 1 });
+      y -= lineHeight; page.setFont(normalFont); page.setFontSize(bodyFontSize);
+    }
+
+    for (const block of (data.details || [])) {
+      // Abschnittstitel: Kostenstelle
+      const heading = `Kostenstelle: ${block.name}`;
+      const needed = lineHeight * 3; // etwas Puffer
+      ensureSpace(needed);
+      page.setFont(boldFont); page.setFontSize(12); page.drawText(heading, { x: margin, y }); y -= 16; page.setFont(normalFont); page.setFontSize(bodyFontSize);
+
+      // Tabelle
+      const columns = detailColumnsBase.map((c, i) => ({ ...c, width: widths[i] }));
+      drawDetailHeader(columns);
+
+      for (const r of block.txs) {
+        const vals: Record<string, string> = {
+          date: formatDate(r.date),
+          description: r.description || '',
+          amount: formatCurrency(r.amount ?? 0),
+          other: r.other || '',
+        };
+        // wrap description and other
+        let maxLines = 1; const wrapped: Record<string, string[]> = {};
+        for (const c of columns) {
+          const lines = wrap(normalFont, bodyFontSize, vals[c.key] ?? '', c.width - cellPaddingX * 2);
+          wrapped[c.key] = lines; if (lines.length > maxLines) maxLines = lines.length;
+        }
+        const required = maxLines * lineHeight + rowGap;
+        ensureSpace(required, () => drawDetailHeader(columns));
+        let x = margin; for (const c of columns) { const lines = wrapped[c.key]; for (let i = 0; i < lines.length; i++) { page.drawText(lines[i], { x: x + cellPaddingX, y: y - i * lineHeight }); } x += c.width; }
+        y -= required;
+      }
+
+      y -= 10; // Abstand zum nächsten Block
+    }
+  }
+
+  const bytes = await pdfDoc.save();
+  return Buffer.from(bytes);
+}
+
 function formatDate(s: string): string {
   try {
     const d = new Date(s);

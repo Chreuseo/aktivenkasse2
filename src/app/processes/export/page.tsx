@@ -6,14 +6,17 @@ import { extractToken } from '@/lib/utils';
 import '@/app/css/forms.css';
 
 // Unterstützte Typen für die UI
-// user => Nutzer, clearing => Verrechnungskonto, bank => Bankkonto, household => Haushalt (TODO)
-type ExportType = 'user' | 'clearing' | 'bank' | 'household';
+// user => Nutzer, clearing => Verrechnungskonto, bank => Bankkonto, budget_plan => Haushalt
+type ExportType = 'user' | 'clearing' | 'bank' | 'budget_plan';
 
 type Option = { id: number; label: string };
 
 type UserItem = { id: number; first_name: string; last_name: string };
 type ClearingItem = { id: number; name: string };
 type BankItem = { id: number; name: string; bank?: string };
+type BudgetPlanItem = { id: number; name: string; state: string };
+
+type BudgetVariant = 'simpel' | 'anonym' | 'voll';
 
 export default function ExportPage() {
   const { data: session } = useSession();
@@ -28,6 +31,7 @@ export default function ExportPage() {
   const [downloading, setDownloading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [variant, setVariant] = useState<BudgetVariant>('simpel');
 
   // Optionen je nach Typ laden
   useEffect(() => {
@@ -39,12 +43,14 @@ export default function ExportPage() {
       setOptions([]);
       setSelectedId('');
       try {
-        if (type === 'household') {
-          // Haushalt noch offen => keine Optionen
-          setOptions([]);
-          return;
-        }
-        const endpoint = type === 'user' ? '/api/users' : type === 'clearing' ? '/api/clearing-accounts' : '/api/bank-accounts';
+        let endpoint = '';
+        if (type === 'user') endpoint = '/api/users';
+        else if (type === 'clearing') endpoint = '/api/clearing-accounts';
+        else if (type === 'bank') endpoint = '/api/bank-accounts';
+        else if (type === 'budget_plan') endpoint = '/api/budget-plan?state=closed';
+
+        if (!endpoint) return;
+
         const res = await fetch(endpoint, {
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -63,6 +69,9 @@ export default function ExportPage() {
         } else if (type === 'bank') {
           const items = json as BankItem[];
           setOptions(items.map(b => ({ id: b.id, label: `${b.name}${b.bank ? ` (${b.bank})` : ''}` })));
+        } else if (type === 'budget_plan') {
+          const items = json as BudgetPlanItem[];
+          setOptions(items.map(p => ({ id: p.id, label: p.name })));
         }
       } catch (e: any) {
         if (!cancelled) setError(e?.message || String(e));
@@ -81,22 +90,19 @@ export default function ExportPage() {
     setError(null);
     setMessage(null);
 
-    if (type === 'household') {
-      setMessage('Haushalt-Export folgt (TODO).');
-      return;
-    }
-    if (!selectedId || typeof selectedId !== 'number') {
+    if (!selectedId) {
       setError('Bitte wähle ein Element aus.');
       return;
     }
-    if (from && to && new Date(from) > new Date(to)) {
+    if (canPickDates && from && to && new Date(from) > new Date(to)) {
       setError('Der Zeitraum ist ungültig: Von ist nach Bis.');
       return;
     }
 
     const qs = new URLSearchParams({ type, id: String(selectedId) });
-    if (from) qs.set('from', from);
-    if (to) qs.set('to', to);
+    if (from && canPickDates) qs.set('from', from);
+    if (to && canPickDates) qs.set('to', to);
+    if (type === 'budget_plan') qs.set('variant', variant);
 
     try {
       setDownloading(true);
@@ -142,24 +148,38 @@ export default function ExportPage() {
             <option value="user">Nutzer</option>
             <option value="clearing">Verrechnungskonto</option>
             <option value="bank">Bankkonto</option>
-            <option value="household">Haushalt (TODO)</option>
+            <option value="budget_plan">Haushalt</option>
           </select>
         </label>
 
-        {/* Auswahl je nach Typ */}
-        {type !== 'household' && (
+        {/* Auswahl */}
+        <label>
+          Auswahl
+          <select
+            className="form-select form-select-max"
+            value={selectedId}
+            onChange={e => setSelectedId(e.target.value ? Number(e.target.value) : '')}
+            disabled={loadingOptions}
+          >
+            <option value="">Bitte wählen</option>
+            {options.map(o => (
+              <option key={o.id} value={o.id}>{o.label}</option>
+            ))}
+          </select>
+        </label>
+
+        {/* Variante für Budget-Plan */}
+        {type === 'budget_plan' && (
           <label>
-            Auswahl
+            Variante
             <select
               className="form-select form-select-max"
-              value={selectedId}
-              onChange={e => setSelectedId(e.target.value ? Number(e.target.value) : '')}
-              disabled={loadingOptions}
+              value={variant}
+              onChange={e => setVariant(e.target.value as BudgetVariant)}
             >
-              <option value="">Bitte wählen</option>
-              {options.map(o => (
-                <option key={o.id} value={o.id}>{o.label}</option>
-              ))}
+              <option value="simpel">simpel</option>
+              <option value="anonym">anonym</option>
+              <option value="voll">voll</option>
             </select>
           </label>
         )}
@@ -178,18 +198,13 @@ export default function ExportPage() {
           </div>
         )}
 
-        <button type="submit" disabled={downloading || (type !== 'household' && !selectedId)}>
+        <button type="submit" disabled={downloading || !selectedId}>
           {downloading ? 'Erzeuge PDF…' : 'PDF exportieren'}
         </button>
 
         {message && <div className="message">{message}</div>}
         {error && <div className="message" style={{ color: '#ef4444' }}>{error}</div>}
-
-        {type === 'household' && (
-          <div className="message">Haushalt-Export ist noch offen (TODO).</div>
-        )}
       </form>
     </div>
   );
 }
-
