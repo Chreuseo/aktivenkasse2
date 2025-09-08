@@ -5,6 +5,7 @@ import { parsePositiveAmount } from '@/lib/validation';
 import { checkPermission } from '@/services/authService';
 import { ResourceType, AuthorizationType } from '@/app/types/authorization';
 import {clearing_account_roles, getClearingAccountRole} from "@/lib/getUserAuthContext";
+import { sendPlainMail } from '@/services/mailService';
 
 export async function POST(req: Request) {
   const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
@@ -173,6 +174,40 @@ export async function POST(req: Request) {
       await p.advances.update({ where: { id: advance.id }, data: { state: 'accepted', reviewerId: reviewer.id, decidedAt: now, transactionId: tx.id, ...(reason !== undefined ? { reason } : {}) } });
       return { transactionId: tx.id };
     });
+
+    // Nach Erfolg: Benachrichtigung an Einreicher senden (nicht blocking)
+    (async () => {
+      try {
+        const initiatorName = `${reviewer.first_name} ${reviewer.last_name}`;
+        const initiatorEmail = reviewer.mail;
+        const amountFmt = Number(amt).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+        const d: any = (advance as any).date_advance || advance.date;
+        const dateFmt = new Date(d).toISOString().slice(0, 10);
+        const text = [
+          `Hallo ${submitter.first_name} ${submitter.last_name},`,
+          '',
+          'deine Auslage wurde bewilligt.',
+          '',
+          'Details:',
+          `• Betrag: ${amountFmt}`,
+          `• Datum: ${dateFmt}`,
+          `• Beschreibung: ${advance.description}`,
+        ].join('\n');
+        if (submitter.mail) {
+          await sendPlainMail({
+            to: submitter.mail,
+            subject: `Auslage bewilligt (ID ${advance.id})`,
+            text,
+            initiatorName,
+            initiatorEmail,
+            recipientUserId: submitter.id,
+          });
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('Send accept mail failed', e);
+      }
+    })();
 
     return NextResponse.json(result);
   } catch (e: any) {

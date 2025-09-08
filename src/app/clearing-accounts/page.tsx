@@ -67,17 +67,22 @@ export default function ClearingAccountsPage() {
               <td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Verrechnungskonten vorhanden</td>
             </tr>
           )}
-          {!loading && accounts.map((acc: ClearingAccount) => (
+          {!loading && accounts.map((acc: ClearingAccount) => {
+            const members = Array.isArray((acc as any)?.members) ? (acc as any).members as Array<{ name: string }> : [];
+            return (
             <tr key={acc.id} className="kc-row">
               <td>{acc.name}</td>
               <td>{acc.responsible || <span style={{ color: "var(--muted)" }}>-</span>}</td>
-              <td style={{ fontWeight: 600, color: "var(--primary)" }}>{acc.balance.toFixed(2)} €</td>
+              <td style={{ fontWeight: 600, color: "var(--primary)" }}>
+                {Number((acc as any)?.balance ?? 0).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+              </td>
               <td>{acc.reimbursementEligible ? "Ja" : "Nein"}</td>
-              <td>{acc.members.length > 0 ? acc.members.map(m => m.name).join(", ") : <span style={{ color: "var(--muted)" }}>-</span>}</td>
+              <td>{members.length > 0 ? members.map(m => m.name).join(", ") : <span style={{ color: "var(--muted)" }}>-</span>}</td>
                 <td><Link href={`/clearing-accounts/${acc.id}`}><button className="button">Details</button></Link></td>
               <td><Link href={`/clearing-accounts/${acc.id}/edit`}><button className="button">Bearbeiten</button></Link></td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>

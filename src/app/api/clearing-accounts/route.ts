@@ -11,13 +11,31 @@ export async function GET(req: Request) {
 
   try {
     const items = await prisma.clearingAccount.findMany({
-      select: { id: true, name: true, accountId: true },
+      include: {
+        responsible: true,
+        account: true,
+        members: { include: { user: true } },
+      },
       orderBy: { name: "asc" },
     });
-    return NextResponse.json(items);
+
+    const result = items.map((ca: any) => ({
+      id: ca.id,
+      name: ca.name,
+      responsible: ca.responsible ? `${ca.responsible.first_name} ${ca.responsible.last_name}` : null,
+      responsibleMail: ca.responsible ? ca.responsible.mail : null,
+      balance: ca.account?.balance ? Number(ca.account.balance) : 0,
+      reimbursementEligible: Boolean(ca.reimbursementEligible),
+      members: (ca.members || []).map((m: any) => ({
+        id: m.user.id,
+        name: `${m.user.first_name} ${m.user.last_name}`,
+        mail: m.user.mail,
+      })),
+    }));
+
+    return NextResponse.json(result);
   } catch (e: any) {
     console.error(e);
     return NextResponse.json({ error: "Fehler beim Laden der Verrechnungskonten", detail: e?.message }, { status: 500 });
   }
 }
-

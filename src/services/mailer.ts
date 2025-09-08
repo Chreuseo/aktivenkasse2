@@ -247,6 +247,20 @@ function buildFromAddress(initiatorName: string): string {
   return `${org} im Auftrag von ${initiatorName} <${senderAddr}>`;
 }
 
+function applyStandardClosingAndFooter(text: string, initiatorName: string): string {
+  const closing = getEnvMulti(["MAIL_CLOSING", "mail.closing"], "Viele Grüße");
+  const corp = getCorporationName();
+  const appUrl = getAppUrl();
+  const lines: string[] = [];
+  lines.push(text);
+  lines.push("", closing, initiatorName, corp);
+  const linkLine = appUrl
+    ? `Alle Details zu deinem Aktivenkonto findest du unter ${appUrl}`
+    : "Alle Details zu deinem Aktivenkonto findest du auf der Aktivenkasse-Seite.";
+  lines.push("", linkLine, "Falls du dich noch nie eingeloggt warst, setze beim Login dein Passwort zurück.");
+  return lines.join("\n");
+}
+
 export async function buildMail(
   input: MailBuildInput,
   remark: string | undefined,
@@ -296,4 +310,21 @@ export async function sendMails(
   }
 
   return { success, errors };
+}
+
+// Neue Helper-Funktion für einfache Textmails (z.B. Auslagen-Benachrichtigungen)
+export async function sendPlainMail(params: {
+  to: string;
+  subject: string;
+  text: string;
+  initiatorName: string;
+  initiatorEmail?: string | null;
+  recipientUserId?: number | null;
+}): Promise<void> {
+  const { to, subject, text, initiatorName, initiatorEmail, recipientUserId } = params;
+  const from = buildFromAddress(initiatorName);
+  const replyTo = initiatorEmail || undefined;
+  const transport = getTransport();
+  const textWithFooter = applyStandardClosingAndFooter(text, initiatorName);
+  await transport.send({ to, subject, text: textWithFooter, from, replyTo, recipientUserId });
 }

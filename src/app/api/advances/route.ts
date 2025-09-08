@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { extractUserFromAuthHeader } from '@/lib/serverUtils';
 import { saveAttachmentFromFormFileData as saveAttachmentFromFormFile, firstFieldFromFormData as firstFieldFromForm } from '@/lib/apiHelpers';
+import { sendPlainMail } from '@/services/mailService';
 
 export async function PATCH(req: Request) {
   const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
@@ -105,5 +106,72 @@ export async function POST(req: Request) {
   };
 
   const advance = await prisma.advances.create({ data });
+
+  // Benachrichtigungen senden (Fehler ignorieren, Request soll erfolgreich bleiben)
+  try {
+    const initiatorName = `${user.first_name} ${user.last_name}`;
+    const initiatorEmail = user.mail;
+    const amountFmt = Number(amountNum).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+    const dateFmt = dateAdvance.toISOString().slice(0, 10);
+
+    // Mail an Einreicher
+    const submitterText = [
+      `Hallo ${user.first_name} ${user.last_name},`,
+      '',
+      `deine Auslage wurde eingereicht und wird bearbeitet.`,
+      '',
+      `Details:`,
+      `• Betrag: ${amountFmt}`,
+      `• Datum: ${dateFmt}`,
+      `• Beschreibung: ${descriptionRaw}`,
+    ];
+    if (clearingAccountIdNum) {
+      const ca = await prisma.clearingAccount.findUnique({ where: { id: clearingAccountIdNum } });
+      if (ca) submitterText.push(`• Verrechnungskonto: ${ca.name}`);
+    }
+
+    if (user.mail) {
+      await sendPlainMail({
+        to: user.mail,
+        subject: `Auslage eingereicht (ID ${advance.id})`,
+        text: submitterText.join('\n'),
+        initiatorName,
+        initiatorEmail,
+        recipientUserId: user.id,
+      });
+    }
+
+    // Mail an Verantwortlichen (falls vorhanden)
+    if (clearingAccountIdNum) {
+      const ca = await prisma.clearingAccount.findUnique({ where: { id: clearingAccountIdNum }, include: { responsible: true } });
+      if (ca?.responsible?.mail) {
+        const resp = ca.responsible;
+        const respText = [
+          `Hallo ${resp.first_name} ${resp.last_name},`,
+          '',
+          `es wurde eine neue Auslage zum Bearbeiten eingereicht.`,
+          '',
+          `Details:`,
+          `• Verrechnungskonto: ${ca.name}`,
+          `• Einreicher: ${user.first_name} ${user.last_name}`,
+          `• Betrag: ${amountFmt}`,
+          `• Datum: ${dateFmt}`,
+          `• Beschreibung: ${descriptionRaw}`,
+        ];
+        await sendPlainMail({
+          to: resp.mail,
+          subject: `Neue Auslage zum Bearbeiten (ID ${advance.id})`,
+          text: respText.join('\n'),
+          initiatorName,
+          initiatorEmail,
+          recipientUserId: resp.id,
+        });
+      }
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('Advance creation mail failed', e);
+  }
+
   return NextResponse.json({ id: advance.id }, { status: 201 });
 }
