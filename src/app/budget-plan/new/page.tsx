@@ -4,7 +4,6 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import "../../css/forms.css";
 import { extractToken, fetchJson } from "@/lib/utils";
-import type { BudgetPlan } from "../utils";
 
 export default function NewBudgetPlanPage() {
     const { data: session } = useSession();

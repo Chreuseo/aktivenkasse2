@@ -28,7 +28,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         if (!user) {
             return NextResponse.json({ error: "Nutzer nicht gefunden" }, { status: 404 });
         }
-        // Alle Transaktionen des Accounts nach neuem Schema
+        // Alle Transaktionen des Accounts (Gegenkonto, Kostenstelle, Attachment) für die Detailansicht
         const accountId = user.accountId;
         const transactionsRaw = await prisma.transaction.findMany({
             where: { accountId },
@@ -39,9 +39,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
                         account: { include: { users: true, bankAccounts: true, clearingAccounts: true } },
                     },
                 },
+                costCenter: { include: { budget_plan: true } },
+                attachment: true,
             },
         });
-        // Für jede Transaktion: Gegenkonto bestimmen und Details extrahieren
         const txs = transactionsRaw.map((tx: any) => {
             const other = tx.counter_transaction ? (() => {
                 const acc = tx.counter_transaction.account;
@@ -60,6 +61,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
                 }
                 return null;
             })() : null;
+            const costCenterLabel = tx.costCenter && tx.costCenter.budget_plan ? `${tx.costCenter.budget_plan.name} - ${tx.costCenter.name}` : undefined;
             return {
                 id: tx.id,
                 amount: Number(tx.amount),
@@ -68,7 +70,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
                 reference: tx.reference || undefined,
                 other,
                 attachmentId: tx.attachmentId || undefined,
-                receiptUrl: tx.attachmentId ? `/api/attachments/${tx.attachmentId}/download` : undefined,
+                receiptUrl: tx.attachmentId ? `/api/transactions/${tx.id}/receipt` : undefined,
+                costCenterLabel,
             };
         });
         return NextResponse.json({

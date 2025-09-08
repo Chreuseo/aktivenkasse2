@@ -1,64 +1,39 @@
 import React from "react";
-import prisma from "@/lib/prisma";
 import "@/app/css/tables.css";
 import "@/app/css/infobox.css";
+import { cookies, headers } from "next/headers";
+import { getToken } from "next-auth/jwt";
 import { Transaction } from "@/app/types/transaction";
 import TransactionTable from "@/app/components/TransactionTable";
 
-function inferOtherFromAccount(acc: any): Transaction["other"] {
-  if (!acc) return null;
-  if (acc.users && acc.users.length > 0) {
-    const u = acc.users[0];
-    return { type: "user", name: `${u.first_name} ${u.last_name}`, mail: u.mail };
-  }
-  if (acc.bankAccounts && acc.bankAccounts.length > 0) {
-    const b = acc.bankAccounts[0];
-    return { type: "bank", name: b.name, bank: b.bank, iban: b.iban };
-  }
-  if (acc.clearingAccounts && acc.clearingAccounts.length > 0) {
-    const c = acc.clearingAccounts[0];
-    return { type: "clearing_account", name: c.name };
-  }
-  return null;
-}
-
 export default async function UserDetailPage({ params }: { params: { id: string } }) {
-  const user = await prisma.user.findUnique({
-    where: { id: Number(params.id) },
-    include: { account: true },
-  });
-  if (!user) return <div>Nutzer nicht gefunden</div>;
+  // Serverseitiger Request mit Cookies + optionalem Bearer-Token
+  const hdrs = await headers();
+  const proto = hdrs.get("x-forwarded-proto") ?? "http";
+  const host = hdrs.get("host");
+  const apiUrl = `${proto}://${host}/api/users/${params.id}`;
 
-  const accountId = user.accountId;
-  const transactionsRaw = await prisma.transaction.findMany({
-    where: { accountId },
-    orderBy: { date: "desc" },
-    include: {
-      counter_transaction: {
-        include: {
-          account: { include: { users: true, bankAccounts: true, clearingAccounts: true } },
-        },
-      },
-      attachment: true,
-      costCenter: { include: { budget_plan: true } },
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${encodeURIComponent(c.value)}`).join("; ");
+
+  const dummyReq = new Request(apiUrl, { headers: { cookie: cookieHeader } });
+  const nxt = await getToken({ req: dummyReq as any, secret: process.env.NEXTAUTH_SECRET });
+  const bearer = (nxt as any)?.accessToken || (nxt as any)?.token || null;
+
+  const res = await fetch(apiUrl, {
+    headers: {
+      cookie: cookieHeader,
+      ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
     },
+    cache: "no-store",
   });
 
-  const transactions: Transaction[] = transactionsRaw.map((tx: any) => {
-    const other = tx.counter_transaction ? inferOtherFromAccount(tx.counter_transaction.account) : null;
-    const costCenterLabel = tx.costCenter && tx.costCenter.budget_plan ? `${tx.costCenter.budget_plan.name} - ${tx.costCenter.name}` : undefined;
-    return {
-      id: tx.id,
-      amount: Number(tx.amount),
-      date: (tx.date_valued ?? tx.date).toISOString(),
-      description: tx.description,
-      reference: tx.reference || undefined,
-      other,
-      attachmentId: tx.attachmentId || undefined,
-      receiptUrl: tx.attachmentId ? `/api/attachments/${tx.attachmentId}/download` : undefined,
-      costCenterLabel,
-    };
-  });
+  if (!res.ok) {
+    return <div>Nutzer nicht gefunden</div>;
+  }
+
+  const data: { user: { id: number; first_name: string; last_name: string; mail: string; balance: number }, transactions: Transaction[] } = await res.json();
+  const { user, transactions } = data;
 
   return (
     <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
@@ -66,7 +41,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
       <div className="kc-infobox">
         <div style={{ fontSize: "1.2rem", fontWeight: 600 }}>{user.first_name} {user.last_name}</div>
         <div style={{ color: "var(--muted)", marginBottom: 4 }}>{user.mail}</div>
-        <div style={{ fontWeight: 500 }}>Kontostand: <span style={{ color: "var(--primary)", fontWeight: 700 }}>{user.account?.balance !== undefined ? Number(user.account.balance).toFixed(2) : "0.00"} €</span></div>
+        <div style={{ fontWeight: 500 }}>Kontostand: <span style={{ color: "var(--primary)", fontWeight: 700 }}>{Number(user.balance).toFixed(2)} €</span></div>
       </div>
       <h3 style={{ marginBottom: "0.8rem" }}>Transaktionen</h3>
       <TransactionTable transactions={transactions} />
