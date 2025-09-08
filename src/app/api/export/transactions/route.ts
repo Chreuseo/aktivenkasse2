@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
 import { generateTransactionsPdf, generateBudgetPlanPdf } from "@/lib/pdf";
+import type { BudgetPlanTxRow } from "@/lib/pdf";
 
 export const runtime = 'nodejs';
 
@@ -120,7 +121,7 @@ export async function GET(req: Request) {
       });
 
       // Details je nach Variante
-      let details: { name: string; txs: { date: string; description: string; other?: string }[] }[] | undefined = undefined;
+      let details: { name: string; txs: BudgetPlanTxRow[] }[] | undefined = undefined;
       const wantFull = variant === 'voll';
       const wantAnonym = variant === 'anonym' || wantFull; // anonym oder voll
 

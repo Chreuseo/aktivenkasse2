@@ -144,8 +144,10 @@ export default function ClientHeader() {
                             </button>
                             <ul className={`absolute menu-dropdown ${submenuOpen[item] ? 'block' : 'hidden'} ...`}>
                                 {submenuLinks[item]?.map((link: SubmenuLink) => (
-                                    <li key={link.href} className="px-4 py-2 hover:bg-gray-600">
-                                        <Link href={link.href} onClick={handleLinkClick}>{link.label}</Link>
+                                    <li key={link.href}>
+                                        <Link href={link.href} onClick={handleLinkClick} className="block w-full px-4 py-2 hover:bg-gray-600">
+                                            {link.label}
+                                        </Link>
                                     </li>
                                 ))}
                             </ul>
@@ -183,8 +185,10 @@ export default function ClientHeader() {
                             {submenuOpen[item] && (
                                 <ul className="pl-4 mt-1">
                                     {submenuLinks[item]?.map((link: SubmenuLink) => (
-                                        <li key={link.href} className="px-4 py-2 hover:bg-gray-600">
-                                            <Link href={link.href} onClick={handleLinkClick}>{link.label}</Link>
+                                        <li key={link.href}>
+                                            <Link href={link.href} onClick={handleLinkClick} className="block w-full px-4 py-2 hover:bg-gray-600">
+                                                {link.label}
+                                            </Link>
                                         </li>
                                     ))}
                                 </ul>
