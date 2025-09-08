@@ -440,6 +440,65 @@ export async function generateBudgetPlanPdf(title: string, data: BudgetPlanExpor
       }
       y -= required;
     }
+
+    // Totals (Summenzeile)
+    const totals = data.summaries.reduce((acc, r) => {
+      acc.expectedCosts += Number(r.expectedCosts || 0);
+      acc.actualCosts += Number(r.actualCosts || 0);
+      acc.expectedEarnings += Number(r.expectedEarnings || 0);
+      acc.actualEarnings += Number(r.actualEarnings || 0);
+      acc.expectedResult += Number(r.expectedResult || 0);
+      acc.actualResult += Number(r.actualResult || 0);
+      return acc;
+    }, { expectedCosts: 0, actualCosts: 0, expectedEarnings: 0, actualEarnings: 0, expectedResult: 0, actualResult: 0 });
+
+    // kleine Trennlinie vor Summenzeile
+    page.drawLine({ start: { x: margin, y: y - 2 }, end: { x: margin + totalWidth, y: y - 2 }, color: rgb(0.7,0.7,0.7), thickness: 1 });
+    y -= lineHeight; // etwas Abstand
+
+    // Summenzeile rendern (Name: "Summe")
+    const sumVals: Record<string, string> = {
+      name: 'Summe',
+      expectedCosts: formatCurrency(totals.expectedCosts),
+      actualCosts: formatCurrency(totals.actualCosts),
+      expectedEarnings: formatCurrency(totals.expectedEarnings),
+      actualEarnings: formatCurrency(totals.actualEarnings),
+      expectedResult: formatCurrency(totals.expectedResult),
+      actualResult: formatCurrency(totals.actualResult),
+    };
+
+    // Bold für Summenzeile
+    page.setFont(boldFont); page.setFontSize(bodyFontSize);
+
+    let maxSumLines = 1; const wrappedSum: Record<string, string[]> = {};
+    for (const c of columns) {
+      const lines = wrap(boldFont, bodyFontSize, sumVals[c.key as keyof typeof sumVals] ?? '', c.width - cellPaddingX * 2);
+      wrappedSum[c.key] = lines; if (lines.length > maxSumLines) maxSumLines = lines.length;
+    }
+    const requiredSum = maxSumLines * lineHeight + rowGap;
+    ensureSpace(requiredSum, () => {
+      // Bei Umbruch: Header erneut zeichnen, dann nochmal Trennlinie vor Summenzeile
+      y = headerStartY;
+      page.setFont(boldFont); page.setFontSize(headerFontSize);
+      let x2 = margin; for (let i = 0; i < columns.length; i++) {
+        const c = columns[i]; const lines = wrap(boldFont, headerFontSize, c.label, c.width - cellPaddingX * 2);
+        let yLocal = y; for (let li = 0; li < lines.length; li++) { page.drawText(lines[li], { x: x2 + cellPaddingX, y: yLocal }); yLocal -= headerLineHeight; }
+        x2 += c.width;
+      }
+      y -= maxHeaderLines * headerLineHeight; page.drawLine({ start: { x: margin, y: y - 4 }, end: { x: margin + totalWidth, y: y - 4 }, color: rgb(0.8,0.8,0.8), thickness: 1 }); y -= lineHeight;
+      page.drawLine({ start: { x: margin, y: y - 2 }, end: { x: margin + totalWidth, y: y - 2 }, color: rgb(0.7,0.7,0.7), thickness: 1 });
+      y -= lineHeight;
+      page.setFont(boldFont); page.setFontSize(bodyFontSize);
+    });
+
+    let xSum = margin; for (const c of columns) {
+      const lines = wrappedSum[c.key]; for (let i = 0; i < lines.length; i++) { page.drawText(lines[i], { x: xSum + cellPaddingX, y: y - i * lineHeight }); }
+      xSum += c.width;
+    }
+    y -= requiredSum;
+
+    // Rückkehr zu normaler Schrift
+    page.setFont(normalFont); page.setFontSize(bodyFontSize);
   }
 
   drawSummaryTable();
