@@ -138,19 +138,25 @@ export async function GET(req: Request) {
         const txs = await prisma.transaction.findMany({
           where: { costCenterId: { in: costCenterIds } },
           orderBy: { date_valued: 'asc' },
-          include: wantFull ? {
+          include: {
             account: {
-              include: {
-                users: true, bankAccounts: true, clearingAccounts: true
-              }
-            }
-          } : undefined,
+              select: {
+                type: true,
+                ...(wantFull ? { users: true, bankAccounts: true, clearingAccounts: true } : {}),
+              } as any,
+            },
+          },
         } as any);
 
         const byCc = new Map<number, { date: string; description: string; amount: number; other?: string }[]>();
         for (const ccId of costCenterIds) byCc.set(ccId, []);
         for (const t of txs) {
           const arr = byCc.get(t.costCenterId as number) as any[];
+          // Normalisierung des Betrags aus Sicht der Kasse
+          const raw = Number((t as any).amount);
+          const accType = (t as any).account?.type;
+          const normalized = accType === 'bank' ? raw : -raw;
+
           let other: string | undefined;
           if (wantFull && (t as any).account) {
             other = inferOtherFromAccount((t as any).account);
@@ -158,7 +164,7 @@ export async function GET(req: Request) {
           arr.push({
             date: ((t as any).date_valued || (t as any).date).toISOString(),
             description: (t as any).description,
-            amount: Number((t as any).amount),
+            amount: normalized,
             other,
           });
         }

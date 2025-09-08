@@ -36,10 +36,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   }
 
   const ccIds = costCenters.map(c => c.id);
-  // Alle relevanten Transaktionen in einem Schwung laden
+  // Alle relevanten Transaktionen inkl. Kontotyp laden
   const transactions = await prisma.transaction.findMany({
     where: { costCenterId: { in: ccIds } },
-    select: { costCenterId: true, amount: true },
+    select: { costCenterId: true, amount: true, account: { select: { type: true } } },
   });
 
   const results: Array<{ id: number; earnings_actual: number; costs_actual: number }> = [];
@@ -47,16 +47,18 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   // Transaktionale Aktualisierung
   await prisma.$transaction(async (tx) => {
     for (const cc of costCenters) {
-      let earnings = 0; // Einnahmen (positiver Betrag, absolut)
-      let costs = 0; // Ausgaben (positiver Betrag, absolut)
+      let earnings = 0; // Einnahmen (positiv)
+      let costs = 0;    // Ausgaben (positiv)
       for (const t of transactions) {
         if (t.costCenterId !== cc.id) continue;
         const val = Number(t.amount);
-        // Aus Sicht der Kasse: negative Beträge sind Einnahmen, positive Ausgaben
-        if (val < 0) {
-          earnings += Math.abs(val);
-        } else if (val > 0) {
-          costs += val;
+        const accType = t.account.type; // 'user' | 'bank' | 'clearing_account'
+        if (accType === 'bank') {
+          // Bankkonto: Positiv -> Einnahmen, Negativ -> Ausgaben
+          if (val > 0) earnings += val; else if (val < 0) costs += Math.abs(val);
+        } else {
+          // Nutzer/Verrechnung: Positiv -> Ausgaben, Negativ -> Einnahmen
+          if (val > 0) costs += val; else if (val < 0) earnings += Math.abs(val);
         }
       }
       await tx.costCenter.update({

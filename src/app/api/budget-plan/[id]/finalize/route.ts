@@ -38,7 +38,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     if (ccIds.length) {
       const transactions = await tx.transaction.findMany({
         where: { costCenterId: { in: ccIds } },
-        select: { costCenterId: true, amount: true },
+        select: { costCenterId: true, amount: true, account: { select: { type: true } } },
       });
 
       for (const cc of costCenters) {
@@ -47,10 +47,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         for (const t of transactions) {
           if (t.costCenterId !== cc.id) continue;
           const val = Number(t.amount);
-          if (val < 0) {
-            earnings += Math.abs(val);
-          } else if (val > 0) {
-            costs += val;
+          const accType = t.account.type; // 'user' | 'bank' | 'clearing_account'
+          if (accType === 'bank') {
+            // Bankkonto: Positiv -> Einnahmen, Negativ -> Ausgaben
+            if (val > 0) earnings += val; else if (val < 0) costs += Math.abs(val);
+          } else {
+            // Nutzer/Verrechnung: Positiv -> Ausgaben, Negativ -> Einnahmen
+            if (val > 0) costs += val; else if (val < 0) earnings += Math.abs(val);
           }
         }
         await tx.costCenter.update({ where: { id: cc.id }, data: { earnings_actual: earnings, costs_actual: costs } });
@@ -63,4 +66,3 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   return NextResponse.json({ success: true, closed: true, updated: results });
 }
-
