@@ -1,33 +1,52 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
 import NewAdvanceForm from "./NewAdvanceForm";
-import { cookies, headers } from "next/headers";
-import { getToken } from "next-auth/jwt";
+import { useSession } from "next-auth/react";
+import { extractToken } from "@/lib/utils";
 
-export default async function NewAdvancePage() {
-  // Serverseitiger Fetch auf Backend-API mit Auth-Header
-  const hdrs = await headers();
-  const proto = hdrs.get("x-forwarded-proto") ?? "http";
-  const host = hdrs.get("host");
-  const apiUrl = `${proto}://${host}/api/clearing-accounts`;
+export default function NewAdvancePage() {
+  const { data: session } = useSession();
+  const [accounts, setAccounts] = useState<Array<{ id: number; name: string }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${encodeURIComponent(c.value)}`).join("; ");
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = extractToken(session as any);
+        const res = await fetch("/api/clearing-accounts", {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          cache: "no-store",
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          const msg = json?.error || `${res.status} ${res.statusText}`;
+          setError(msg);
+          setAccounts([]);
+          return;
+        }
+        const list: Array<{ id: number; name: string }> = (Array.isArray(json) ? json : []).map((a: any) => ({ id: a.id, name: a.name }));
+        setAccounts(list);
+      } catch (e: any) {
+        setError(e?.message || String(e));
+        setAccounts([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [session]);
 
-  // Access-Token aus NextAuth-Session holen
-  const dummyReq = new Request(apiUrl, { headers: { cookie: cookieHeader } });
-  const nxt = await getToken({ req: dummyReq as any, secret: process.env.NEXTAUTH_SECRET });
-  const bearer = (nxt as any)?.accessToken || (nxt as any)?.token || null;
-
-  const res = await fetch(apiUrl, {
-    headers: {
-      cookie: cookieHeader,
-      ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
-    },
-    cache: "no-store",
-  });
-  let accounts: { id: number; name: string }[] = [];
-  if (res.ok) {
-    const json = await res.json();
-    accounts = (Array.isArray(json) ? json : []).map((a: any) => ({ id: a.id, name: a.name }));
-  }
-  return <NewAdvanceForm accounts={accounts} />;
+  return (
+    <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
+      {loading && <div style={{ color: "var(--muted)", marginBottom: 12 }}>Lade Verrechnungskonten ...</div>}
+      {error && <div style={{ color: "var(--accent)", marginBottom: 12 }}>{error}</div>}
+      <NewAdvanceForm accounts={accounts} />
+    </div>
+  );
 }

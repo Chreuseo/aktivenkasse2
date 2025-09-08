@@ -33,6 +33,13 @@ html, body {
   max-width: 100%;
   overflow-x: hidden;
 }
+/* Auf kleinen Viewports seitliches Scrollen erlauben */
+@media (max-width: 900px) {
+  main {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
 /* Medien nicht breiter als das Viewport */
 img, video, canvas, svg {
   max-width: 100%;
@@ -76,4 +83,12 @@ body {
   border-color: #181818;
   opacity: 1;
   font-weight: 400;
+}
+
+/* Utility: erzwingt horizontales Scrollen für einzelne Container */
+.scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100vw;
 }
