@@ -21,11 +21,12 @@ export default function GeneralTransactionTable({ transactions }: GeneralTransac
           <th>Gegenkonto</th>
           <th>Kostenstelle</th>
           <th>Beleg</th>
+          <th>Sammel</th>
         </tr>
       </thead>
       <tbody>
         {transactions.length === 0 && (
-          <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Transaktionen vorhanden</td></tr>
+          <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Transaktionen vorhanden</td></tr>
         )}
         {transactions.map((tx: Transaction) => (
           <tr key={tx.id} className="kc-row">
@@ -58,6 +59,13 @@ export default function GeneralTransactionTable({ transactions }: GeneralTransac
                   <button className="button" style={{ padding: "0.2rem 0.8rem" }}>Beleg herunterladen</button>
                 </a>
               ) : <span style={{ color: "var(--muted)" }}>Kein Beleg</span>}
+            </td>
+            <td>
+              {tx.bulkId ? (
+                <a href={`/transactions/bulk/${tx.bulkId}`}>
+                  <button className="button" style={{ padding: "0.2rem 0.8rem" }}>Zur Sammelbuchung</button>
+                </a>
+              ) : <span style={{ color: "var(--muted)" }}>-</span>}
             </td>
           </tr>
         ))}

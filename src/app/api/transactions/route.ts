@@ -241,6 +241,7 @@ export async function GET(req: Request) {
       attachmentId: (t as any).attachmentId || undefined,
       receiptUrl: (t as any).attachmentId ? `/api/transactions/${t.id}/receipt` : undefined,
       costCenterLabel,
+      bulkId: t.transactionBulkId ? Number(t.transactionBulkId) : undefined,
     };
   });
 

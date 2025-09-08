@@ -93,6 +93,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       attachmentId: tx.attachmentId || undefined,
       receiptUrl: tx.attachmentId ? `/api/transactions/${tx.id}/receipt` : undefined,
       costCenterLabel,
+      bulkId: tx.transactionBulkId ? Number(tx.transactionBulkId) : undefined,
     };
   });
 

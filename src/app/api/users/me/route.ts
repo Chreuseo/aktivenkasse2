@@ -72,6 +72,7 @@ export async function GET(req: Request) {
         attachmentId: tx.attachmentId || undefined,
         receiptUrl: tx.attachmentId ? `/api/transactions/${tx.id}/receipt` : undefined,
         costCenterLabel,
+        bulkId: tx.transactionBulkId ? Number(tx.transactionBulkId) : undefined,
       };
     });
 
@@ -90,4 +91,3 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Fehler beim Laden der Nutzerdaten", detail: error?.message }, { status: 500 });
   }
 }
-
