@@ -7,6 +7,9 @@
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
     color: #ededed;
+    /* bei Überlauf horizontal innerhalb der Box scrollen */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .edit-form {
