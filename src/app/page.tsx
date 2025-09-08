@@ -1,50 +1,55 @@
-import React from 'react';
-import { headers } from 'next/headers';
+'use client';
 
-export const dynamic = 'force-dynamic';
+import React, { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { extractToken } from '@/lib/utils';
 
-async function getOverviewData() {
-  const hdrs = await headers(); // headers() ist jetzt async
-  const cookie = hdrs.get('cookie') || '';
-  const auth = hdrs.get('authorization') || hdrs.get('Authorization') || '';
-  const host = hdrs.get('x-forwarded-host') || hdrs.get('host') || process.env.NEXT_PUBLIC_APP_HOST || 'localhost:3000';
-  const proto = hdrs.get('x-forwarded-proto') || (host.startsWith('localhost') ? 'http' : 'https');
-  const base = `${proto}://${host}`;
+export default function Page() {
+  const { data: session, status } = useSession();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<any>({});
 
-  const forward: Record<string, string> = {};
-  if (cookie) forward.cookie = cookie;
-  if (auth) forward.authorization = auth;
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = extractToken(session as any);
+        const res = await fetch('/api/overview', {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          cache: 'no-store',
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || `${res.status} ${res.statusText}`);
+        setData(json || {});
+      } catch (e: any) {
+        setError(e?.message || String(e));
+        setData({});
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [session]);
 
-  let resp: Response;
-  try {
-    resp = await fetch(`${base}/api/overview`, {
-      cache: 'no-store',
-      headers: forward,
-      next: { revalidate: 0 },
-    });
-  } catch (e: any) {
-    throw new Error(`Netzwerkfehler /api/overview: ${e?.message || String(e)}`);
+  function formatCurrency(value: string | number) {
+    const n = typeof value === 'number' ? value : Number(value || 0);
+    return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n);
   }
 
-  return resp.json();
-}
-
-function formatCurrency(value: string | number) {
-  const n = typeof value === 'number' ? value : Number(value || 0);
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n);
-}
-
-export default async function Page() {
-  const data = await getOverviewData();
   const bankAccounts: Array<{ id: number; name: string; iban: string; balance: string }> = data.bankAccounts ?? [];
   const bankTotal: string = data.bankTotal ?? '0';
   const clearingAccounts: Array<{ id: number; name: string; reimbursementEligible: boolean; balance: string }> = data.clearingAccounts ?? [];
-  const clearingTotal: string = data.clearingTotal ?? '0';
   const users = data.users ?? { liabilities: { sum: '0', count: 0, max: '0' }, receivables: { sum: '0', count: 0, max: '0' } };
   const totals = data.totals ?? { assets: '0', liabilities: '0', net: '0' };
 
   return (
     <div className="wide-container" style={{ padding: '1rem' }}>
+      {loading && <div style={{ color: 'var(--muted)', marginBottom: 12 }}>Lade Daten ...</div>}
+      {error && <div style={{ color: 'var(--accent)', marginBottom: 12 }}>{error}</div>}
       <div className="overview-grid">
         {/* Kachel 1: Bankkonten */}
         <section className="kc-infobox">
@@ -99,7 +104,7 @@ export default async function Page() {
                     <td colSpan={3} style={{ color: 'var(--muted)' }}>Keine Daten</td>
                   </tr>
                 ) : (
-                  clearingAccounts.map((c) => (
+                  clearingAccounts.map((c: any) => (
                     <tr className="kc-row" key={c.id}>
                       <td>{c.name}</td>
                       <td>{c.reimbursementEligible ? 'Ja' : 'Nein'}</td>

@@ -1,3 +1,5 @@
+'use client';
+
 import React from "react";
 import { Transaction } from "@/app/types/transaction";
 import "@/app/css/tables.css";

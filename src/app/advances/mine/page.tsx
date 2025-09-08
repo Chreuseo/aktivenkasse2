@@ -1,3 +1,5 @@
+'use client';
+
 import MineAdvancesClient from "./MineAdvancesClient";
 
 export const dynamic = "force-dynamic";

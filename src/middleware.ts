@@ -26,8 +26,15 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Token aus NextAuth prüfen
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  // Wenn API-Request mit Bearer-Header kommt, durchlassen (Auth prüft dann die Route selbst)
+  const bearer = req.headers.get("authorization") || req.headers.get("Authorization");
+  if (pathname.startsWith("/api") && bearer && /^Bearer\s+\S+$/i.test(bearer)) {
+    return NextResponse.next();
+  }
+
+  // Token aus NextAuth prüfen (Cookies)
+  const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+  const token = await getToken({ req, secret });
 
   // Kein Token -> API: 401, Pages: redirect auf /login
   if (!token) {

@@ -1,3 +1,5 @@
+'use client';
+
 import AllAdvancesClient from "./AllAdvancesClient";
 
 export const dynamic = "force-dynamic";

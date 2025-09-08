@@ -1,38 +1,52 @@
-import React from "react";
+'use client';
+
+import React, { useEffect, useState } from "react";
 import "@/app/css/tables.css";
 import "@/app/css/infobox.css";
-import { cookies, headers } from "next/headers";
-import { getToken } from "next-auth/jwt";
+import { useSession } from "next-auth/react";
+import { useParams } from "next/navigation";
+import { extractToken } from "@/lib/utils";
 import { Transaction } from "@/app/types/transaction";
 import TransactionTable from "@/app/components/TransactionTable";
 
-export default async function UserDetailPage({ params }: { params: { id: string } }) {
-  // Serverseitiger Request mit Cookies + optionalem Bearer-Token
-  const hdrs = await headers();
-  const proto = hdrs.get("x-forwarded-proto") ?? "http";
-  const host = hdrs.get("host");
-  const apiUrl = `${proto}://${host}/api/users/${params.id}`;
+export default function UserDetailPage() {
+  const params = useParams();
+  const id = params?.id as string;
+  const { data: session } = useSession();
+  const [data, setData] = useState<{ user: { id: number; first_name: string; last_name: string; mail: string; balance: number }, transactions: Transaction[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${encodeURIComponent(c.value)}`).join("; ");
+  useEffect(() => {
+    if (!id) return;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = extractToken(session as any);
+        const res = await fetch(`/api/users/${id}`, {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          cache: 'no-store',
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || `${res.status} ${res.statusText}`);
+        setData(json);
+      } catch (e: any) {
+        setError(e?.message || String(e));
+        setData(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [session, id]);
 
-  const dummyReq = new Request(apiUrl, { headers: { cookie: cookieHeader } });
-  const nxt = await getToken({ req: dummyReq as any, secret: process.env.NEXTAUTH_SECRET });
-  const bearer = (nxt as any)?.accessToken || (nxt as any)?.token || null;
+  if (loading) return <div style={{ color: "var(--muted)", margin: "2rem auto", maxWidth: 900 }}>Lade Daten ...</div>;
+  if (error) return <div style={{ color: "var(--accent)", margin: "2rem auto", maxWidth: 900 }}>{error}</div>;
+  if (!data) return <div style={{ color: "var(--muted)", margin: "2rem auto", maxWidth: 900 }}>Nutzer nicht gefunden</div>;
 
-  const res = await fetch(apiUrl, {
-    headers: {
-      cookie: cookieHeader,
-      ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
-    },
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    return <div>Nutzer nicht gefunden</div>;
-  }
-
-  const data: { user: { id: number; first_name: string; last_name: string; mail: string; balance: number }, transactions: Transaction[] } = await res.json();
   const { user, transactions } = data;
 
   return (

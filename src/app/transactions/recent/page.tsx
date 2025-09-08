@@ -1,33 +1,67 @@
-import React from "react";
+'use client';
+
+import React, { useEffect, useState } from "react";
 import "@/app/css/tables.css";
 import { Transaction } from "@/app/types/transaction";
 import GeneralTransactionTable from "@/app/components/GeneralTransactionTable";
-import { cookies, headers } from "next/headers";
+import { useSession } from "next-auth/react";
+import { extractToken } from "@/lib/utils";
 
-export default async function RecentTransactionsPage() {
-  const hdrs = await headers();
-  const proto = hdrs.get("x-forwarded-proto") ?? "http";
-  const host = hdrs.get("host");
-  const apiUrl = `${proto}://${host}/api/transactions/recent`;
+export default function RecentTransactionsPage() {
+  const { data: session } = useSession();
+  const [transactions, setTransactions] = useState<Transaction[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${encodeURIComponent(c.value)}`).join("; ");
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = extractToken(session as any);
+        const res = await fetch('/api/transactions/recent', {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          cache: 'no-store',
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || `${res.status} ${res.statusText}`);
+        setTransactions(json as Transaction[]);
+      } catch (e: any) {
+        setError(e?.message || String(e));
+        setTransactions(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [session]);
 
-  const res = await fetch(apiUrl, {
-    headers: { cookie: cookieHeader },
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
+  if (loading) {
     return (
-      <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem" }}>
-        <h2 style={{ marginBottom: "1rem" }}>Letzte 20 Buchungen (nach Erstellungsdatum)</h2>
-        <p>Fehler beim Laden: {res.status} {res.statusText}</p>
+      <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem", color: 'var(--muted)' }}>
+        Lade Daten ...
       </div>
     );
   }
 
-  const transactions: Transaction[] = await res.json();
+  if (error) {
+    return (
+      <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem" }}>
+        <h2 style={{ marginBottom: "1rem" }}>Letzte 20 Buchungen (nach Erstellungsdatum)</h2>
+        <p>Fehler beim Laden: {error}</p>
+      </div>
+    );
+  }
+
+  if (!transactions) {
+    return (
+      <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem", color: 'var(--muted)' }}>
+        Keine Daten
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem" }}>
