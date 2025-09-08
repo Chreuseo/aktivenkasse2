@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { BulkTransactionType } from '@prisma/client';
-import { isAllowedAttachment, isAllowedMainAccountForBulk, isAllowedRowTypeForBulk, parsePositiveAmount } from '@/lib/validation';
+import { isAllowedAttachment, isAllowedMainAccountForBulk, isAllowedRowTypeForBulk, parsePositiveAmount, roundToTwoDecimals } from '@/lib/validation';
 import { extractUserFromAuthHeader, resolveAccountId as resolveAccountIdUtil } from '@/lib/serverUtils';
 import {AuthorizationType, ResourceType} from "@/app/types/authorization";
 import {checkPermission} from "@/services/authService";
@@ -141,6 +141,7 @@ export async function POST(req: Request) {
     if (!isAllowedRowTypeForBulk(row.type)) {
       return NextResponse.json({ error: `${idxInfo}: Ungültiger Typ (erlaubt: Nutzer, Verrechnungskonto)` }, { status: 400 });
     }
+    // Typ + Auswahl sind Pflichtfelder in der Tabelle
     if (!row.id) {
       return NextResponse.json({ error: `${idxInfo}: Typ und Auswahl sind Pflichtfelder` }, { status: 400 });
     }
@@ -148,11 +149,14 @@ export async function POST(req: Request) {
     if (amountNum === null) {
       return NextResponse.json({ error: `${idxInfo}: Ungültiger Betrag` }, { status: 400 });
     }
+    const amountCents = roundToTwoDecimals(amountNum);
 
+    // Budgetplan/Kostenstelle nur im globalen Modus zulassen; abweichende Werte ablehnen
     if ((row.budgetPlanId || row.costCenterId) && !globalCostCenterIdNum) {
       return NextResponse.json({ error: `${idxInfo}: Budgetplan/Kostenstelle nur im globalen Kostenstellenmodus erlaubt` }, { status: 400 });
     }
     if (globalCostCenterIdNum) {
+      // Wenn Zeilenwerte mitkommen, sicherstellen, dass sie zum globalen passen
       if ((row.costCenterId && Number(row.costCenterId) !== Number(globalCostCenterId)) || (row.budgetPlanId && Number(row.budgetPlanId) !== Number(globalBudgetPlanId))) {
         return NextResponse.json({ error: `${idxInfo}: Abweichende Kostenstelle/Haushaltsplan zur globalen Auswahl` }, { status: 400 });
       }
@@ -163,8 +167,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `${idxInfo}: Konto konnte nicht aufgelöst werden` }, { status: 400 });
     }
 
-    const signed = rowAmountSigned(amountNum);
-    totalAbsAmount += Math.abs(amountNum);
+    const signed = rowAmountSigned(amountCents);
+    totalAbsAmount += amountCents;
     let txDescription = String(description);
     if (row.description) txDescription += ' - ' + row.description;
     preparedRows.push({ accountId: accId, amount: signed, description: txDescription, reference: String(reference || ''), ...(globalCostCenterIdNum ? { costCenterId: globalCostCenterIdNum } : {}) });

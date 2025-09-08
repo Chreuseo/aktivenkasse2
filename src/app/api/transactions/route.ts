@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { ResourceType, AuthorizationType } from '@/app/types/authorization';
-import { computeAccount2Negative, normalizeBoolean, isAllowedAttachment, parsePositiveAmount, AccountTypeStr } from '@/lib/validation';
+import { computeAccount2Negative, normalizeBoolean, isAllowedAttachment, parsePositiveAmount, AccountTypeStr, roundToTwoDecimals } from '@/lib/validation';
 import { extractUserFromAuthHeader, resolveAccountId as resolveAccountIdUtil } from '@/lib/serverUtils';
 import { checkPermission} from "@/services/authService";
 import { saveAttachmentFromFormFileData as saveAttachmentFromFormFile } from '@/lib/apiHelpers';
@@ -145,12 +145,13 @@ export async function POST(req: Request) {
   if (amountNum === null) {
     return NextResponse.json({ error: 'Ungültiger Betrag' }, { status: 400 });
   }
+  const amountCents = roundToTwoDecimals(amountNum);
 
   const a1Neg = normalizeBoolean(account1Negative, false);
   const a2Neg = a2Type ? computeAccount2Negative(a1Type, a2Type as AccountTypeStr, a1Neg) : null;
 
-  const amt1 = a1Neg ? -amountNum : amountNum;
-  const amt2 = acc2Id ? (a2Neg ? -amountNum : amountNum) : null;
+  const amt1 = a1Neg ? -amountCents : amountCents;
+  const amt2 = acc2Id ? (a2Neg ? -amountCents : amountCents) : null;
 
   try {
     const result = await prisma.$transaction(async (p: any) => {

@@ -52,3 +52,7 @@ export function parsePositiveAmount(val: any): number | null {
   return abs;
 }
 
+// Rundet einen numerischen Betrag auf zwei Nachkommastellen (Cent)
+export function roundToTwoDecimals(n: number): number {
+  return Math.round(n * 100) / 100;
+}

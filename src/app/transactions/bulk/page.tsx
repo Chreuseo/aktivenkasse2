@@ -419,6 +419,8 @@ export default function BulkTransactionPage() {
                       value={row.amount}
                       onChange={e => handleRowChange(idx, "amount", e.target.value)}
                       min="0"
+                      step="0.01"
+                      inputMode="decimal"
                       required
                     />
                   </td>

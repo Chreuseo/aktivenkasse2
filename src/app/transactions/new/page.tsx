@@ -361,6 +361,8 @@ export default function NewTransactionPage() {
                             onChange={handleChange}
                             required
                             min="0"
+                            step="0.01"
+                            inputMode="decimal"
                         />
                     </label>
                 </div>
