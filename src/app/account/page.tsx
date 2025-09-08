@@ -1,5 +1,7 @@
 import AccountClient from "./AccountClient";
-import { normalizeBaseUrl, resolveEnv } from "@/lib/keycloakUtils";
+import { normalizeBaseUrl, resolveEnv, parseIssuer } from "@/lib/keycloakUtils";
+
+export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
   const baseRaw = resolveEnv(
@@ -15,6 +17,16 @@ export default async function AccountPage() {
   if (baseRaw && realm) {
     const base = normalizeBaseUrl(baseRaw);
     accountUrl = `${base}/realms/${realm}/account`;
+  } else {
+    const issuer = resolveEnv("KEYCLOAK_ISSUER");
+    if (issuer) {
+      try {
+        const { base, realm } = parseIssuer(issuer);
+        accountUrl = `${base}/realms/${realm}/account`;
+      } catch {
+        // ignore invalid issuer
+      }
+    }
   }
 
   return <AccountClient accountUrl={accountUrl} />;
