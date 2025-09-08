@@ -119,7 +119,7 @@ export default function ClientHeader() {
     const itemsToRender: MenuKey[] = (() => {
         switch (filterMode) {
             case 'Aktive':
-                return ['Allgemein', 'Verrechnungskonten', 'Transaktionen', 'Konto'];
+                return ['Allgemein', 'Verrechnungskonten', 'Transaktionen', 'Haushaltsplan', 'Konto'];
             case 'Erweitert':
                 return menuItems;
             case 'Standard':
