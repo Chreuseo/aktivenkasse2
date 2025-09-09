@@ -89,7 +89,11 @@ export default function MailLogDetailPage() {
             </tr>
             <tr className="kc-entry-end">
               <th>Body</th>
-              <td style={{ whiteSpace: 'pre-wrap' }}>{item.body}</td>
+              <td>
+                <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                  {item.body}
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
