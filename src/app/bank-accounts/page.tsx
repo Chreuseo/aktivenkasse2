@@ -12,6 +12,13 @@ export default function BankAccountsOverview() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // robuster Formatter für EUR
+  const currencyFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
+  const formatBalance = (value: unknown) => {
+    const num = typeof value === "number" ? value : Number(value);
+    return Number.isFinite(num) ? currencyFmt.format(num) : "—";
+  };
+
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -58,7 +65,7 @@ export default function BankAccountsOverview() {
               <td>{acc.name}</td>
               <td>{acc.bank}</td>
               <td>{acc.iban}</td>
-              <td>{acc.balance.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</td>
+              <td>{formatBalance(acc.balance)}</td>
               <td>
                 <button className="button" onClick={() => window.location.href = `/bank-accounts/${acc.id}/edit`}>
                   Bearbeiten
