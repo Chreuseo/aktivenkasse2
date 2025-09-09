@@ -60,9 +60,12 @@ export async function GET(req: Request) {
   const transactions: Transaction[] = txsRaw.map((tx: any) => {
     const main = tx.account ? inferOtherFromAccount(tx.account) : null;
     const costCenterLabel = tx.costCenter && tx.costCenter.budget_plan ? `${tx.costCenter.budget_plan.name} - ${tx.costCenter.name}` : undefined;
+    const original = Number(tx.amount);
+    const isBank = tx.account?.type === "bank";
+    const amount = isBank ? original : -original;
     return {
       id: tx.id,
-      amount: -Number(tx.amount), // Negiert anzeigen, wie bisher in der Page
+      amount,
       date: (tx.date ?? tx.date_valued ?? new Date()).toISOString(),
       description: tx.description,
       reference: tx.reference || undefined,

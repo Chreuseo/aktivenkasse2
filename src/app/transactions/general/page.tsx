@@ -45,7 +45,7 @@ export default function GeneralTransactionsPage() {
   if (error) {
     return (
       <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem" }}>
-        <h2 style={{ marginBottom: "1rem" }}>Alle Buchungen ohne Gegenkonto (Beträge negiert)</h2>
+        <h2 style={{ marginBottom: "1rem" }}>Alle Buchungen ohne Gegenkonto (Bankkonten nicht negiert)</h2>
         <p>Fehler beim Laden: {error}</p>
       </div>
     );
@@ -61,7 +61,7 @@ export default function GeneralTransactionsPage() {
 
   return (
     <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem" }}>
-      <h2 style={{ marginBottom: "1rem" }}>Alle Buchungen ohne Gegenkonto (Beträge negiert)</h2>
+      <h2 style={{ marginBottom: "1rem" }}>Alle Buchungen ohne Gegenkonto (Bankkonten nicht negiert)</h2>
       <GeneralTransactionTable transactions={transactions} />
     </div>
   );
