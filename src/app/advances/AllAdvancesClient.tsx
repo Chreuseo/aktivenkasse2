@@ -93,9 +93,15 @@ export default function AllAdvancesClient() {
       const params = new URLSearchParams();
       if (status) params.set("status", status);
       if (clearingAccountId) {
-        // request per clearing-account endpoint
-        url = "/api/advances/cost-center";
-        params.set("clearingAccountId", clearingAccountId);
+        if (clearingAccountId === 'none') {
+          // Nur Auslagen ohne Verrechnungskonto
+          url = "/api/advances/all";
+          params.set("clearing", "none");
+        } else {
+          // request per clearing-account endpoint
+          url = "/api/advances/cost-center";
+          params.set("clearingAccountId", clearingAccountId);
+        }
       }
       const full = params.toString() ? `${url}?${params.toString()}` : url;
       const res = await fetch(full, { method: "GET", headers });
@@ -305,6 +311,7 @@ export default function AllAdvancesClient() {
             <label style={{ fontWeight: 600, marginBottom: 6 }}>Verrechnungskonto</label>
             <select className="form-select form-select-max" value={clearingAccountId} onChange={(e) => setClearingAccountId(e.target.value)}>
               <option value="">— Alle —</option>
+              <option value="none">— Keines —</option>
               {clearingOptions.map(c => (
                 <option key={c.id} value={String(c.id)}>{c.name}</option>
               ))}

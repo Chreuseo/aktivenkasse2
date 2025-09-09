@@ -7,6 +7,7 @@ import { ResourceType, AuthorizationType } from '@/app/types/authorization';
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const statusParam = url.searchParams.get('status');
+  const clearingParam = url.searchParams.get('clearing'); // erwartet 'none' für ohne Verrechnungskonto
 
   const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
   const { jwt } = extractUserFromAuthHeader(authHeader as string | undefined);
@@ -20,6 +21,9 @@ export async function GET(req: Request) {
   const where: any = {};
   if (statusParam) {
     where.state = String(statusParam);
+  }
+  if (clearingParam === 'none') {
+    where.clearingAccountId = null;
   }
 
   const advances = await prisma.advances.findMany({
