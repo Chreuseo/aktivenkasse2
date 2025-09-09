@@ -102,7 +102,7 @@ export default function BudgetPlanDetailsPage() {
   const sumDeviation = sumActualResult - sumPlannedResult;
 
   return (
-    <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
+    <div style={{ maxWidth: 1600, margin: "2rem auto", padding: "1rem" }}>
       <h2 style={{ marginBottom: "1.2rem" }}>Haushaltsplan Details</h2>
       {plan && (
         <div className="kc-infobox" style={{ marginBottom: "1.5rem" }}>
@@ -120,50 +120,52 @@ export default function BudgetPlanDetailsPage() {
           {recalculating ? "Berechne ..." : "Neu berechnen"}
         </button>
       </div>
-      <table className="kc-table" role="table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Einnahmen geplant (€)</th>
-            <th>Ausgaben geplant (€)</th>
-            <th>Ergebnis geplant (€)</th>
-            <th>Einnahmen real (€)</th>
-            <th>Ausgaben real (€)</th>
-            <th>Ergebnis real (€)</th>
-            <th>Abweichung Ergebnis (€)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedCostCenters.map(cc => (
-            <tr key={cc.id} className="kc-row">
-              <td>{cc.name}</td>
-              <td>{Number(cc.earnings_expected).toFixed(2)}</td>
-              <td>{Number(cc.costs_expected).toFixed(2)}</td>
-              <td>{(Number(cc.earnings_expected) - Number(cc.costs_expected)).toFixed(2)}</td>
-              <td>{Number(cc.earnings_actual ?? 0).toFixed(2)}</td>
-              <td>{Number(cc.costs_actual ?? 0).toFixed(2)}</td>
-              <td>{(Number(cc.earnings_actual ?? 0) - Number(cc.costs_actual ?? 0)).toFixed(2)}</td>
-              <td>{((Number(cc.earnings_actual ?? 0) - Number(cc.costs_actual ?? 0)) - (Number(cc.earnings_expected) - Number(cc.costs_expected))).toFixed(2)}</td>
+      <div className="wide-container" style={{ paddingTop: 0 }}>
+        <table className="kc-table" role="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Einnahmen geplant (€)</th>
+              <th>Ausgaben geplant (€)</th>
+              <th>Ergebnis geplant (€)</th>
+              <th>Einnahmen real (€)</th>
+              <th>Ausgaben real (€)</th>
+              <th>Ergebnis real (€)</th>
+              <th>Abweichung Ergebnis (€)</th>
             </tr>
-          ))}
-          {sortedCostCenters.length === 0 && !loading && (
-            <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Kostenstellen gefunden</td></tr>
-          )}
-          {/* Summenzeile */}
-          {sortedCostCenters.length > 0 && (
-            <tr className="kc-sum-row">
-              <td>Summe</td>
-              <td>{sumEarningsExpected.toFixed(2)}</td>
-              <td>{sumCostsExpected.toFixed(2)}</td>
-              <td>{sumPlannedResult.toFixed(2)}</td>
-              <td>{sumEarningsActual.toFixed(2)}</td>
-              <td>{sumCostsActual.toFixed(2)}</td>
-              <td>{sumActualResult.toFixed(2)}</td>
-              <td>{sumDeviation.toFixed(2)}</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {sortedCostCenters.map(cc => (
+              <tr key={cc.id} className="kc-row">
+                <td>{cc.name}</td>
+                <td>{Number(cc.earnings_expected).toFixed(2)}</td>
+                <td>{Number(cc.costs_expected).toFixed(2)}</td>
+                <td>{(Number(cc.earnings_expected) - Number(cc.costs_expected)).toFixed(2)}</td>
+                <td>{Number(cc.earnings_actual ?? 0).toFixed(2)}</td>
+                <td>{Number(cc.costs_actual ?? 0).toFixed(2)}</td>
+                <td>{(Number(cc.earnings_actual ?? 0) - Number(cc.costs_actual ?? 0)).toFixed(2)}</td>
+                <td>{((Number(cc.earnings_actual ?? 0) - Number(cc.costs_actual ?? 0)) - (Number(cc.earnings_expected) - Number(cc.costs_expected))).toFixed(2)}</td>
+              </tr>
+            ))}
+            {sortedCostCenters.length === 0 && !loading && (
+              <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Kostenstellen gefunden</td></tr>
+            )}
+            {/* Summenzeile */}
+            {sortedCostCenters.length > 0 && (
+              <tr className="kc-sum-row">
+                <td>Summe</td>
+                <td>{sumEarningsExpected.toFixed(2)}</td>
+                <td>{sumCostsExpected.toFixed(2)}</td>
+                <td>{sumPlannedResult.toFixed(2)}</td>
+                <td>{sumEarningsActual.toFixed(2)}</td>
+                <td>{sumCostsActual.toFixed(2)}</td>
+                <td>{sumActualResult.toFixed(2)}</td>
+                <td>{sumDeviation.toFixed(2)}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
       <div style={{ marginTop: "1rem" }}>
         <Link href="/budget-plan">
           <button className="button">Zurück zur Übersicht</button>

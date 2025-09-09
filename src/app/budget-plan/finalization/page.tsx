@@ -175,7 +175,7 @@ export default function BudgetPlanFinalizationPage() {
   const sumDeviation = sumActualResult - sumPlannedResult;
 
   return (
-    <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem" }}>
+    <div style={{ maxWidth: 1600, margin: "2rem auto", padding: "1rem" }}>
       <h2 style={{ marginBottom: "1.2rem" }}>Haushaltsabschluss</h2>
 
       <div className="form" style={{ marginBottom: "1rem" }}>
