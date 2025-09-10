@@ -50,7 +50,7 @@ export default function ClearingAccountsPage() {
             <th>Name</th>
             <th>Verantwortlicher</th>
             <th>Kontostand</th>
-            <th>Erstattungsberechtigt</th>
+            <th>Erstattung</th>
             <th>Mitglieder</th>
             <th>Details</th>
               <th>Bearbeiten</th>

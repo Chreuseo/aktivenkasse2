@@ -64,3 +64,57 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Fehler beim Laden der Verrechnungskonten", detail: e?.message }, { status: 500 });
   }
 }
+
+export async function POST(req: Request) {
+  // write_all auf clearing_accounts erforderlich
+  const perm = await checkPermission(req, ResourceType.clearing_accounts, AuthorizationType.write_all);
+  if (!perm.allowed) {
+    return NextResponse.json({ error: "Keine Berechtigung für write_all auf clearing_accounts" }, { status: 403 });
+  }
+
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültige JSON-Daten" }, { status: 400 });
+  }
+
+  const { name, responsibleId, reimbursementEligible } = body || {};
+  if (!name) {
+    return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
+  }
+
+  // Optional: Verantwortlichen prüfen
+  let responsibleUser: { id: number } | null = null;
+  if (responsibleId) {
+    const rid = Number(responsibleId);
+    if (!Number.isFinite(rid)) {
+      return NextResponse.json({ error: "Ungültige responsibleId" }, { status: 400 });
+    }
+    responsibleUser = await prisma.user.findUnique({ where: { id: rid }, select: { id: true } });
+    if (!responsibleUser) {
+      return NextResponse.json({ error: "Verantwortlicher User nicht gefunden" }, { status: 404 });
+    }
+  }
+
+  try {
+    const created = await prisma.$transaction(async (p) => {
+      const account = await p.account.create({ data: { balance: 0, interest: true, type: "clearing_account" } });
+      const ca = await p.clearingAccount.create({
+        data: {
+          name: String(name),
+          ...(responsibleUser ? { responsible: { connect: { id: responsibleUser.id } } } : {}),
+          reimbursementEligible: Boolean(reimbursementEligible),
+          account: { connect: { id: account.id } },
+        },
+        select: { id: true, name: true, responsibleId: true, reimbursementEligible: true, accountId: true },
+      });
+      return ca;
+    });
+
+    return NextResponse.json(created, { status: 201 });
+  } catch (e: any) {
+    console.error("POST /api/clearing-accounts failed", e);
+    return NextResponse.json({ error: "Fehler beim Anlegen des Verrechnungskontos", detail: e?.message }, { status: 400 });
+  }
+}
