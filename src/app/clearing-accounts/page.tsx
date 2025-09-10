@@ -51,7 +51,7 @@ export default function ClearingAccountsPage() {
             <th>Verantwortlicher</th>
             <th>Kontostand</th>
             <th>Erstattung</th>
-            <th>Mitglieder</th>
+            <th style={{ minWidth: 150}}>Mitglieder</th>
             <th>Details</th>
               <th>Bearbeiten</th>
           </tr>
@@ -77,7 +77,13 @@ export default function ClearingAccountsPage() {
                 {Number((acc as any)?.balance ?? 0).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
               </td>
               <td>{acc.reimbursementEligible ? "Ja" : "Nein"}</td>
-              <td>{members.length > 0 ? members.map(m => m.name).join(", ") : <span style={{ color: "var(--muted)" }}>-</span>}</td>
+              <td>{members.length > 0 ? (
+                <ul style={{ paddingLeft: "1.2rem", margin: 0 }}>
+                  {members.map((m, idx) => (
+                    <li key={idx}>{m?.name || "(ohne Namen)"}</li>
+                  ))}
+                </ul>
+              ) : <span style={{ color: "var(--muted)" }}>-</span>}</td>
                 <td><Link href={`/clearing-accounts/${acc.id}`}><button className="button">Details</button></Link></td>
               <td><Link href={`/clearing-accounts/${acc.id}/edit`}><button className="button">Bearbeiten</button></Link></td>
             </tr>

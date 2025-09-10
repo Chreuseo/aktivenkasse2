@@ -227,11 +227,11 @@ export function buildBodyText(opts: {
   parts.push(corp);
 
   // Footer mit Link und Hinweis zum Passwort-Reset
-  const linkLine = appUrl ? `Alle Details zu deinem Aktivenkonto findest du unter ${appUrl}` :
+  const linkLine = appUrl ? `Alle Details zu deinem Aktivenkonto findest du unter ${appUrl}.` :
     "Alle Details zu deinem Aktivenkonto findest du auf der Aktivenkasse-Seite.";
   parts.push("");
   parts.push(linkLine);
-  parts.push("Falls du dich noch nie eingeloggt warst, setze beim Login dein Passwort zurück.");
+  parts.push("Falls du dich noch nie eingeloggt hast, setze beim ersten Login dein Passwort zurück.");
 
   return parts.join("\n");
 }
@@ -255,9 +255,9 @@ function applyStandardClosingAndFooter(text: string, initiatorName: string): str
   lines.push(text);
   lines.push("", closing, initiatorName, corp);
   const linkLine = appUrl
-    ? `Alle Details zu deinem Aktivenkonto findest du unter ${appUrl}`
+    ? `Alle Details zu deinem Aktivenkonto findest du unter ${appUrl}.`
     : "Alle Details zu deinem Aktivenkonto findest du auf der Aktivenkasse-Seite.";
-  lines.push("", linkLine, "Falls du dich noch nie eingeloggt warst, setze beim Login dein Passwort zurück.");
+  lines.push("", linkLine, "Falls du dich noch nie eingeloggt hast, setze beim ersten Login dein Passwort zurück.");
   return lines.join("\n");
 }
 
