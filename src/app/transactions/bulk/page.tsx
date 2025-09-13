@@ -45,7 +45,6 @@ export default function BulkTransactionPage() {
     bulkType: "einzug",
     accountType: "clearing_account" as "user" | "bank" | "clearing_account" | "cost_center",
     accountId: "",
-    // Globale Haushaltsplan/Kostenstelle, wenn accountType === 'cost_center'
     globalBudgetPlanId: "",
     globalCostCenterId: "",
     attachment: null as File | null,
@@ -77,20 +76,16 @@ export default function BulkTransactionPage() {
     }
   }, [formData.date_valued]);
 
-  // Auswahltyp-Logik je nach bulkType: erlaubte Werte und Defaults
   useEffect(() => {
     setFormData(prev => {
       if (prev.bulkType === 'einzahlung') {
-        // Bei Einzahlung nur Bankkonto, Kostenstellenmodus deaktivieren und leeren
         return { ...prev, accountType: 'bank', globalBudgetPlanId: '', globalCostCenterId: '' };
       }
-      // einzug/auszahlung: default auf Verrechnungskonto, falls vorher bank
       if (prev.accountType === 'bank') return { ...prev, accountType: 'clearing_account' };
       return prev;
     });
   }, [formData.bulkType]);
 
-  // Kostenstellenliste für globalen Haushaltsplan laden
   useEffect(() => {
     if (formData.accountType === 'cost_center' && formData.globalBudgetPlanId) {
       const token = extractToken(session);
@@ -101,7 +96,6 @@ export default function BulkTransactionPage() {
     }
   }, [formData.accountType, formData.globalBudgetPlanId, session]);
 
-  // Wenn globaler Kostenstellenmodus aktiv ist, Werte in den Zeilen vorbefüllen und sperren
   useEffect(() => {
     if (formData.accountType === 'cost_center' && formData.globalBudgetPlanId && formData.globalCostCenterId) {
       setRows(prev => prev.map(r => ({
@@ -112,10 +106,13 @@ export default function BulkTransactionPage() {
     }
   }, [formData.accountType, formData.globalBudgetPlanId, formData.globalCostCenterId]);
 
-  // Handler
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setFormData(prev => ({ ...prev, attachment: file }));
   };
   const handleRowChange = (idx: number, field: string, value: string) => {
     setRows(prev => prev.map((row, i) => {
@@ -370,6 +367,16 @@ export default function BulkTransactionPage() {
             </label>
           </>
         )}
+
+        <label>
+          Anhang
+          <input
+            type="file"
+            className="form-file-upload"
+            onChange={handleFileChange}
+            accept="image/*,application/pdf"
+          />
+        </label>
 
       </div>
         <div className="form-table-wrapper">
