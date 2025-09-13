@@ -41,10 +41,11 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     return NextResponse.json({ error: 'Dateityp nicht erlaubt (nur Bilder oder PDF)' }, { status: 400 });
   }
 
+  // Nur ID und Gegen-Transaktions-ID laden
   const tx = await prisma.transaction.findUnique({
     where: { id: txId },
-    select: { id: true, counter_transaction: { select: { id: true } } },
-  } as any);
+    select: { id: true, counter_transactionId: true },
+  });
   if (!tx) {
     return NextResponse.json({ error: 'Transaktion nicht gefunden' }, { status: 404 });
   }
@@ -57,15 +58,15 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   try {
     await prisma.$transaction(async (p: any) => {
       await p.transaction.update({ where: { id: txId }, data: { attachment: { connect: { id: attachmentId } } } });
-      if (tx.counter_transaction?.id) {
-        await p.transaction.update({ where: { id: tx.counter_transaction.id }, data: { attachment: { connect: { id: attachmentId } } } });
+      if (tx.counter_transactionId) {
+        await p.transaction.update({ where: { id: tx.counter_transactionId }, data: { attachment: { connect: { id: attachmentId } } } });
       }
     });
   } catch (e: any) {
     return NextResponse.json({ error: 'Fehler beim Speichern des Belegs' }, { status: 500 });
   }
 
-  return NextResponse.json({ transactionId: txId, attachmentId, counterUpdated: !!tx.counter_transaction?.id }, { status: 201 });
+  return NextResponse.json({ transactionId: txId, attachmentId, counterUpdated: !!tx.counter_transactionId }, { status: 201 });
 }
 
 export async function GET() {
