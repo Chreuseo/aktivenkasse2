@@ -15,7 +15,7 @@ pipeline {
   agent any
 
   options {
-    ansiColor('xterm')
+    // ansiColor entfernt (Plugin nicht vorhanden / Fehler in Jenkins)
     timeout(time: 15, unit: 'MINUTES')
   }
 
@@ -50,4 +50,3 @@ pipeline {
     success { echo 'SonarQube Analyse abgeschlossen.' }
   }
 }
-
