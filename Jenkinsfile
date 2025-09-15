@@ -19,12 +19,8 @@ pipeline {
     timeout(time: 15, unit: 'MINUTES')
   }
 
-  environment {
-    SCANNER_HOME = tool 'SonarScanner'
-  }
-
   stages {
-    stage('SonarQube Analysis') { // angepasster Name wie Java Beispiel
+    stage('SonarQube Analysis') {
       steps {
         checkout scm
         script {
@@ -37,8 +33,18 @@ pipeline {
           withSonarQubeEnv('SonarQube') {
             sh '''
               set -eux
+              # Finde sonar-scanner
+              if command -v sonar-scanner >/dev/null 2>&1; then
+                SCANNER_CMD=sonar-scanner
+              elif [ -x ./node_modules/.bin/sonar-scanner ]; then
+                SCANNER_CMD=./node_modules/.bin/sonar-scanner
+              else
+                echo "Sonar Scanner nicht gefunden. Bitte entweder global installieren oder in Jenkins als Tool konfigurieren." >&2
+                echo "Download: https://docs.sonarsource.com/sonarqube/latest/analyzing-source-code/scanners/sonarscanner/" >&2
+                exit 1
+              fi
               GIT_HASH=$(git rev-parse --short HEAD)
-              $SCANNER_HOME/bin/sonar-scanner \
+              $SCANNER_CMD \
                 -Dsonar.projectVersion=${GIT_HASH} \
                 -Dsonar.login=${SONAR_TOKEN}
             '''
