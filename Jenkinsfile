@@ -24,7 +24,7 @@ pipeline {
   }
 
   stages {
-    stage('SonarQube') {
+    stage('SonarQube Analysis') { // angepasster Name wie Java Beispiel
       steps {
         checkout scm
         script {
@@ -33,13 +33,16 @@ pipeline {
           // Optionaler Build – Fehler sollen Analyse nicht komplett verhindern
           sh 'npm run build || echo "Build Fehler ignoriert für Sonar Analyse"'
         }
-        withSonarQubeEnv('SonarQube') {
-          sh '''
-            set -eux
-            GIT_HASH=$(git rev-parse --short HEAD)
-            $SCANNER_HOME/bin/sonar-scanner \
-              -Dsonar.projectVersion=${GIT_HASH}
-          '''
+        withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+          withSonarQubeEnv('SonarQube') {
+            sh '''
+              set -eux
+              GIT_HASH=$(git rev-parse --short HEAD)
+              $SCANNER_HOME/bin/sonar-scanner \
+                -Dsonar.projectVersion=${GIT_HASH} \
+                -Dsonar.login=${SONAR_TOKEN}
+            '''
+          }
         }
       }
     }
