@@ -33,18 +33,36 @@ pipeline {
           withSonarQubeEnv('SonarQube') {
             sh '''
               set -eux
-              # Finde sonar-scanner
+              SCANNER_VERSION=6.2.1.4610
+              # Finde oder installiere sonar-scanner
               if command -v sonar-scanner >/dev/null 2>&1; then
                 SCANNER_CMD=sonar-scanner
               elif [ -x ./node_modules/.bin/sonar-scanner ]; then
                 SCANNER_CMD=./node_modules/.bin/sonar-scanner
               else
-                echo "Sonar Scanner nicht gefunden. Bitte entweder global installieren oder in Jenkins als Tool konfigurieren." >&2
-                echo "Download: https://docs.sonarsource.com/sonarqube/latest/analyzing-source-code/scanners/sonarscanner/" >&2
+                if [ ! -d .sonar-scanner ]; then
+                  echo "Lade SonarScanner ${SCANNER_VERSION}..."
+                  if command -v curl >/dev/null 2>&1; then
+                    curl -sSL -o sonar-scanner.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SCANNER_VERSION}-linux-x64.zip"
+                  elif command -v wget >/dev/null 2>&1; then
+                    wget -q -O sonar-scanner.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SCANNER_VERSION}-linux-x64.zip"
+                  else
+                    echo "Weder curl noch wget verfügbar." >&2
+                    exit 1
+                  fi
+                  unzip -q sonar-scanner.zip
+                  mv sonar-scanner-* .sonar-scanner
+                  rm sonar-scanner.zip
+                fi
+                SCANNER_CMD=$(pwd)/.sonar-scanner/bin/sonar-scanner
+              fi
+              # Java Check (Scanner benötigt Java 17+)
+              if ! java -version >/dev/null 2>&1; then
+                echo "Java nicht gefunden. Bitte Java 17 auf dem Agent installieren." >&2
                 exit 1
               fi
               GIT_HASH=$(git rev-parse --short HEAD)
-              $SCANNER_CMD \
+              "$SCANNER_CMD" \
                 -Dsonar.projectVersion=${GIT_HASH} \
                 -Dsonar.login=${SONAR_TOKEN}
             '''
