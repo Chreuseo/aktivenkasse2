@@ -130,87 +130,132 @@ export async function POST(req: Request) {
     if (bulkTypeLower === 'einzahlung') return Math.abs(raw);
     return Math.abs(raw);
   }
+  // Sign für Hauptkonto (Gegenbuchung zu user rows)
+  let mainSign = 1;
+  if (bulkTypeLower === 'auszahlung') mainSign = -1;
+  if (bulkTypeLower === 'einzug') mainSign = 1;
+  if (bulkTypeLower === 'einzahlung') mainSign = 1;
 
-  type PreparedRow = { accountId?: number, amount: number, description: string, reference?: string, costCenterId?: number };
-  const preparedRows: PreparedRow[] = [];
-  let totalAbsAmount = 0;
+  type PreparedRow = { accountId: number, amount: number, description: string, reference?: string, costCenterId?: number };
+  type PreparedCostCenterRow = { amount: number, description: string, reference?: string, costCenterId: number };
+  const preparedRows: PreparedRow[] = []; // rows mit Konto (user / clearing)
+  const preparedCostCenterRows: PreparedCostCenterRow[] = []; // rows nur Kostenstelle
+  let totalAbsAmount = 0; // summe nur der rows mit Konto
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const idxInfo = `Zeile ${i + 1}`;
-    if (!isAllowedRowTypeForBulk(row.type)) {
-      return NextResponse.json({ error: `${idxInfo}: Ungültiger Typ (erlaubt: Nutzer, Verrechnungskonto)` }, { status: 400 });
-    }
-    // Typ + Auswahl sind Pflichtfelder in der Tabelle
-    if (!row.id) {
-      return NextResponse.json({ error: `${idxInfo}: Typ und Auswahl sind Pflichtfelder` }, { status: 400 });
-    }
-    const amountNum = parsePositiveAmount(row.amount);
-    if (amountNum === null) {
+
+    const rawAmountNum = parsePositiveAmount(row.amount);
+    if (rawAmountNum === null) {
       return NextResponse.json({ error: `${idxInfo}: Ungültiger Betrag` }, { status: 400 });
     }
-    const amountCents = roundToTwoDecimals(amountNum);
+    const amountCents = roundToTwoDecimals(rawAmountNum);
 
-    // Budgetplan/Kostenstelle nur im globalen Modus zulassen; abweichende Werte ablehnen
-    if ((row.budgetPlanId || row.costCenterId) && !globalCostCenterIdNum) {
-      return NextResponse.json({ error: `${idxInfo}: Budgetplan/Kostenstelle nur im globalen Kostenstellenmodus erlaubt` }, { status: 400 });
+    const hasRowAccount = Boolean(row.id);
+    const hasRowCostCenter = Boolean(row.costCenterId && row.budgetPlanId);
+
+    // Validierung Kostenstellen (Zeilen-Ebene) im Nicht-Global-Modus
+    if (hasRowCostCenter && isCostCenterMode) {
+      return NextResponse.json({ error: `${idxInfo}: Einzel-Kostenstellen nicht zulässig, da globaler Kostenstellenmodus aktiv ist` }, { status: 400 });
     }
-    if (globalCostCenterIdNum) {
-      // Wenn Zeilenwerte mitkommen, sicherstellen, dass sie zum globalen passen
-      if ((row.costCenterId && Number(row.costCenterId) !== Number(globalCostCenterId)) || (row.budgetPlanId && Number(row.budgetPlanId) !== Number(globalBudgetPlanId))) {
-        return NextResponse.json({ error: `${idxInfo}: Abweichende Kostenstelle/Haushaltsplan zur globalen Auswahl` }, { status: 400 });
+    if (hasRowCostCenter) {
+      // Budgetplan + Kostenstelle prüfen
+      const plan = await prisma.budgetPlan.findUnique({ where: { id: Number(row.budgetPlanId) }, select: { state: true } });
+      if (!plan || plan.state !== 'active') {
+        return NextResponse.json({ error: `${idxInfo}: Haushaltsplan inaktiv oder nicht gefunden` }, { status: 400 });
+      }
+      const cc = await prisma.costCenter.findUnique({ where: { id: Number(row.costCenterId) } });
+      if (!cc || cc.budget_planId !== Number(row.budgetPlanId)) {
+        return NextResponse.json({ error: `${idxInfo}: Kostenstelle gehört nicht zum Haushaltsplan` }, { status: 400 });
       }
     }
 
+    if (!hasRowAccount && !hasRowCostCenter) {
+      return NextResponse.json({ error: `${idxInfo}: Entweder Auswahl (Konto) oder Kostenstelle erforderlich` }, { status: 400 });
+    }
+
+    // Fall 1: Row nur Kostenstelle (kein Konto) -> direkte Buchung auf Hauptkonto, aber nur wenn Hauptkonto vorhanden (kein globaler Modus)
+    if (!hasRowAccount && hasRowCostCenter) {
+      if (isCostCenterMode) {
+        return NextResponse.json({ error: `${idxInfo}: Konto erforderlich im globalen Kostenstellenmodus` }, { status: 400 });
+      }
+      if (!mainAccountId) {
+        return NextResponse.json({ error: `${idxInfo}: Hauptkonto nicht gesetzt für Kostenstellenzeile` }, { status: 400 });
+      }
+      const signed = mainSign * amountCents; // direkt auf Hauptkonto
+      let txDescription = String(description);
+      if (row.description) txDescription += ' - ' + row.description;
+      preparedCostCenterRows.push({ amount: signed, description: txDescription, reference: String(reference || ''), costCenterId: Number(row.costCenterId) });
+      continue; // nächste Zeile
+    }
+
+    // Ab hier: rows mit Konto (user / clearing)
+    if (!isAllowedRowTypeForBulk(row.type)) {
+      return NextResponse.json({ error: `${idxInfo}: Ungültiger Typ (erlaubt: Nutzer, Verrechnungskonto)` }, { status: 400 });
+    }
     const accId = await resolveAccountIdUtil(prisma as any, row.type, row.id);
     if (!accId) {
       return NextResponse.json({ error: `${idxInfo}: Konto konnte nicht aufgelöst werden` }, { status: 400 });
+    }
+
+    // Budgetplan/Kostenstelle bei rows mit Konto nur zulässig, wenn NICHT globaler Modus und beide angegeben
+    if (row.costCenterId || row.budgetPlanId) {
+      if (!hasRowCostCenter) {
+        return NextResponse.json({ error: `${idxInfo}: Sowohl Haushaltsplan als auch Kostenstelle erforderlich` }, { status: 400 });
+      }
+      const plan = await prisma.budgetPlan.findUnique({ where: { id: Number(row.budgetPlanId) }, select: { state: true } });
+      if (!plan || plan.state !== 'active') {
+        return NextResponse.json({ error: `${idxInfo}: Haushaltsplan inaktiv oder nicht gefunden` }, { status: 400 });
+      }
+      const cc = await prisma.costCenter.findUnique({ where: { id: Number(row.costCenterId) } });
+      if (!cc || cc.budget_planId !== Number(row.budgetPlanId)) {
+        return NextResponse.json({ error: `${idxInfo}: Kostenstelle gehört nicht zum Haushaltsplan` }, { status: 400 });
+      }
     }
 
     const signed = rowAmountSigned(amountCents);
     totalAbsAmount += amountCents;
     let txDescription = String(description);
     if (row.description) txDescription += ' - ' + row.description;
-    preparedRows.push({ accountId: accId, amount: signed, description: txDescription, reference: String(reference || ''), ...(globalCostCenterIdNum ? { costCenterId: globalCostCenterIdNum } : {}) });
+    preparedRows.push({ accountId: accId, amount: signed, description: txDescription, reference: String(reference || ''), ...(
+      hasRowCostCenter ? { costCenterId: Number(row.costCenterId) } : (globalCostCenterIdNum ? { costCenterId: globalCostCenterIdNum } : {})
+    ) });
   }
 
   const attachmentId = await saveAttachmentFromFormFile(prisma as any, file);
 
   try {
     if (isCostCenterMode) {
-      // Nur Einzeltransaktionen anlegen, keine Bulk/Haupt-Transaktion
+      // Unverändert: globaler Kostenstellenmodus verlangt weiterhin Konto-Zeilen
       await prisma.$transaction(async (p: any) => {
         for (const r of preparedRows) {
           const acc = await p.account.findUnique({ where: { id: r.accountId } });
           const bal = acc ? Number(acc.balance) : 0;
-          const newBal = bal + r.amount;
-          await p.transaction.create({
-            data: {
-              amount: r.amount,
-              date_valued: new Date(String(date_valued)),
-              description: r.description,
-              reference: r.reference,
-              account: { connect: { id: r.accountId } },
-              accountValueAfter: newBal,
-              ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
-              createdBy: { connect: { id: currentUser.id } },
-              ...(r.costCenterId ? { costCenter: { connect: { id: r.costCenterId } } } : {}),
-            },
-          });
-          await p.account.update({ where: { id: r.accountId }, data: { balance: newBal } });
+            const newBal = bal + r.amount;
+            await p.transaction.create({
+              data: {
+                amount: r.amount,
+                date_valued: new Date(String(date_valued)),
+                description: r.description,
+                reference: r.reference,
+                account: { connect: { id: r.accountId } },
+                accountValueAfter: newBal,
+                ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
+                createdBy: { connect: { id: currentUser.id } },
+                ...(r.costCenterId ? { costCenter: { connect: { id: r.costCenterId } } } : {}),
+              },
+            });
+            await p.account.update({ where: { id: r.accountId }, data: { balance: newBal } });
         }
       });
       return NextResponse.json({ count: preparedRows.length }, { status: 201 });
     }
 
-    // Standard: Bulk mit Haupt- und Gegenbuchungen
+    // Standard: Bulk mit Haupt- und Gegenbuchungen (preparedRows) + zusätzliche Kostenstellen-Zeilen ohne Konto (preparedCostCenterRows)
     const result = await prisma.$transaction(async (p: any) => {
       const mainAcc = await p.account.findUnique({ where: { id: mainAccountId } });
       const mainBal = mainAcc ? Number(mainAcc.balance) : 0;
-      let mainSign = 1;
-      if (bulkTypeLower === 'auszahlung') mainSign = -1;
-      if (bulkTypeLower === 'einzug') mainSign = 1;
-      if (bulkTypeLower === 'einzahlung') mainSign = 1;
       const mainAmt = mainSign * totalAbsAmount;
       const mainNewBal = mainBal + mainAmt;
 
@@ -233,13 +278,14 @@ export async function POST(req: Request) {
           date_valued: new Date(String(date_valued)),
           description: String(description),
           reference: reference ? String(reference) : undefined,
-          account: { connect: { id: mainAccountId } },
-          ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
-          mainTransaction: { connect: { id: mainTx.id } },
-          type: bulkTypeEnum,
+            account: { connect: { id: mainAccountId } },
+            ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
+            mainTransaction: { connect: { id: mainTx.id } },
+            type: bulkTypeEnum,
         },
       });
 
+      // Rows mit Konto
       for (const r of preparedRows) {
         const acc = await p.account.findUnique({ where: { id: r.accountId } });
         const bal = acc ? Number(acc.balance) : 0;
@@ -262,9 +308,32 @@ export async function POST(req: Request) {
         await p.account.update({ where: { id: r.accountId }, data: { balance: newBal } });
       }
 
+      // Rows nur Kostenstelle -> direkte Buchung aufs Hauptkonto (kein Bulk-Link in mainTx-Summe, aber Bulk-Verknüpfung ohne Gegenbuchung)
+      if (preparedCostCenterRows.length) {
+        let currentMainBal = mainNewBal;
+        for (const r of preparedCostCenterRows) {
+          currentMainBal += r.amount;
+          await p.transaction.create({
+            data: {
+              amount: r.amount,
+              date_valued: new Date(String(date_valued)),
+              description: r.description,
+              reference: r.reference,
+              account: { connect: { id: mainAccountId } },
+              accountValueAfter: currentMainBal,
+              ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
+              createdBy: { connect: { id: currentUser.id } },
+              costCenter: { connect: { id: r.costCenterId } },
+              transactionBulk: { connect: { id: bulk.id } },
+            },
+          });
+        }
+        await p.account.update({ where: { id: mainAccountId }, data: { balance: currentMainBal } });
+      }
+
       await p.transaction.update({ where: { id: mainTx.id }, data: { transactionBulk: { connect: { id: bulk.id } } } });
 
-      return { id: bulk.id };
+      return { id: bulk.id, rows: preparedRows.length, costCenterRows: preparedCostCenterRows.length };
     });
 
     return NextResponse.json(result, { status: 201 });

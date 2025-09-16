@@ -61,7 +61,7 @@ export default function MailLogDetailPage() {
   }, [session, id]);
 
   return (
-    <div className="table-center" style={{ padding: '1rem', maxWidth: 900 }}>
+    <div className="table-center mail-detail" style={{ padding: '1rem', maxWidth: 900, overflowX: 'hidden' }}>
       <h2 style={{ margin: '0 0 1rem 0' }}>Mail-Details</h2>
       <div style={{ marginBottom: '1rem' }}>
         <button className="button" onClick={() => history.back()}>Zurück</button>
@@ -69,26 +69,26 @@ export default function MailLogDetailPage() {
       {loading && <div style={{ color: 'var(--muted)', marginBottom: 12 }}>Lade Daten ...</div>}
       {error && <div style={{ color: 'var(--accent)', marginBottom: 12 }}>{error}</div>}
       {item && (
-        <table className="kc-table" role="table">
+        <table className="kc-table" role="table" style={{ width: '100%', tableLayout: 'fixed', whiteSpace: 'normal' }}>
           <tbody>
             <tr>
-              <th>Datum</th>
-              <td>{item.sentAt ? new Date(item.sentAt).toLocaleString('de-DE') : ''}</td>
+              <th style={{ width: '160px', whiteSpace: 'nowrap' }}>Datum</th>
+              <td style={{ wordBreak: 'break-word' }}>{item.sentAt ? new Date(item.sentAt).toLocaleString('de-DE') : ''}</td>
             </tr>
             <tr>
-              <th>Betreff</th>
-              <td>{item.subject}</td>
+              <th style={{ whiteSpace: 'nowrap' }}>Betreff</th>
+              <td style={{ wordBreak: 'break-word' }}>{item.subject}</td>
             </tr>
             <tr>
-              <th>Nutzer</th>
-              <td>{item.user ? `${item.user.first_name} ${item.user.last_name}` : '—'}</td>
+              <th style={{ whiteSpace: 'nowrap' }}>Nutzer</th>
+              <td style={{ wordBreak: 'break-word' }}>{item.user ? `${item.user.first_name} ${item.user.last_name}` : '—'}</td>
             </tr>
             <tr>
-              <th>Empfänger</th>
-              <td>{item.addressedTo}</td>
+              <th style={{ whiteSpace: 'nowrap' }}>Empfänger</th>
+              <td style={{ wordBreak: 'break-word' }}>{item.addressedTo}</td>
             </tr>
             <tr className="kc-entry-end">
-              <th>Body</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Body</th>
               <td>
                 <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                   {item.body}
