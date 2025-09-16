@@ -161,8 +161,14 @@ export default function BulkTransactionPage() {
 
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i];
-        if (!r.type || !r.id) {
-          setMessage(`❌ Zeile ${i + 1}: Typ und Auswahl sind Pflichtfelder`);
+        if (!r.type) {
+          setMessage(`❌ Zeile ${i + 1}: Typ ist ein Pflichtfeld`);
+          setLoading(false);
+          return;
+        }
+        // Neue Logik: Auswahl (id) nur Pflicht, wenn keine Kostenstelle gesetzt ist
+        if (!r.id && !r.costCenterId) {
+          setMessage(`❌ Zeile ${i + 1}: Bitte entweder eine Auswahl oder eine Kostenstelle angeben.`);
           setLoading(false);
           return;
         }
@@ -411,7 +417,7 @@ export default function BulkTransactionPage() {
                       className="kc-select"
                       value={row.id}
                       onChange={e => handleRowChange(idx, "id", e.target.value)}
-                      required
+                      // required entfernt: Pflicht nur, falls keine Kostenstelle
                     >
                       <option value="">Bitte wählen</option>
                       {getOptions(row.type, userOptions, [], clearingOptions).map(opt => (
