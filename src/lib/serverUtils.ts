@@ -3,11 +3,46 @@ import type { NextApiRequest } from "next";
 import { jwtDecode } from "jwt-decode";
 import type { PrismaClient } from "@prisma/client";
 import fs from "fs";
+import path from "path"; // hinzugefügt
+
+// Sicheres, eingeschränktes Upload-Verzeichnis definieren
+const UPLOAD_BASE_DIR = path.join(process.cwd(), "uploads_tmp");
+try {
+    if (!fs.existsSync(UPLOAD_BASE_DIR)) {
+        fs.mkdirSync(UPLOAD_BASE_DIR, { recursive: true });
+    }
+} catch {
+    // Falls Verzeichnis nicht erstellt werden kann, formidable nutzt Fallback (OS tmp). Späterer Pfad-Check verhindert Nutzung.
+}
+
+// Hilfsfunktion zur Sanitizing des Dateinamens
+function sanitizeFilename(name: string | undefined): string {
+    if (!name) return "file";
+    // Nur einfache erlaubte Zeichen, Rest durch '_' ersetzen
+    return name.replace(/[^A-Za-z0-9._-]/g, "_");
+}
+
+function isPathInside(child: string, parent: string): boolean {
+    const relative = path.relative(parent, child);
+    return !!relative && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
 
 // Variante für NextApiRequest (pages/api)
 export async function parseMultipartFormDataFromNextApi(req: NextApiRequest): Promise<{ fields: Record<string, any>, files: Record<string, { filename?: string, mimetype?: string, size?: number, filepath: string }> }> {
     return new Promise((resolve, reject) => {
-        const form = formidable({ multiples: true });
+        const form = formidable({
+            multiples: true,
+            uploadDir: UPLOAD_BASE_DIR,
+            keepExtensions: true,
+            filename: (origName, origExt, part) => {
+                const base = sanitizeFilename(part.originalFilename || origName || "file");
+                const timestamp = Date.now();
+                const random = Math.random().toString(36).slice(2, 10);
+                const ext = path.extname(base) || origExt || "";
+                const stem = path.basename(base, ext);
+                return `${stem}_${timestamp}_${random}${ext}`;
+            },
+        });
         form.parse(req as any, (err, fields, files) => {
             if (err) return reject(err);
             const normFields: Record<string, any> = {};
@@ -18,11 +53,16 @@ export async function parseMultipartFormDataFromNextApi(req: NextApiRequest): Pr
             Object.keys(files).forEach(key => {
                 const file: any = Array.isArray((files as any)[key]) ? (files as any)[key][0] : (files as any)[key];
                 if (file && file.filepath) {
+                    // Pfadvalidierung: nur akzeptieren, wenn innerhalb des vorgesehenen Upload-Verzeichnisses
+                    const absoluteFilepath = path.resolve(file.filepath);
+                    if (!isPathInside(absoluteFilepath, UPLOAD_BASE_DIR)) {
+                        return; // ignorieren
+                    }
                     normFiles[key] = {
-                        filename: file.originalFilename || file.newFilename || file.name,
+                        filename: sanitizeFilename(file.originalFilename || file.newFilename || file.name),
                         mimetype: file.mimetype,
                         size: file.size,
-                        filepath: file.filepath,
+                        filepath: absoluteFilepath,
                     };
                 }
             });
@@ -66,9 +106,11 @@ export async function resolveAccountId(prisma: PrismaClient, type: string, id: s
 
 export async function saveAttachmentFromTempFile(prisma: PrismaClient, file: { filepath: string, filename?: string, mimetype?: string }): Promise<number | null> {
     if (!file || !file.filepath) return null;
+    const absoluteFilepath = path.resolve(file.filepath);
+    if (!isPathInside(absoluteFilepath, UPLOAD_BASE_DIR)) return null; // zusätzliche Sicherheit
     let fileBuffer: Buffer | null = null;
     try {
-        fileBuffer = fs.readFileSync(file.filepath);
+        fileBuffer = fs.readFileSync(absoluteFilepath);
     } catch {}
     if (!fileBuffer) return null;
     const att = await prisma.attachment.create({
@@ -78,5 +120,7 @@ export async function saveAttachmentFromTempFile(prisma: PrismaClient, file: { f
             data: fileBuffer,
         },
     });
+    // Temporäre Datei versuchen zu löschen
+    try { fs.unlinkSync(absoluteFilepath); } catch {}
     return att.id;
 }
