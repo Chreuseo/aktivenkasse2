@@ -6,7 +6,7 @@ import { sendMails, type MailBuildInput } from "@/services/mailService";
 import { getToken } from "next-auth/jwt";
 
 // POST /api/mails
-// Body: { recipients: { type: "user"|"clearing", ids: number[] }, remark?: string }
+// Body: { recipients: { type: "user"|"clearing", ids: number[] }, remark?: string, subject?: string }
 // Requires: write_all on mails
 
 type Recipients = { type: "user" | "clearing"; ids: number[] };
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: perm.error || "Nicht erlaubt" }, { status: 403 });
   }
 
-  let body: { recipients?: Recipients; remark?: string };
+  let body: { recipients?: Recipients; remark?: string; subject?: string };
   try {
     body = await req.json();
   } catch {
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Keine gültigen Empfänger gefunden" }, { status: 404 });
   }
 
-  const { success, errors } = await sendMails(inputs, body.remark, initiatorName, initiatorEmail);
+  const { success, errors } = await sendMails(inputs, body.remark, initiatorName, initiatorEmail, body.subject);
 
   return NextResponse.json({ total: inputs.length, success, failed: errors.length, errors });
 }

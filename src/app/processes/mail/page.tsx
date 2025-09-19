@@ -46,6 +46,7 @@ export default function MailProcessPage() {
   const [rows, setRows] = useState<Array<any>>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
 
+  const [subject, setSubject] = useState<string>("Zahlungsaufforderung / Kontoinformation");
   const [remark, setRemark] = useState("");
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -185,8 +186,6 @@ export default function MailProcessPage() {
 
   const canSend = filteredOnce && rows.length > 0 && anyChecked && !loading;
 
-  const recipients = useMemo(() => rows.filter((r) => selected[r.key]).map((r) => r.mail), [rows, selected]);
-
   const handleSend = useCallback(async () => {
     if (!canSend) return;
     setLoading(true);
@@ -199,7 +198,7 @@ export default function MailProcessPage() {
       const res = await fetch("/api/mails", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipients: { type, ids }, remark: remark?.trim() || undefined }),
+        body: JSON.stringify({ recipients: { type, ids }, remark: remark?.trim() || undefined, subject: subject?.trim() || undefined }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -219,7 +218,7 @@ export default function MailProcessPage() {
     } finally {
       setLoading(false);
     }
-  }, [canSend, rows, selected, mode, remark]);
+  }, [canSend, rows, selected, mode, remark, subject]);
 
   const showNegHint = op === "kleiner" && parseAmount() > 0;
 
@@ -283,9 +282,19 @@ export default function MailProcessPage() {
         )}
       </section>
 
-      {/* Bemerkung + Senden */}
+      {/* Betreff + Bemerkung + Senden */}
       <section style={{ width: "100%", maxWidth: 1200, margin: "0 auto 1rem auto" }}>
         <label className="form" style={{ gap: "0.4rem" }}>
+          <span style={{ fontWeight: 600 }}>Betreff</span>
+          <input
+            className="form-select form-select-max"
+            type="text"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            placeholder="Zahlungsaufforderung / Kontoinformation"
+          />
+        </label>
+        <label className="form" style={{ gap: "0.4rem", marginTop: "0.6rem" }}>
           <span style={{ fontWeight: 600 }}>Bemerkung (optional)</span>
           <textarea
             className="form-select"

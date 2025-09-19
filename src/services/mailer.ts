@@ -176,7 +176,8 @@ function buildPaymentInfoText(bas: BankAccount[]): string {
 }
 
 export function buildSubject(_input: MailBuildInput): string {
-  return "Zahlungsaufforderung Kontoinformation";
+  // Standard-Betreff, kann über buildMail überschrieben werden
+  return "Zahlungsaufforderung / Kontoinformation";
 }
 
 export function buildBodyText(opts: {
@@ -265,13 +266,14 @@ export async function buildMail(
   input: MailBuildInput,
   remark: string | undefined,
   initiatorName: string,
-  initiatorEmail?: string | null
+  initiatorEmail?: string | null,
+  subjectOverride?: string | null
 ): Promise<BuiltMail> {
   const salutation = getEnvMulti(["MAIL_SALUTATION", "mail.salutation"], "Hallo");
   const closing = getEnvMulti(["MAIL_CLOSING", "mail.closing"], "Viele Grüße");
   const paymentAccounts = await getPaymentMethodAccounts();
 
-  const subject = buildSubject(input);
+  const subject = (subjectOverride && subjectOverride.trim()) || buildSubject(input);
   const text = buildBodyText({
     input,
     salutation,
@@ -292,7 +294,8 @@ export async function sendMails(
   inputs: MailBuildInput[],
   remark: string | undefined,
   initiatorName: string,
-  initiatorEmail?: string | null
+  initiatorEmail?: string | null,
+  subjectOverride?: string | null
 ): Promise<{ success: number; errors: { to: string; error: string }[] }>{
   const transport = getTransport();
   let success = 0;
@@ -300,7 +303,7 @@ export async function sendMails(
 
   for (const inp of inputs) {
     try {
-      const mail = await buildMail(inp, remark, initiatorName, initiatorEmail);
+      const mail = await buildMail(inp, remark, initiatorName, initiatorEmail, subjectOverride || undefined);
       await transport.send(mail);
       success += 1;
     } catch (e: any) {
