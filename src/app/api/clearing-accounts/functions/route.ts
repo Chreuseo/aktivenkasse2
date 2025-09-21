@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/services/authService";
 import { AuthorizationType, ResourceType } from "@/app/types/authorization";
 import { extractUserFromAuthHeader } from "@/lib/serverUtils";
+import { createPairedTransactions, createTransactionWithBalance } from "@/services/transactionService";
 
 function roundAwayFromZeroCents(n: number): number {
   if (!isFinite(n)) return 0;
@@ -132,37 +133,21 @@ export async function POST(req: NextRequest) {
           const deltaClearing = perPerson >= 0 ? -Math.abs(perPerson) : Math.abs(perPerson);
           const deltaUser = -deltaClearing; // opposite sign
 
-          // Create transaction for clearing account
-          const newCaBal = caBalance + deltaClearing;
-          const txClearing = await p.transaction.create({
-            data: {
-              amount: deltaClearing,
-              description: desc,
-              account: { connect: { id: clearing.accountId } },
-              accountValueAfter: newCaBal,
-              createdBy: { connect: { id: currentUser.id } },
-            },
+          // Paartransaktion: user <-> clearing
+          await createPairedTransactions(p as any, {
+            account1Id: m.user.accountId,
+            amount1: deltaUser,
+            account2Id: clearing.accountId,
+            amount2: deltaClearing,
+            description: desc,
+            createdById: currentUser.id,
+            reference: undefined,
+            dateValued: undefined,
+            attachmentId: null,
           });
-          await p.account.update({ where: { id: clearing.accountId }, data: { balance: newCaBal } });
-          caBalance = newCaBal;
 
-          // Create transaction for user account
-          const userBal = Number(userAcc.balance);
-          const newUserBal = userBal + deltaUser;
-          const txUser = await p.transaction.create({
-            data: {
-              amount: deltaUser,
-              description: desc,
-              account: { connect: { id: userAcc.id } },
-              accountValueAfter: newUserBal,
-              createdBy: { connect: { id: currentUser.id } },
-            },
-          });
-          await p.account.update({ where: { id: userAcc.id }, data: { balance: newUserBal } });
-
-          // Link counter transactions
-          await p.transaction.update({ where: { id: txClearing.id }, data: { counter_transaction: { connect: { id: txUser.id } } } });
-          await p.transaction.update({ where: { id: txUser.id }, data: { counter_transaction: { connect: { id: txClearing.id } } } });
+          // lokalen Saldo fortschreiben (Service hat DB bereits aktualisiert)
+          caBalance += deltaClearing;
         }
         return { ok: true, action: action, newBalance: caBalance };
       } else {
@@ -170,19 +155,18 @@ export async function POST(req: NextRequest) {
         const action = amt >= 0 ? "Auszahlung" : "Einzug"; // positive decreases clearing, negative increases
         const desc = `Ausgleich Verrechnungskonto ${clearing.name}`;
         const delta = amt >= 0 ? -Math.abs(amt) : Math.abs(amt);
-        const newCaBal = caBalance + delta;
-        await p.transaction.create({
-          data: {
-            amount: delta,
-            description: desc,
-            account: { connect: { id: clearing.accountId } },
-            accountValueAfter: newCaBal,
-            costCenter: { connect: { id: Number(costCenterId) } },
-            createdBy: { connect: { id: currentUser.id } },
-          },
+        await createTransactionWithBalance(p as any, {
+          accountId: clearing.accountId,
+          amount: delta,
+          description: desc,
+          createdById: currentUser.id,
+          reference: undefined,
+          dateValued: undefined,
+          attachmentId: null,
+          costCenterId: Number(costCenterId),
         });
-        await p.account.update({ where: { id: clearing.accountId }, data: { balance: newCaBal } });
-        return { ok: true, action: action, newBalance: newCaBal };
+        const newBalance = caBalance + delta;
+        return { ok: true, action: action, newBalance };
       }
     });
 

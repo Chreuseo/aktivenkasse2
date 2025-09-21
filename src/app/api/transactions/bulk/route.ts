@@ -6,6 +6,7 @@ import { extractUserFromAuthHeader, resolveAccountId as resolveAccountIdUtil } f
 import {AuthorizationType, ResourceType} from "@/app/types/authorization";
 import {checkPermission} from "@/services/authService";
 import { saveAttachmentFromFormFileData as saveAttachmentFromFormFile } from '@/lib/apiHelpers';
+import { createBulkWithMain, addBulkRowWithCounter, addBulkMainCostCenterRow, createMultipleTransactions } from '@/services/transactionService';
 
 export async function POST(req: Request) {
   const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
@@ -226,112 +227,71 @@ export async function POST(req: Request) {
   const attachmentId = await saveAttachmentFromFormFile(prisma as any, file);
 
   try {
+    const dateVal = new Date(String(date_valued));
+
     if (isCostCenterMode) {
-      // Unverändert: globaler Kostenstellenmodus verlangt weiterhin Konto-Zeilen
+      // Globaler Kostenstellenmodus: nur Konto-Zeilen erlaubt, jede Zeile wird als einzelne Buchung verbucht
       await prisma.$transaction(async (p: any) => {
-        for (const r of preparedRows) {
-          const acc = await p.account.findUnique({ where: { id: r.accountId } });
-          const bal = acc ? Number(acc.balance) : 0;
-            const newBal = bal + r.amount;
-            await p.transaction.create({
-              data: {
-                amount: r.amount,
-                date_valued: new Date(String(date_valued)),
-                description: r.description,
-                reference: r.reference,
-                account: { connect: { id: r.accountId } },
-                accountValueAfter: newBal,
-                ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
-                createdBy: { connect: { id: currentUser.id } },
-                ...(r.costCenterId ? { costCenter: { connect: { id: r.costCenterId } } } : {}),
-              },
-            });
-            await p.account.update({ where: { id: r.accountId }, data: { balance: newBal } });
-        }
+        await createMultipleTransactions(p, {
+          rows: preparedRows.map(r => ({
+            accountId: r.accountId,
+            amount: r.amount,
+            description: r.description,
+            createdById: currentUser.id,
+            dateValued: dateVal,
+            reference: r.reference,
+            attachmentId: attachmentId ?? null,
+            costCenterId: r.costCenterId ?? null,
+          })),
+        });
       });
       return NextResponse.json({ count: preparedRows.length }, { status: 201 });
     }
 
     // Standard: Bulk mit Haupt- und Gegenbuchungen (preparedRows) + zusätzliche Kostenstellen-Zeilen ohne Konto (preparedCostCenterRows)
     const result = await prisma.$transaction(async (p: any) => {
-      const mainAcc = await p.account.findUnique({ where: { id: mainAccountId } });
-      const mainBal = mainAcc ? Number(mainAcc.balance) : 0;
       const mainAmt = mainSign * totalAbsAmount;
-      const mainNewBal = mainBal + mainAmt;
-
-      const mainTx = await p.transaction.create({
-        data: {
-          amount: mainAmt,
-          date_valued: new Date(String(date_valued)),
-          description: String(description),
-          reference: reference ? String(reference) : undefined,
-          account: { connect: { id: mainAccountId } },
-          accountValueAfter: mainNewBal,
-          ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
-          createdBy: { connect: { id: currentUser.id } },
-        },
-      });
-      await p.account.update({ where: { id: mainAccountId }, data: { balance: mainNewBal } });
-
-      const bulk = await p.transactionBulk.create({
-        data: {
-          date_valued: new Date(String(date_valued)),
-          description: String(description),
-          reference: reference ? String(reference) : undefined,
-            account: { connect: { id: mainAccountId } },
-            ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
-            mainTransaction: { connect: { id: mainTx.id } },
-            type: bulkTypeEnum,
-        },
+      const { bulk, mainTx } = await createBulkWithMain(p, {
+        mainAccountId: Number(mainAccountId),
+        mainAmount: mainAmt,
+        description: String(description),
+        createdById: currentUser.id,
+        type: bulkTypeEnum!,
+        dateValued: dateVal,
+        reference: reference ? String(reference) : undefined,
+        attachmentId: attachmentId ?? null,
       });
 
-      // Rows mit Konto
+      // Rows mit Konto (Gegenbuchung zu mainTx)
       for (const r of preparedRows) {
-        const acc = await p.account.findUnique({ where: { id: r.accountId } });
-        const bal = acc ? Number(acc.balance) : 0;
-        const newBal = bal + r.amount;
-        await p.transaction.create({
-          data: {
-            amount: r.amount,
-            date_valued: new Date(String(date_valued)),
-            description: r.description,
-            reference: r.reference,
-            account: { connect: { id: r.accountId } },
-            accountValueAfter: newBal,
-            ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
-            transactionBulk: { connect: { id: bulk.id } },
-            counter_transaction: { connect: { id: mainTx.id } },
-            createdBy: { connect: { id: currentUser.id } },
-            ...(r.costCenterId ? { costCenter: { connect: { id: r.costCenterId } } } : {}),
-          },
+        await addBulkRowWithCounter(p, {
+          bulkId: bulk.id,
+          mainTxId: mainTx.id,
+          rowAccountId: r.accountId,
+          amount: r.amount,
+          description: r.description,
+          createdById: currentUser.id,
+          dateValued: dateVal,
+          reference: r.reference,
+          attachmentId: attachmentId ?? null,
+          costCenterId: r.costCenterId ?? null,
         });
-        await p.account.update({ where: { id: r.accountId }, data: { balance: newBal } });
       }
 
-      // Rows nur Kostenstelle -> direkte Buchung aufs Hauptkonto (kein Bulk-Link in mainTx-Summe, aber Bulk-Verknüpfung ohne Gegenbuchung)
-      if (preparedCostCenterRows.length) {
-        let currentMainBal = mainNewBal;
-        for (const r of preparedCostCenterRows) {
-          currentMainBal += r.amount;
-          await p.transaction.create({
-            data: {
-              amount: r.amount,
-              date_valued: new Date(String(date_valued)),
-              description: r.description,
-              reference: r.reference,
-              account: { connect: { id: mainAccountId } },
-              accountValueAfter: currentMainBal,
-              ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
-              createdBy: { connect: { id: currentUser.id } },
-              costCenter: { connect: { id: r.costCenterId } },
-              transactionBulk: { connect: { id: bulk.id } },
-            },
-          });
-        }
-        await p.account.update({ where: { id: mainAccountId }, data: { balance: currentMainBal } });
+      // Rows nur Kostenstelle -> zusätzliche Buchung auf Hauptkonto
+      for (const r of preparedCostCenterRows) {
+        await addBulkMainCostCenterRow(p, {
+          bulkId: bulk.id,
+          mainAccountId: Number(mainAccountId),
+          amount: r.amount,
+          description: r.description,
+          createdById: currentUser.id,
+          dateValued: dateVal,
+          reference: r.reference,
+          attachmentId: attachmentId ?? null,
+          costCenterId: r.costCenterId,
+        });
       }
-
-      await p.transaction.update({ where: { id: mainTx.id }, data: { transactionBulk: { connect: { id: bulk.id } } } });
 
       return { id: bulk.id, rows: preparedRows.length, costCenterRows: preparedCostCenterRows.length };
     });

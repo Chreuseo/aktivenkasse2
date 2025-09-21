@@ -6,6 +6,7 @@ import { checkPermission } from '@/services/authService';
 import { ResourceType, AuthorizationType } from '@/app/types/authorization';
 import {clearing_account_roles, getClearingAccountRole} from "@/lib/getUserAuthContext";
 import { sendPlainMail } from '@/services/mailService';
+import { createPairedTransactions, createTransactionWithBalance } from '@/services/transactionService';
 
 export async function POST(req: Request) {
   const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
@@ -92,55 +93,24 @@ export async function POST(req: Request) {
 
   try {
     const result = await prisma.$transaction(async (p: any) => {
-      // Kontostand Nutzer
-      const acc1 = await p.account.findUnique({ where: { id: acc1Id } });
-      const bal1 = acc1 ? Number(acc1.balance) : 0;
-      const newBal1 = bal1 + amt; // Auszahlung an Nutzer
-
       if (clearingAccountId) {
         // Gegenkonto (Clearing)
         const clearing = await p.clearingAccount.findUnique({ where: { id: clearingAccountId }, include: { account: true } });
         if (!clearing || !clearing.account) throw new Error('Clearing-Account nicht gefunden');
         const acc2Id = clearing.account.id;
-        const acc2 = await p.account.findUnique({ where: { id: acc2Id } });
-        const bal2 = acc2 ? Number(acc2.balance) : 0;
-        const newBal2 = bal2 - amt; // Gegenkonto reduziert
 
-        // Transaktion an Nutzer
-        const tx1 = await p.transaction.create({
-          data: {
-            amount: amt,
-            date: now,
-            date_valued: now,
-            description: advance.description,
-            reference: reference,
-            account: { connect: { id: acc1Id } },
-            createdBy: { connect: { id: reviewer.id } },
-            accountValueAfter: newBal1,
-            ...(attachmentId ? { attachment: { connect: { id: Number(attachmentId) } } } : {}),
-          },
+        // Paare erstellen: Nutzer + Gegenbuchung Clearing
+        const { tx1 } = await createPairedTransactions(p, {
+          account1Id: acc1Id,
+          amount1: amt,
+          account2Id: acc2Id,
+          amount2: -amt,
+          description: advance.description,
+          createdById: reviewer.id,
+          reference,
+          dateValued: now,
+          attachmentId: attachmentId ? Number(attachmentId) : null,
         });
-        await p.account.update({ where: { id: acc1Id }, data: { balance: newBal1 } });
-
-        // Gegenbuchung vom Clearing
-        const tx2 = await p.transaction.create({
-          data: {
-            amount: -amt,
-            date: now,
-            date_valued: now,
-            description: advance.description,
-            reference: reference,
-            account: { connect: { id: acc2Id } },
-            createdBy: { connect: { id: reviewer.id } },
-            accountValueAfter: newBal2,
-            ...(attachmentId ? { attachment: { connect: { id: Number(attachmentId) } } } : {}),
-          },
-        });
-        await p.account.update({ where: { id: acc2Id }, data: { balance: newBal2 } });
-
-        // Gegenverweis setzen
-        await p.transaction.update({ where: { id: tx1.id }, data: { counter_transaction: { connect: { id: tx2.id } } } });
-        await p.transaction.update({ where: { id: tx2.id }, data: { counter_transaction: { connect: { id: tx1.id } } } });
 
         // Advance updaten
         await p.advances.update({ where: { id: advance.id }, data: { state: 'accepted', reviewerId: reviewer.id, decidedAt: now, transactionId: tx1.id, ...(reason !== undefined ? { reason } : {}) } });
@@ -155,21 +125,16 @@ export async function POST(req: Request) {
       if (!plan) throw new Error('Budgetplan nicht gefunden');
       if (plan.state !== 'active') throw new Error('Budgetplan ist nicht aktiv');
 
-      const tx = await p.transaction.create({
-        data: {
-          amount: amt,
-          date: now,
-          date_valued: now,
-          description: advance.description,
-          reference: reference,
-          account: { connect: { id: acc1Id } },
-          createdBy: { connect: { id: reviewer.id } },
-          accountValueAfter: newBal1,
-          ...(attachmentId ? { attachment: { connect: { id: Number(attachmentId) } } } : {}),
-          costCenter: { connect: { id: cc.id } },
-        },
+      const tx = await createTransactionWithBalance(p, {
+        accountId: acc1Id,
+        amount: amt,
+        description: advance.description,
+        createdById: reviewer.id,
+        reference,
+        dateValued: now,
+        attachmentId: attachmentId ? Number(attachmentId) : null,
+        costCenterId: cc.id,
       });
-      await p.account.update({ where: { id: acc1Id }, data: { balance: newBal1 } });
 
       await p.advances.update({ where: { id: advance.id }, data: { state: 'accepted', reviewerId: reviewer.id, decidedAt: now, transactionId: tx.id, ...(reason !== undefined ? { reason } : {}) } });
       return { transactionId: tx.id };

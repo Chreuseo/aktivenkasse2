@@ -5,6 +5,7 @@ import { computeAccount2Negative, normalizeBoolean, isAllowedAttachment, parsePo
 import { extractUserFromAuthHeader, resolveAccountId as resolveAccountIdUtil } from '@/lib/serverUtils';
 import { checkPermission} from "@/services/authService";
 import { saveAttachmentFromFormFileData as saveAttachmentFromFormFile } from '@/lib/apiHelpers';
+import { createPairedTransactions, createTransactionWithBalance } from '@/services/transactionService';
 
 function inferOtherFromAccount(acc: any): { type: 'user'|'bank'|'clearing_account'; name: string; mail?: string; bank?: string; iban?: string } | null {
   if (!acc) return null;
@@ -155,47 +156,33 @@ export async function POST(req: Request) {
 
   try {
     const result = await prisma.$transaction(async (p: any) => {
-      const acc1 = await p.account.findUnique({ where: { id: acc1Id } });
-      const bal1 = acc1 ? Number(acc1.balance) : 0;
-      const newBal1 = bal1 + amt1;
-      const tx1 = await p.transaction.create({
-        data: {
-          amount: amt1,
-          ...(date_valued ? { date_valued: new Date(String(date_valued)) } : {}),
-          description: String(description),
-          ...(reference ? { reference: String(reference) } : {}),
-          account: { connect: { id: acc1Id } },
-          accountValueAfter: newBal1,
-          ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
-          ...(!a2Type && costCenterIdNum ? { costCenter: { connect: { id: costCenterIdNum } } } : {}),
-          createdBy: { connect: { id: currentUser.id } },
-        },
-      });
-      await p.account.update({ where: { id: acc1Id }, data: { balance: newBal1 } });
+      const dateVal = date_valued ? new Date(String(date_valued)) : undefined;
 
       if (!acc2Id || amt2 === null) {
-        return { id: tx1.id };
+        const tx = await createTransactionWithBalance(p, {
+          accountId: acc1Id,
+          amount: amt1,
+          description: String(description),
+          createdById: currentUser.id,
+          reference: reference ? String(reference) : undefined,
+          dateValued: dateVal,
+          attachmentId: attachmentId ?? null,
+          costCenterId: costCenterIdNum ?? null,
+        });
+        return { id: tx.id };
       }
 
-      const acc2 = await p.account.findUnique({ where: { id: acc2Id } });
-      const bal2 = acc2 ? Number(acc2.balance) : 0;
-      const newBal2 = bal2 + amt2;
-      const tx2 = await p.transaction.create({
-        data: {
-          amount: amt2,
-          ...(date_valued ? { date_valued: new Date(String(date_valued)) } : {}),
-          description: String(description),
-          ...(reference ? { reference: String(reference) } : {}),
-          account: { connect: { id: acc2Id } },
-          accountValueAfter: newBal2,
-          ...(attachmentId ? { attachment: { connect: { id: attachmentId } } } : {}),
-          createdBy: { connect: { id: currentUser.id } },
-        },
+      const { tx1 } = await createPairedTransactions(p, {
+        account1Id: acc1Id,
+        amount1: amt1,
+        account2Id: acc2Id,
+        amount2: amt2,
+        description: String(description),
+        createdById: currentUser.id,
+        reference: reference ? String(reference) : undefined,
+        dateValued: dateVal,
+        attachmentId: attachmentId ?? null,
       });
-      await p.account.update({ where: { id: acc2Id }, data: { balance: newBal2 } });
-
-      await p.transaction.update({ where: { id: tx1.id }, data: { counter_transaction: { connect: { id: tx2.id } } } });
-      await p.transaction.update({ where: { id: tx2.id }, data: { counter_transaction: { connect: { id: tx1.id } } } });
 
       return { id: tx1.id };
     });
