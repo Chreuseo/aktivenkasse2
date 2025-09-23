@@ -95,6 +95,7 @@ export default function MineAdvancesClient() {
               <th>Verrechnungskonto</th>
               <th>Beleg</th>
               <th>Status</th>
+              <th>Begründung</th>
               <th>Bearbeiter</th>
               <th>Abbrechen</th>
             </tr>
@@ -102,7 +103,7 @@ export default function MineAdvancesClient() {
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: "center", color: "#888" }}>Keine Auslagen gefunden.</td>
+                <td colSpan={9} style={{ textAlign: "center", color: "#888" }}>Keine Auslagen gefunden.</td>
               </tr>
             ) : (
               items.map((it) => (
@@ -123,6 +124,7 @@ export default function MineAdvancesClient() {
                       {advanceStateLabel(it.state as AdvanceState)}
                     </span>
                   </td>
+                  <td>{it.reason ?? "—"}</td>
                   <td>{it.reviewer ? `${it.reviewer.first_name} ${it.reviewer.last_name}` : "—"}</td>
                   <td>
                     {it.canCancel ? (

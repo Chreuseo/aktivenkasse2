@@ -424,7 +424,7 @@ export default function AllAdvancesClient() {
                         </select>
                       </td>
                       <td>
-                        <input type="text" value={row?.reason || ''} onChange={(e) => handleRowChange(it.id, 'reason', e.target.value)} />
+                        <input type="text" disabled={it.state !== "open"} value={row?.reason || ''} onChange={(e) => handleRowChange(it.id, 'reason', e.target.value)} />
                       </td>
                       <td>
                         <button className="button" title="Annehmen" onClick={() => void handleAccept(it)} disabled={loading || it.state !== 'open'} hidden={loading || it.state !== 'open'}>✔</button>

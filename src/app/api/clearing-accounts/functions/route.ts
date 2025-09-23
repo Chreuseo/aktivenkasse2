@@ -3,7 +3,8 @@ import prisma from "@/lib/prisma";
 import { checkPermission } from "@/services/authService";
 import { AuthorizationType, ResourceType } from "@/app/types/authorization";
 import { extractUserFromAuthHeader } from "@/lib/serverUtils";
-import { createPairedTransactions, createTransactionWithBalance } from "@/services/transactionService";
+// Ergänzung: Bulk-APIs verwenden
+import { createBulkWithMain, addBulkRowWithCounter } from "@/services/transactionService";
 
 function roundAwayFromZeroCents(n: number): number {
   if (!isFinite(n)) return 0;
@@ -125,48 +126,72 @@ export async function POST(req: NextRequest) {
         const action = perPerson >= 0 ? "Auszahlung" : "Einzug";
         const desc = `${action} Verrechnungskonto ${clearing.name}`;
 
-        for (const m of clearing.members) {
-          if (!m.user || !m.user.account) continue;
-          const userAcc = await p.account.findUnique({ where: { id: m.user.accountId } });
-          if (!userAcc) continue;
+        // Nur Mitglieder mit gültigem Nutzerkonto berücksichtigen
+        const memberRows = clearing.members
+          .filter((m: any) => m?.user?.accountId)
+          .map((m: any) => ({ accountId: Number(m.user.accountId), amount: perPerson >= 0 ? Math.abs(perPerson) : -Math.abs(perPerson) }));
 
-          const deltaClearing = perPerson >= 0 ? -Math.abs(perPerson) : Math.abs(perPerson);
-          const deltaUser = -deltaClearing; // opposite sign
+        if (memberRows.length === 0) {
+          return NextResponse.json({ error: "Keine gültigen Mitgliederkonten vorhanden" }, { status: 400 });
+        }
 
-          // Paartransaktion: user <-> clearing
-          await createPairedTransactions(p as any, {
-            account1Id: m.user.accountId,
-            amount1: deltaUser,
-            account2Id: clearing.accountId,
-            amount2: deltaClearing,
+        // Hauptbuchungssumme = Summe der Gegenbewegungen auf dem Verrechnungskonto
+        // mainAmount ist das Delta auf dem Verrechnungskonto
+        const mainAmount = -memberRows.reduce((sum, r) => sum + r.amount, 0);
+
+        // Bulk anlegen (Hauptkonto = Verrechnungskonto)
+        const { bulk, mainTx } = await createBulkWithMain(p as any, {
+          mainAccountId: Number(clearing.accountId),
+          mainAmount,
+          description: desc,
+          createdById: currentUser.id,
+          type: perPerson >= 0 ? ("payout" as any) : ("collection" as any),
+          dateValued: new Date(),
+          reference: undefined,
+          attachmentId: null,
+        });
+
+        // Gegenbuchungen je Mitglied
+        for (const r of memberRows) {
+          await addBulkRowWithCounter(p as any, {
+            bulkId: bulk.id,
+            mainTxId: mainTx.id,
+            rowAccountId: r.accountId,
+            amount: r.amount,
             description: desc,
             createdById: currentUser.id,
+            dateValued: new Date(),
             reference: undefined,
-            dateValued: undefined,
             attachmentId: null,
+            costCenterId: null,
           });
-
-          // lokalen Saldo fortschreiben (Service hat DB bereits aktualisiert)
-          caBalance += deltaClearing;
         }
-        return { ok: true, action: action, newBalance: caBalance };
+
+        // lokalen Saldo fortschreiben (Service hat DB bereits aktualisiert)
+        caBalance += mainAmount;
+        return { ok: true, action: action, newBalance: caBalance, bulkId: bulk.id };
       } else {
-        // via budget cost center: single-sided transaction on clearing account
+        // via budget cost center: Bulk mit Hauptbuchung auf Verrechnungskonto; Kostenstelle an mainTx setzen
         const action = amt >= 0 ? "Auszahlung" : "Einzug"; // positive decreases clearing, negative increases
         const desc = `Ausgleich Verrechnungskonto ${clearing.name}`;
         const delta = amt >= 0 ? -Math.abs(amt) : Math.abs(amt);
-        await createTransactionWithBalance(p as any, {
-          accountId: clearing.accountId,
-          amount: delta,
+
+        const { bulk, mainTx } = await createBulkWithMain(p as any, {
+          mainAccountId: Number(clearing.accountId),
+          mainAmount: delta,
           description: desc,
           createdById: currentUser.id,
+          type: amt >= 0 ? ("payout" as any) : ("collection" as any),
+          dateValued: new Date(),
           reference: undefined,
-          dateValued: undefined,
           attachmentId: null,
-          costCenterId: Number(costCenterId),
         });
+
+        // Kostenstelle an der Haupttransaktion setzen
+        await p.transaction.update({ where: { id: mainTx.id }, data: { costCenter: { connect: { id: Number(costCenterId) } } } });
+
         const newBalance = caBalance + delta;
-        return { ok: true, action: action, newBalance };
+        return { ok: true, action: action, newBalance, bulkId: bulk.id };
       }
     });
 

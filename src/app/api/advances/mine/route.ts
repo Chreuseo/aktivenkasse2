@@ -25,6 +25,8 @@ export async function GET(req: Request) {
             clearingAccount: { select: { id: true, name: true } },
             reviewer: { select: { first_name: true, last_name: true } },
             userId: true,
+            // include reason for the UI column
+            reason: true,
         },
     });
 
@@ -39,9 +41,9 @@ export async function GET(req: Request) {
         reviewer: a.reviewer ? { first_name: a.reviewer.first_name, last_name: a.reviewer.last_name } : null,
         canCancel: a.state === 'open' && a.userId === user.id,
         receiptUrl: a.attachmentId ? `/api/advances/${a.id}/receipt` : undefined,
+        // pass through reason (may be null)
+        reason: a.reason ?? undefined,
     }));
 
     return NextResponse.json({ items });
 }
-
-
