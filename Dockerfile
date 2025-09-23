@@ -52,6 +52,8 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 EXPOSE 3000
+# Laufzeitverzeichnis vorbereiten und Berechtigungen setzen
+RUN mkdir -p /app/uploads_tmp && chown -R 1001:1001 /app
 USER 1001
 CMD ["node", "server.js"]
 
@@ -72,3 +74,6 @@ RUN npx prisma generate
 # If you prefer, copy the whole repo: COPY . .
 # but migrations + schema are enough for deploy.
 CMD ["sh", "-lc", "npx prisma migrate deploy"]
+
+# Stelle sicher, dass der Default-Build ein lauffähiges App-Image ist
+FROM runner AS final
