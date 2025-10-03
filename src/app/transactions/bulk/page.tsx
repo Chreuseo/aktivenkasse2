@@ -100,8 +100,8 @@ export default function BulkTransactionPage() {
     if (formData.accountType === 'cost_center' && formData.globalBudgetPlanId && formData.globalCostCenterId) {
       setRows(prev => prev.map(r => ({
         ...r,
-        budgetPlanId: formData.globalBudgetPlanId,
-        costCenterId: formData.globalCostCenterId,
+        budgetPlanId: "",
+        costCenterId: "",
       })));
     }
   }, [formData.accountType, formData.globalBudgetPlanId, formData.globalCostCenterId]);
@@ -130,7 +130,7 @@ export default function BulkTransactionPage() {
     }
   };
   const addRow = () => {
-    setRows(prev => [...prev, { type: "user", id: "", amount: "", description: "", budgetPlanId: formData.accountType === 'cost_center' ? formData.globalBudgetPlanId : "", costCenterId: formData.accountType === 'cost_center' ? formData.globalCostCenterId : "" }]);
+    setRows(prev => [...prev, { type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "" }]);
   };
   const removeRow = () => {
     if (rows.length > 1) setRows(prev => prev.slice(0, -1));
@@ -178,13 +178,6 @@ export default function BulkTransactionPage() {
           setLoading(false);
           return;
         }
-        if (formData.accountType === 'cost_center') {
-          if (r.budgetPlanId !== formData.globalBudgetPlanId || r.costCenterId !== formData.globalCostCenterId) {
-            setMessage(`❌ Zeile ${i + 1}: Abweichende Kostenstelle – bitte Seite aktualisieren.`);
-            setLoading(false);
-            return;
-          }
-        }
       }
 
       const token = extractToken(session);
@@ -205,12 +198,7 @@ export default function BulkTransactionPage() {
       if (formData.attachment) {
         formDataObj.append("attachment", formData.attachment);
       }
-      const rowsToSend = rows.map(r => (
-        formData.accountType === 'cost_center'
-          ? { ...r, budgetPlanId: formData.globalBudgetPlanId, costCenterId: formData.globalCostCenterId }
-          : r
-      ));
-      formDataObj.append("rows", JSON.stringify(rowsToSend));
+      formDataObj.append("rows", JSON.stringify(rows));
 
       const res = await fetch("/api/transactions/bulk", {
         method: "POST",
