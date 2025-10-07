@@ -121,29 +121,29 @@ export default function BudgetPlanDetailsPage() {
         </button>
       </div>
       <div className="wide-container" style={{ paddingTop: 0 }}>
-        <table className="kc-table" role="table">
+        <table className="kc-table" role="table" style={{ borderCollapse: "separate", borderSpacing: "0 0" }}>
           <thead>
             <tr>
-              <th>Name</th>
+              <th style={{ borderRight: "2px solid white" }}>Name</th>
               <th>Einnahmen geplant (€)</th>
               <th>Ausgaben geplant (€)</th>
-              <th>Ergebnis geplant (€)</th>
+              <th style={{ borderRight: "2px solid white" }}>Ergebnis geplant (€)</th>
               <th>Einnahmen real (€)</th>
               <th>Ausgaben real (€)</th>
-              <th>Ergebnis real (€)</th>
+              <th style={{ borderRight: "2px solid white" }}>Ergebnis real (€)</th>
               <th>Abweichung Ergebnis (€)</th>
             </tr>
           </thead>
           <tbody>
             {sortedCostCenters.map(cc => (
               <tr key={cc.id} className="kc-row">
-                <td>{cc.name}</td>
+                <td style={{ borderRight: "2px solid white" }}>{cc.name}</td>
                 <td>{Number(cc.earnings_expected).toFixed(2)}</td>
                 <td>{Number(cc.costs_expected).toFixed(2)}</td>
-                <td>{(Number(cc.earnings_expected) - Number(cc.costs_expected)).toFixed(2)}</td>
+                <td style={{ borderRight: "2px solid white" }}>{(Number(cc.earnings_expected) - Number(cc.costs_expected)).toFixed(2)}</td>
                 <td>{Number(cc.earnings_actual ?? 0).toFixed(2)}</td>
                 <td>{Number(cc.costs_actual ?? 0).toFixed(2)}</td>
-                <td>{(Number(cc.earnings_actual ?? 0) - Number(cc.costs_actual ?? 0)).toFixed(2)}</td>
+                <td style={{ borderRight: "2px solid white" }}>{(Number(cc.earnings_actual ?? 0) - Number(cc.costs_actual ?? 0)).toFixed(2)}</td>
                 <td>{((Number(cc.earnings_actual ?? 0) - Number(cc.costs_actual ?? 0)) - (Number(cc.earnings_expected) - Number(cc.costs_expected))).toFixed(2)}</td>
               </tr>
             ))}
@@ -153,13 +153,13 @@ export default function BudgetPlanDetailsPage() {
             {/* Summenzeile */}
             {sortedCostCenters.length > 0 && (
               <tr className="kc-sum-row">
-                <td>Summe</td>
+                <td style={{ borderRight: "2px solid white" }}>Summe</td>
                 <td>{sumEarningsExpected.toFixed(2)}</td>
                 <td>{sumCostsExpected.toFixed(2)}</td>
-                <td>{sumPlannedResult.toFixed(2)}</td>
+                <td style={{ borderRight: "2px solid white" }}>{sumPlannedResult.toFixed(2)}</td>
                 <td>{sumEarningsActual.toFixed(2)}</td>
                 <td>{sumCostsActual.toFixed(2)}</td>
-                <td>{sumActualResult.toFixed(2)}</td>
+                <td style={{ borderRight: "2px solid white" }}>{sumActualResult.toFixed(2)}</td>
                 <td>{sumDeviation.toFixed(2)}</td>
               </tr>
             )}

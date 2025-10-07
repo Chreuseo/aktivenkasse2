@@ -22,4 +22,7 @@ export type Transaction = {
     receiptUrl?: string; // URL zum Download des Belegs
     costCenterLabel?: string; // Anzeigeformat: "Budgetplan - Kostenstelle"
     bulkId?: number; // ID der zugehörigen Sammeltransaktion (falls vorhanden)
+    // Neu: IDs für Filterung
+    costCenterId?: number;
+    budgetPlanId?: number;
 };

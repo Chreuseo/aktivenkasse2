@@ -75,6 +75,9 @@ export async function GET(req: Request) {
       receiptUrl: tx.attachmentId ? `/api/transactions/${tx.id}/receipt` : undefined,
       costCenterLabel,
       bulkId: tx.transactionBulkId ? Number(tx.transactionBulkId) : undefined,
+      // Neu für Filter
+      costCenterId: tx.costCenterId || (tx.costCenter ? tx.costCenter.id : undefined),
+      budgetPlanId: tx.costCenter && tx.costCenter.budget_plan ? tx.costCenter.budget_plan.id : undefined,
     };
   });
 
