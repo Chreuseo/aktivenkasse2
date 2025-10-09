@@ -254,7 +254,7 @@ function CostCentersPageInner() {
       <table className="kc-table" role="table">
         <thead>
           <tr>
-            <th>Name</th>
+            <th style={{ minWidth: "220px" }}>Name</th>
             <th>Geplante Einnahmen (€)</th>
             <th>Geplante Ausgaben (€)</th>
             <th>Erwartetes Ergebnis (€)</th>
