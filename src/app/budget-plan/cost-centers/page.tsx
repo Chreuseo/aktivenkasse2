@@ -255,9 +255,9 @@ function CostCentersPageInner() {
         <thead>
           <tr>
             <th style={{ minWidth: "220px" }}>Name</th>
-            <th>Geplante Einnahmen (€)</th>
-            <th>Geplante Ausgaben (€)</th>
-            <th>Erwartetes Ergebnis (€)</th>
+            <th>Plan-Soll Erträge (€)</th>
+            <th>Plan-Soll Aufwendungen (€)</th>
+            <th>Plan-Saldo (€)</th>
             <th>Sortierung</th>
             <th>Löschen</th>
           </tr>

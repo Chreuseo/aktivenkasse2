@@ -125,13 +125,13 @@ export default function BudgetPlanDetailsPage() {
           <thead>
             <tr>
               <th style={{ borderRight: "2px solid white" }}>Name</th>
-              <th>Einnahmen geplant (€)</th>
-              <th>Ausgaben geplant (€)</th>
-              <th style={{ borderRight: "2px solid white" }}>Ergebnis geplant (€)</th>
-              <th>Einnahmen real (€)</th>
-              <th>Ausgaben real (€)</th>
-              <th style={{ borderRight: "2px solid white" }}>Ergebnis real (€)</th>
-              <th>Abweichung Ergebnis (€)</th>
+              <th>Plan-Soll Erträge (€)</th>
+              <th>Plan-Soll Aufwendungen (€)</th>
+              <th style={{ borderRight: "2px solid white" }}>Plan-Saldo (€)</th>
+              <th>Ist-Erträge (€)</th>
+              <th>Ist-Aufwendungen (€)</th>
+              <th style={{ borderRight: "2px solid white" }}>Ist-Saldo (€)</th>
+              <th>Abweichung Plan-Ist (€)</th>
             </tr>
           </thead>
           <tbody>

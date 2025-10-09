@@ -125,20 +125,20 @@ export default function Page() {
               <thead>
                 <tr>
                   <th></th>
-                  <th>Summe</th>
-                  <th>Anzahl</th>
-                  <th>Maximum</th>
+                  <th>Gesamtbetrag (€)</th>
+                  <th>Anzahl Posten</th>
+                  <th>Höchster Einzelbetrag (€)</th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="kc-row">
-                  <td>Verbindlichkeiten</td>
+                  <td>Kreditoren (offene Verbindlichkeiten)</td>
                   <td>{formatCurrency(users.liabilities?.sum ?? '0')}</td>
                   <td>{users.liabilities?.count ?? 0}</td>
                   <td>{formatCurrency(users.liabilities?.max ?? '0')}</td>
                 </tr>
                 <tr className="kc-row kc-entry-end">
-                  <td>Offene Forderungen</td>
+                  <td>Debitoren (offene Forderungen)</td>
                   <td>{formatCurrency(users.receivables?.sum ?? '0')}</td>
                   <td>{users.receivables?.count ?? 0}</td>
                   <td>{formatCurrency(users.receivables?.max ?? '0')}</td>
@@ -161,15 +161,15 @@ export default function Page() {
               </thead>
               <tbody>
                 <tr className="kc-row">
-                  <td>Guthaben und offene Forderungen</td>
+                  <td>Aktiva (liquide Mittel + Forderungen)</td>
                   <td style={{ textAlign: 'right' }}>{formatCurrency(totals.assets)}</td>
                 </tr>
                 <tr className="kc-row kc-entry-end">
-                  <td>Verbindlichkeiten</td>
+                  <td>Passiva (Verbindlichkeiten)</td>
                   <td style={{ textAlign: 'right' }}>{formatCurrency(totals.liabilities)}</td>
                 </tr>
                 <tr className="kc-sum-row">
-                  <td>Restgeld</td>
+                  <td>Nettovermögen / Finanzsaldo</td>
                   <td style={{ textAlign: 'right' }}>{formatCurrency(totals.net)}</td>
                 </tr>
               </tbody>
