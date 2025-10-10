@@ -46,11 +46,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         const resultBankAccount = {
             id: bankAccount.id,
             name: bankAccount.name ?? "",
+            owner: bankAccount.owner ?? "",
             bank: bankAccount.bank ?? "",
             iban: bankAccount.iban ?? "",
             bic: bankAccount.bic ?? "",
             balance: typeof bankAccount.account?.balance === "number" ? bankAccount.account.balance : Number(bankAccount.account?.balance || 0),
             payment_method: !!bankAccount.payment_method,
+            create_girocode: !!bankAccount.create_girocode,
         };
         // Prüfe Query-Parameter
         const url = new URL(req.url);

@@ -62,6 +62,7 @@ export default function BankAccountDetailPage() {
       <div className="kc-infobox">
         <div style={{ fontSize: "1.2rem", fontWeight: 600 }}>{bankAccount.name}</div>
         <div style={{ color: "var(--muted)", marginBottom: 4 }}>{bankAccount.bank}</div>
+        <div style={{ marginBottom: 4 }}>Kontoinhaber: <span style={{ fontWeight: 600 }}>{bankAccount.owner}</span></div>
         <div style={{ fontWeight: 500 }}>IBAN: <span style={{ fontWeight: 700 }}>{bankAccount.iban}</span></div>
         <div style={{ fontWeight: 500 }}>Kontostand: <span style={{ color: "var(--primary)", fontWeight: 700 }}>{bankAccount.balance.toFixed(2)} €</span></div>
       </div>

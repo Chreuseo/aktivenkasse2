@@ -14,6 +14,7 @@ export async function GET(req: Request) {
       select: {
         id: true,
         name: true,
+        owner: true,
         bank: true,
         iban: true,
         accountId: true,
@@ -22,10 +23,11 @@ export async function GET(req: Request) {
       orderBy: { name: "asc" },
     });
 
-    // Shape in { id, name, bank, iban, accountId, balance }
-    const mapped = items.map((it) => ({
+    // Shape in { id, name, owner, bank, iban, accountId, balance }
+    const mapped = items.map((it: any) => ({
       id: it.id,
       name: it.name,
+      owner: it.owner,
       bank: it.bank,
       iban: it.iban,
       accountId: it.accountId,
@@ -54,9 +56,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Ungültige JSON-Daten" }, { status: 400 });
   }
 
-  const { name, bank, iban, bic, payment_method } = body || {};
-  if (!name || !bank || !iban) {
-    return NextResponse.json({ error: "Pflichtfelder fehlen", fields: { name: !!name, bank: !!bank, iban: !!iban } }, { status: 400 });
+  const { name, owner, bank, iban, bic, payment_method, create_girocode } = body || {};
+  if (!name || !owner || !bank || !iban) {
+    return NextResponse.json(
+      { error: "Pflichtfelder fehlen", fields: { name: !!name, owner: !!owner, bank: !!bank, iban: !!iban } },
+      { status: 400 }
+    );
   }
 
   try {
@@ -70,13 +75,25 @@ export async function POST(req: Request) {
       const bankAccount = await p.bankAccount.create({
         data: {
           name: String(name),
+          owner: String(owner),
           bank: String(bank),
           iban: String(iban),
           ...(bic ? { bic: String(bic) } : {}),
           payment_method: Boolean(payment_method),
+          create_girocode: Boolean(create_girocode),
           account: { connect: { id: account.id } },
         },
-        select: { id: true, name: true, bank: true, iban: true, bic: true, payment_method: true, accountId: true },
+        select: {
+          id: true,
+          name: true,
+          owner: true,
+          bank: true,
+          iban: true,
+          bic: true,
+          payment_method: true,
+          create_girocode: true,
+          accountId: true,
+        },
       });
 
       return bankAccount;

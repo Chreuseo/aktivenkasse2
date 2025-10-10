@@ -1,15 +1,30 @@
 import prisma from "@/lib/prisma";
-import { User, Account, ClearingAccount, BankAccount } from "@prisma/client";
 import nodemailer from "nodemailer";
+import * as QRCode from "qrcode";
+
+// Minimale Typen, die wir tatsächlich benutzen, statt Prisma-Modelltypen zu importieren
+export type DbUserForMail = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  mail: string;
+  account: { balance: unknown };
+};
+
+export type DbClearingForMail = {
+  name: string;
+  account: { balance: unknown };
+  responsible: { id: number; first_name: string; last_name: string; mail: string };
+};
 
 export type BuildUserInput = {
   kind: "user";
-  user: User & { account: Account };
+  user: DbUserForMail;
 };
 
 export type BuildClearingInput = {
   kind: "clearing";
-  clearing: ClearingAccount & { account: Account; responsible: User };
+  clearing: DbClearingForMail;
 };
 
 export type MailBuildInput = BuildUserInput | BuildClearingInput;
@@ -19,6 +34,8 @@ export type BuiltMail = {
   subject: string;
   text: string;
   from: string;
+  html?: string;
+  attachments?: { filename: string; content: Buffer; cid: string; contentType?: string }[];
   replyTo?: string;
   recipientUserId?: number | null;
 };
@@ -38,6 +55,8 @@ export class ConsoleTransport implements MailTransport {
       "\nFrom:",
       mail.from,
       mail.replyTo ? `\nReply-To: ${mail.replyTo}` : "",
+      mail.html ? "\n[HTML content present]" : "",
+      mail.attachments?.length ? `\nAttachments: ${mail.attachments.length}` : "",
       "\nrecipientUserId:", mail.recipientUserId,
       "\n\n" + mail.text
     );
@@ -77,6 +96,8 @@ export class SmtpTransport implements MailTransport {
       to: mail.to,
       subject: mail.subject,
       text: mail.text,
+      html: mail.html,
+      attachments: mail.attachments,
       replyTo: mail.replyTo,
     });
   }
@@ -143,8 +164,12 @@ function formatCurrency(value: number): string {
   }
 }
 
-export async function getPaymentMethodAccounts(): Promise<BankAccount[]> {
-  return prisma.bankAccount.findMany({ where: { payment_method: true } });
+// Minimale Bankkonto-Typen für Mails
+type DbBankAccountForMail = { bank: string; owner: string; iban: string; bic: string | null; create_girocode: boolean };
+
+export async function getPaymentMethodAccounts(): Promise<DbBankAccountForMail[]> {
+  const rows = await prisma.bankAccount.findMany({ where: { payment_method: true }, select: { bank: true, owner: true, iban: true, bic: true, create_girocode: true } });
+  return rows as DbBankAccountForMail[];
 }
 
 function getCorporationName(): string {
@@ -156,13 +181,60 @@ function getAppUrl(): string | null {
   return url || null;
 }
 
-function buildPaymentInfoText(bas: BankAccount[]): string {
+function sanitizeSingleLine(input: string): string {
+  return (input || "").replace(/[\r\n]+/g, " ").trim();
+}
+
+function buildEpcGirocodeString(b: DbBankAccountForMail, opts?: { remittance?: string; amountEur?: number | null }): string {
+  const name = sanitizeSingleLine(b.owner).slice(0, 70);
+  const iban = sanitizeSingleLine(b.iban).replace(/\s+/g, "");
+  const bic = sanitizeSingleLine(b.bic || "");
+  // Amount optional
+  const amount = (opts?.amountEur && opts.amountEur > 0) ? `EUR${opts.amountEur.toFixed(2)}` : "";
+  const rem = sanitizeSingleLine(opts?.remittance || "Aktivenkasse").slice(0, 140);
+  // EPC QR (GiroCode) Format
+  // BCD\n001\n1\nSCT\nBIC\nNAME\nIBAN\nAMOUNT\n\nREMI\n
+  const lines = [
+    "BCD",
+    "001",
+    "1",
+    "SCT",
+    bic,
+    name,
+    iban,
+    amount,
+    "", // Purpose unused
+    rem,
+    "" // Info
+  ];
+  return lines.join("\n");
+}
+
+async function buildGirocodeAttachments(paymentAccounts: DbBankAccountForMail[]): Promise<{ attachments: { filename: string; content: Buffer; cid: string; contentType: string }[]; html: string }>{
+  const attachments: { filename: string; content: Buffer; cid: string; contentType: string }[] = [];
+  const htmlBlocks: string[] = [];
+  const candidates = paymentAccounts.filter((b) => b.create_girocode);
+  for (const b of candidates) {
+    const epc = buildEpcGirocodeString(b);
+    const png = await QRCode.toBuffer(epc, { type: "png", errorCorrectionLevel: "M", margin: 2, scale: 6 });
+    const cid = `girocode-${b.iban.replace(/\s+/g, "").slice(-8)}@aktivenkasse`;
+    attachments.push({ filename: `GiroCode_${b.owner}_${b.iban.slice(-6)}.png`, content: png, cid, contentType: "image/png" });
+    htmlBlocks.push(
+      `<div style="margin:12px 0 20px 0;">
+         <div style="font-weight:600;margin-bottom:6px;">GiroCode für ${b.owner} (${b.bank})</div>
+         <img src="cid:${cid}" alt="GiroCode" style="width:220px;height:220px;border:1px solid #eee;border-radius:4px;"/>
+       </div>`
+    );
+  }
+  return { attachments, html: htmlBlocks.join("\n") };
+}
+
+function buildPaymentInfoText(bas: DbBankAccountForMail[]): string {
   if (!bas?.length) return "";
-  const corp = getCorporationName();
   const blocks = bas.map((b) => {
     const lines = [
       `Bank: ${b.bank}`,
-      `Kontoinhaber: ${corp}`,
+      `Kontoinhaber: ${b.owner}`,
       `IBAN: ${b.iban}`,
     ];
     if (b.bic) lines.push(`BIC: ${b.bic}`);
@@ -173,6 +245,19 @@ function buildPaymentInfoText(bas: BankAccount[]): string {
     "",
     blocks.join("\n\n"),
   ].join("\n");
+}
+
+function buildPaymentInfoHtml(bas: DbBankAccountForMail[]): string {
+  if (!bas?.length) return "";
+  const blocks = bas.map((b) => {
+    const lines: string[] = [];
+    lines.push(`<div><strong>Bank:</strong> ${b.bank}</div>`);
+    lines.push(`<div><strong>Kontoinhaber:</strong> ${b.owner}</div>`);
+    lines.push(`<div><strong>IBAN:</strong> ${b.iban}</div>`);
+    if (b.bic) lines.push(`<div><strong>BIC:</strong> ${b.bic}</div>`);
+    return `<div style="margin-bottom:10px;">${lines.join("")}</div>`;
+  });
+  return `<div><div>Bitte überweise den Betrag falls negativ auf eines der folgenden Konten:</div><div style="height:8px"></div>${blocks.join("")}</div>`;
 }
 
 export function buildSubject(_input: MailBuildInput): string {
@@ -186,7 +271,7 @@ export function buildBodyText(opts: {
   closing: string;
   initiatorName: string;
   remark?: string;
-  paymentAccounts: BankAccount[];
+  paymentAccounts: DbBankAccountForMail[];
 }): string {
   const { input, salutation, closing, initiatorName, remark, paymentAccounts } = opts;
   const payText = buildPaymentInfoText(paymentAccounts);
@@ -237,6 +322,56 @@ export function buildBodyText(opts: {
   return parts.join("\n");
 }
 
+function buildBodyHtml(opts: {
+  input: MailBuildInput;
+  salutation: string;
+  closing: string;
+  initiatorName: string;
+  remark?: string;
+  paymentAccounts: DbBankAccountForMail[];
+  giroHtmlSection?: string;
+}): string {
+  const { input, salutation, closing, initiatorName, remark, paymentAccounts, giroHtmlSection } = opts;
+  const corp = getCorporationName();
+  const appUrl = getAppUrl();
+  const parts: string[] = [];
+
+  if (input.kind === "user") {
+    const u = input.user;
+    const balance = formatCurrency(decimalToNumber(u.account.balance));
+    parts.push(`<p>${salutation} ${u.first_name} ${u.last_name},</p>`);
+    parts.push(`<p>Dein aktueller Kontostand beträgt: <strong>${balance}</strong>.</p>`);
+  } else {
+    const c = input.clearing;
+    const balance = formatCurrency(decimalToNumber(c.account.balance));
+    parts.push(`<p>${salutation} ${c.responsible.first_name} ${c.responsible.last_name},</p>`);
+    parts.push(`<p>Der Kontostand für das Verrechnungskonto "${c.name}": aktuell <strong>${balance}</strong>.</p>`);
+    parts.push(`<p style="color:#666;">Hinweis: Du bekommst diese Mail, weil du als Verantwortlicher für das Konto eingetragen bist.</p>`);
+  }
+
+  if (remark && remark.trim()) {
+    parts.push(`<p>Bemerkung: <strong>${sanitizeSingleLine(remark)}</strong></p>`);
+  }
+
+  const payHtml = buildPaymentInfoHtml(paymentAccounts);
+  if (payHtml) {
+    parts.push(`<div style="margin-top:10px;">${payHtml}</div>`);
+  }
+
+  if (giroHtmlSection) {
+    parts.push(`<div style="margin-top:6px;">${giroHtmlSection}</div>`);
+  }
+
+  parts.push(`<p>${closing}<br/>${sanitizeSingleLine(initiatorName)}<br/>${corp}</p>`);
+
+  const linkLine = appUrl
+    ? `Alle Details zu deinem Aktivenkonto findest du unter <a href="${appUrl}">${appUrl}</a>.`
+    : "Alle Details zu deinem Aktivenkonto findest du auf der Aktivenkasse-Seite.";
+  parts.push(`<p style="color:#666; font-size:0.95em;">${linkLine}<br/>Falls du dich noch nie eingeloggt hast, setze beim ersten Login dein Passwort zurück.</p>`);
+
+  return parts.join("\n");
+}
+
 function buildFromAddress(initiatorName: string): string {
   const org = getEnvMulti(["Mail_from", "MAIL_FROM", "mail.from"], "Aktivenkasse");
   const senderAddr = getEnvMulti([
@@ -274,6 +409,8 @@ export async function buildMail(
   const paymentAccounts = await getPaymentMethodAccounts();
 
   const subject = (subjectOverride && subjectOverride.trim()) || buildSubject(input);
+
+  // Text-Teil immer erzeugen
   const text = buildBodyText({
     input,
     salutation,
@@ -283,11 +420,24 @@ export async function buildMail(
     paymentAccounts,
   });
 
+  // HTML + GiroCode-Anhänge (nur wenn mindestens ein Konto create_girocode=true hat)
+  let html: string | undefined = undefined;
+  let attachments: { filename: string; content: Buffer; cid: string; contentType?: string }[] | undefined = undefined;
+  const hasGiro = paymentAccounts.some((b) => b.create_girocode);
+  if (hasGiro) {
+    const { attachments: att, html: giroHtml } = await buildGirocodeAttachments(paymentAccounts);
+    attachments = att;
+    html = buildBodyHtml({ input, salutation, closing, initiatorName, remark, paymentAccounts, giroHtmlSection: giroHtml });
+  } else {
+    // Auch ohne GiroCodes liefern wir eine simple HTML-Variante
+    html = buildBodyHtml({ input, salutation, closing, initiatorName, remark, paymentAccounts });
+  }
+
   const to = input.kind === "user" ? input.user.mail : input.clearing.responsible.mail;
   const recipientUserId = input.kind === "user" ? input.user.id : input.clearing.responsible.id;
   const from = buildFromAddress(initiatorName);
   const replyTo = initiatorEmail || undefined;
-  return { to, subject, text, from, replyTo, recipientUserId };
+  return { to, subject, text, from, replyTo, recipientUserId, html, attachments };
 }
 
 export async function sendMails(

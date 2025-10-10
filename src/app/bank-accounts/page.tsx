@@ -52,6 +52,7 @@ export default function BankAccountsOverview() {
         <thead>
           <tr>
             <th>Name</th>
+            <th>Kontoinhaber</th>
             <th>Bank</th>
             <th>IBAN</th>
             <th>Kontostand</th>
@@ -63,6 +64,7 @@ export default function BankAccountsOverview() {
           {accounts.map(acc => (
             <tr key={acc.id} className="kc-row">
               <td>{acc.name}</td>
+              <td>{acc.owner}</td>
               <td>{acc.bank}</td>
               <td>{acc.iban}</td>
               <td>{formatBalance(acc.balance)}</td>
@@ -79,7 +81,7 @@ export default function BankAccountsOverview() {
             </tr>
           ))}
           {accounts.length === 0 && !loading && (
-            <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Bankkonten gefunden</td></tr>
+            <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Bankkonten gefunden</td></tr>
           )}
         </tbody>
       </table>

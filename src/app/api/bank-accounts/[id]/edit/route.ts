@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
-import { checkPermission, getUserIdFromRequest } from "@/services/authService";
+import { checkPermission } from "@/services/authService";
 
 export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params;
-  const userId = await getUserIdFromRequest(req);
   const idNum = Number(id);
   if (isNaN(idNum)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
   const acc = await prisma.bankAccount.findUnique({ where: { id: idNum } });
@@ -25,17 +24,19 @@ export async function PUT(
   } catch {
     return NextResponse.json({ error: "Ungültige JSON-Daten" }, { status: 400 });
   }
-  const { name, bank, iban, bic, payment_method } = data ?? {};
-  if (!name || !bank || !iban) return NextResponse.json({ error: "Name, Bank und IBAN sind erforderlich" }, { status: 400 });
-  // Update BankAccount inkl. payment_method (boolean cast)
+  const { name, owner, bank, iban, bic, payment_method, create_girocode } = data ?? {};
+  if (!name || !owner || !bank || !iban) return NextResponse.json({ error: "Name, Kontoinhaber, Bank und IBAN sind erforderlich" }, { status: 400 });
+  // Update BankAccount inkl. payment_method und create_girocode (boolean cast)
   await prisma.bankAccount.update({
     where: { id: idNum },
     data: {
       name,
+      owner,
       bank,
       iban,
       bic,
       payment_method: !!payment_method,
+      create_girocode: !!create_girocode,
     },
   });
   return NextResponse.json({ success: true });

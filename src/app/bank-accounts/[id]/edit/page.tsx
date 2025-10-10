@@ -11,11 +11,13 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
     const { data: session, status } = useSession();
     const [formData, setFormData] = useState({
         name: "",
+        owner: "",
         bank: "",
         iban: "",
         bic: "",
         balance: 0,
         payment_method: false,
+        create_girocode: false,
     });
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
@@ -25,7 +27,6 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
         async function loadData() {
             try {
                 const token = extractToken(session);
-                console.log("Token für API-Request (GET):", token);
                 if (!token) {
                     setMessage("❌ Keine Session oder Token gefunden. Bitte neu einloggen.");
                     setLoading(false);
@@ -40,12 +41,14 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
                     },
                 });
                 setFormData({
-                    name: accJson.name ?? "",
-                    bank: accJson.bank ?? "",
-                    iban: accJson.iban ?? "",
-                    bic: accJson.bic ?? "",
-                    balance: typeof accJson.balance === "number" ? accJson.balance : 0,
-                    payment_method: !!(accJson as any).payment_method,
+                    name: accJson.name || "",
+                    owner: accJson.owner || "",
+                    bank: accJson.bank || "",
+                    iban: accJson.iban || "",
+                    bic: accJson.bic || "",
+                    balance: accJson.balance,
+                    payment_method: Boolean((accJson as any).payment_method),
+                    create_girocode: Boolean((accJson as any).create_girocode),
                 });
                 setFormLoading(false);
             } catch (err: any) {
@@ -70,7 +73,6 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
             return;
         }
         const token = extractToken(session);
-        console.log("Token für API-Request (PUT):", token);
         if (!token) {
             setMessage("❌ Keine Session oder Token gefunden. Bitte neu einloggen.");
             setLoading(false);
@@ -85,10 +87,12 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
                 },
                 body: JSON.stringify({
                     name: formData.name,
+                    owner: formData.owner,
                     bank: formData.bank,
                     iban: formData.iban,
                     bic: formData.bic,
-                    payment_method: !!formData.payment_method,
+                    payment_method: formData.payment_method,
+                    create_girocode: formData.create_girocode,
                 }),
             });
             setMessage("✅ Änderungen gespeichert!");
@@ -101,6 +105,7 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
 
     if (status === "loading") return <div className="edit-form-container">Lade Session ...</div>;
     if (status === "unauthenticated") return <div className="edit-form-container">Bitte einloggen.</div>;
+    if (formLoading) return <div className="edit-form-container">Lade Daten ...</div>;
 
     return (
         <div className="edit-form-container">
@@ -109,6 +114,10 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
                 <label>
                     Name
                     <input type="text" name="name" value={formData.name} onChange={handleChange} required />
+                </label>
+                <label>
+                    Kontoinhaber
+                    <input type="text" name="owner" value={formData.owner} onChange={handleChange} required />
                 </label>
                 <label>
                     Bank
@@ -124,11 +133,15 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
                 </label>
                 <label>
                     In Zahlungsaufforderung anzeigen{" "}
-                    <input type="checkbox" name="payment_method" checked={!!formData.payment_method} onChange={handleChange} />
+                    <input type="checkbox" name="payment_method" checked={formData.payment_method} onChange={handleChange} />
+                </label>
+                <label>
+                    GiroCode in Mail/Beleg erzeugen
+                    <input type="checkbox" name="create_girocode" checked={formData.create_girocode} onChange={handleChange} />
                 </label>
                 <label>
                     Kontostand
-                    <input type="text" name="balance" value={typeof formData.balance === "number" ? formData.balance.toLocaleString("de-DE", { style: "currency", currency: "EUR" }) : "-"} disabled />
+                    <input type="text" name="balance" value={formData.balance.toLocaleString("de-DE", { style: "currency", currency: "EUR" })} disabled />
                 </label>
                 <button className="button" type="submit" disabled={loading}>Speichern</button>
             </form>
