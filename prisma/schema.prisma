@@ -17,6 +17,7 @@ model Account {
   clearingAccounts ClearingAccount[]
   transactions     Transaction[]
   transactionBulks TransactionBulk[]
+  dues             dues[]
 }
 
 model User {
@@ -141,6 +142,7 @@ model Transaction {
   transactionBulk       TransactionBulk? @relation("BulkTransactions", fields: [transactionBulkId], references: [id])
   bulkMain              TransactionBulk? @relation("BulkMainTransaction")
   advances              Advances[]
+  dues                  dues[]
 }
 
 model TransactionBulk {
@@ -199,6 +201,20 @@ model Mail {
   user        User?    @relation(fields: [userId], references: [id])
   addressedTo String
   attachment  String?
+}
+
+model dues {
+  id             Int          @id @default(autoincrement())
+  amount         Decimal
+  createdAt      DateTime     @default(now())
+  dueDate        DateTime
+  paid           Boolean      @default(false)
+  paidAt         DateTime?
+  interestBilled Boolean      @default(false)
+  interest       Transaction? @relation(fields: [transactionId], references: [id])
+  accountId      Int
+  account        Account      @relation(fields: [accountId], references: [id])
+  transactionId  Int?
 }
 
 enum AccountType {

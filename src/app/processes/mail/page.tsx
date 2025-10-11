@@ -47,10 +47,11 @@ export default function MailProcessPage() {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
 
   const [subject, setSubject] = useState<string>("Zahlungsaufforderung / Kontoinformation");
-  const [remark, setRemark] = useState("");
+  const [remark, setRemark] = useState<string>("");
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [setDues, setSetDues] = useState<boolean>(false);
 
   // Hilfsfunktionen
   const parseAmount = useCallback(() => {
@@ -85,13 +86,14 @@ export default function MailProcessPage() {
     setError(null);
     try {
       const res = await fetch("/api/users", { cache: "no-store" });
+      const data: any = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || `Fehler ${res.status}`);
+        const msg = (data && typeof data === "object" && "error" in data) ? String((data as any).error) : `Fehler ${res.status}`;
+        setError(msg);
+        return [] as UserRow[];
       }
-      const data: UserRow[] = await res.json();
-      setUsers(data);
-      return data;
+      setUsers(data as UserRow[]);
+      return data as UserRow[];
     } catch (e: any) {
       setError(e?.message || "Fehler beim Laden der Nutzer");
       return [] as UserRow[];
@@ -105,13 +107,14 @@ export default function MailProcessPage() {
     setError(null);
     try {
       const res = await fetch("/api/clearing-accounts", { cache: "no-store" });
+      const data: any = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || `Fehler ${res.status}`);
+        const msg = (data && typeof data === "object" && "error" in data) ? String((data as any).error) : `Fehler ${res.status}`;
+        setError(msg);
+        return [] as ClearingAccountRow[];
       }
-      const data: ClearingAccountRow[] = await res.json();
-      setAccounts(data);
-      return data;
+      setAccounts(data as ClearingAccountRow[]);
+      return data as ClearingAccountRow[];
     } catch (e: any) {
       setError(e?.message || "Fehler beim Laden der Verrechnungskonten");
       return [] as ClearingAccountRow[];
@@ -186,7 +189,7 @@ export default function MailProcessPage() {
 
   const canSend = filteredOnce && rows.length > 0 && anyChecked && !loading;
 
-  const handleSend = useCallback(async () => {
+  const handleSend = useCallback(async (): Promise<void> => {
     if (!canSend) return;
     setLoading(true);
     setError(null);
@@ -194,22 +197,28 @@ export default function MailProcessPage() {
     try {
       const chosen = rows.filter((r) => selected[r.key]);
       const ids = chosen.map((r) => Number(r.source?.id)).filter((n) => Number.isFinite(n));
-      const type = mode === "Nutzer" ? "user" : "clearing";
-      const res = await fetch("/api/mails", {
+      const type: "user" | "clearing" = mode === "Nutzer" ? "user" : "clearing";
+      const url = setDues ? "/api/mails/with-dues" : "/api/mails";
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recipients: { type, ids }, remark: remark?.trim() || undefined, subject: subject?.trim() || undefined }),
       });
-      const data = await res.json().catch(() => ({}));
+      const data: { success?: number; total?: number; failed?: number; errors?: { to: string; error: string }[]; duesCreated?: number; error?: string } = await res.json().catch(() => ({} as any));
       if (!res.ok) {
-        throw new Error(data?.error || `Fehler ${res.status}`);
+        const msg = data?.error || data?.errors?.[0]?.error || `Fehler ${res.status}`;
+        setError(msg);
+        return;
       }
       const lines: string[] = [];
       lines.push(`Versand angestoßen: ${data.success}/${data.total} erfolgreich.`);
       if (data.failed) lines.push(`Fehlgeschlagen: ${data.failed}.`);
+      if (typeof data.duesCreated === "number") {
+        lines.push(`Fälligkeiten erzeugt: ${data.duesCreated}.`);
+      }
       if (Array.isArray(data.errors) && data.errors.length) {
         lines.push("— Details:");
-        data.errors.slice(0, 5).forEach((e: any) => lines.push(`  • ${e.to}: ${e.error}`));
+        data.errors.slice(0, 5).forEach((e) => lines.push(`  • ${e.to}: ${e.error}`));
         if (data.errors.length > 5) lines.push(`  … und ${data.errors.length - 5} weitere`);
       }
       setStatusMsg(lines.join("\n"));
@@ -218,7 +227,7 @@ export default function MailProcessPage() {
     } finally {
       setLoading(false);
     }
-  }, [canSend, rows, selected, mode, remark, subject]);
+  }, [canSend, rows, selected, mode, remark, subject, setDues]);
 
   const showNegHint = op === "kleiner" && parseAmount() > 0;
 
@@ -290,7 +299,7 @@ export default function MailProcessPage() {
             className="form-select form-select-max"
             type="text"
             value={subject}
-            onChange={(e) => setSubject(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSubject(e.target.value)}
             placeholder="Zahlungsaufforderung / Kontoinformation"
           />
         </label>
@@ -301,9 +310,21 @@ export default function MailProcessPage() {
             rows={3}
             placeholder="Freitext für die E-Mail…"
             value={remark}
-            onChange={(e) => setRemark(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setRemark(e.target.value)}
           />
         </label>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "0.6rem" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input
+              type="checkbox"
+              checked={setDues}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSetDues(e.target.checked)}
+            />
+            <span>Fälligkeiten setzen</span>
+          </label>
+        </div>
+
         <div style={{ marginTop: "0.6rem" }}>
           <button className="button" disabled={!canSend} onClick={handleSend}>
             Senden
@@ -344,7 +365,7 @@ export default function MailProcessPage() {
                 <td className="kc-checkbox">
                   <input
                     type="checkbox"
-                    checked={!!selected[r.key]}
+                    checked={selected[r.key]}
                     onChange={(e) => setSelected((s) => ({ ...s, [r.key]: e.target.checked }))}
                     aria-label={`Auswählen ${r.name}`}
                   />
