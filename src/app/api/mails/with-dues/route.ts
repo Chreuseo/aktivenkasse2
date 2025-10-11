@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { checkPermission, extractTokenAndUserId } from "@/services/authService";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
-import { sendMails, type MailBuildInput } from "@/services/mailService";
+import { sendMails, type MailBuildInput, type DbUserForMail, type DbClearingForMail } from "@/services/mailService";
 import { getToken } from "next-auth/jwt";
 
 type ApiResponse = {
@@ -89,15 +89,44 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   let inputs: MailBuildInput[];
   if (body.recipients.type === "user") {
     const items = await prisma.user.findMany({ where: { id: { in: ids } }, include: { account: true } });
-    inputs = items.map((u: { account: unknown }) => ({ kind: "user", user: u }));
+    inputs = items.map((u) => ({
+      kind: "user",
+      user: {
+        id: u.id,
+        first_name: u.first_name,
+        last_name: u.last_name,
+        mail: u.mail,
+        account: {
+          id: (u as any).account?.id,
+          balance: (u as any).account?.balance,
+          interest: (u as any).account?.interest,
+        },
+      } as DbUserForMail,
+    }));
   } else {
     const items = await prisma.clearingAccount.findMany({
       where: { id: { in: ids }, NOT: { responsibleId: null } },
       include: { account: true, responsible: true },
     });
     inputs = items
-      .filter((c: { responsible: unknown }) => !!c.responsible)
-      .map((c: { account: unknown; responsible: unknown }) => ({ kind: "clearing", clearing: c as any }));
+      .filter((c) => !!c.responsible)
+      .map((c) => ({
+        kind: "clearing",
+        clearing: {
+          name: c.name,
+          account: {
+            id: (c as any).account?.id,
+            balance: (c as any).account?.balance,
+            interest: (c as any).account?.interest,
+          },
+          responsible: {
+            id: (c as any).responsible?.id,
+            first_name: (c as any).responsible?.first_name,
+            last_name: (c as any).responsible?.last_name,
+            mail: (c as any).responsible?.mail,
+          },
+        } as DbClearingForMail,
+      }));
   }
 
   if (!inputs.length) {

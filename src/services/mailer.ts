@@ -8,12 +8,12 @@ export type DbUserForMail = {
   first_name: string;
   last_name: string;
   mail: string;
-  account: { balance: unknown };
+  account: { id: number; balance: unknown; interest?: boolean };
 };
 
 export type DbClearingForMail = {
   name: string;
-  account: { balance: unknown };
+  account: { id: number; balance: unknown; interest?: boolean };
   responsible: { id: number; first_name: string; last_name: string; mail: string };
 };
 
@@ -265,6 +265,19 @@ export function buildSubject(_input: MailBuildInput): string {
   return "Zahlungsaufforderung / Kontoinformation";
 }
 
+async function getNextDueDateForAccount(accountId: number): Promise<Date | null> {
+  const d = await prisma.dues.findFirst({ where: { accountId, paid: false }, orderBy: { dueDate: "asc" } });
+  return d?.dueDate ?? null;
+}
+
+function formatDate(d: Date): string {
+  try {
+    return new Intl.DateTimeFormat("de-DE").format(d);
+  } catch {
+    return d.toISOString().slice(0, 10);
+  }
+}
+
 export function buildBodyText(opts: {
   input: MailBuildInput;
   salutation: string;
@@ -272,8 +285,9 @@ export function buildBodyText(opts: {
   initiatorName: string;
   remark?: string;
   paymentAccounts: DbBankAccountForMail[];
+  dueHint?: string | null;
 }): string {
-  const { input, salutation, closing, initiatorName, remark, paymentAccounts } = opts;
+  const { input, salutation, closing, initiatorName, remark, paymentAccounts, dueHint } = opts;
   const payText = buildPaymentInfoText(paymentAccounts);
   const corp = getCorporationName();
   const appUrl = getAppUrl();
@@ -307,6 +321,12 @@ export function buildBodyText(opts: {
     parts.push(payText);
   }
 
+  // Insert Hinweis
+  if (dueHint) {
+    parts.push("");
+    parts.push(dueHint);
+  }
+
   parts.push("");
   parts.push(closing);
   parts.push(initiatorName);
@@ -330,8 +350,9 @@ function buildBodyHtml(opts: {
   remark?: string;
   paymentAccounts: DbBankAccountForMail[];
   giroHtmlSection?: string;
+  dueHint?: string | null;
 }): string {
-  const { input, salutation, closing, initiatorName, remark, paymentAccounts, giroHtmlSection } = opts;
+  const { input, salutation, closing, initiatorName, remark, paymentAccounts, giroHtmlSection, dueHint } = opts;
   const corp = getCorporationName();
   const appUrl = getAppUrl();
   const parts: string[] = [];
@@ -360,6 +381,11 @@ function buildBodyHtml(opts: {
 
   if (giroHtmlSection) {
     parts.push(`<div style="margin-top:6px;">${giroHtmlSection}</div>`);
+  }
+
+  // Hinweis zu Fälligkeit
+  if (dueHint) {
+    parts.push(`<p style="margin-top:6px;color:#444;">${dueHint}</p>`);
   }
 
   parts.push(`<p>${closing}<br/>${sanitizeSingleLine(initiatorName)}<br/>${corp}</p>`);
@@ -410,7 +436,25 @@ export async function buildMail(
 
   const subject = (subjectOverride && subjectOverride.trim()) || buildSubject(input);
 
-  // Text-Teil immer erzeugen
+  // Due-Hinweis vorbereiten, wenn interest aktiv
+  let dueHint: string | null = null;
+  let accountId: number | null = null;
+  let interestFlag = false;
+  if (input.kind === "user") {
+    accountId = input.user.account?.id ?? null;
+    interestFlag = !!input.user.account?.interest;
+  } else {
+    accountId = input.clearing.account?.id ?? null;
+    interestFlag = !!input.clearing.account?.interest;
+  }
+  if (interestFlag && accountId) {
+    const nextDue = await getNextDueDateForAccount(accountId);
+    if (nextDue) {
+      dueHint = `Hinweis: Es ist eine Fälligkeit aktiv. Nächste Fälligkeit: ${formatDate(nextDue)}.`;
+    }
+  }
+
+  // Text-Teil
   const text = buildBodyText({
     input,
     salutation,
@@ -418,19 +462,19 @@ export async function buildMail(
     initiatorName,
     remark,
     paymentAccounts,
+    dueHint,
   });
 
-  // HTML + GiroCode-Anhänge (nur wenn mindestens ein Konto create_girocode=true hat)
+  // HTML + GiroCode-Anhänge
   let html: string | undefined = undefined;
   let attachments: { filename: string; content: Buffer; cid: string; contentType?: string }[] | undefined = undefined;
   const hasGiro = paymentAccounts.some((b) => b.create_girocode);
   if (hasGiro) {
     const { attachments: att, html: giroHtml } = await buildGirocodeAttachments(paymentAccounts);
     attachments = att;
-    html = buildBodyHtml({ input, salutation, closing, initiatorName, remark, paymentAccounts, giroHtmlSection: giroHtml });
+    html = buildBodyHtml({ input, salutation, closing, initiatorName, remark, paymentAccounts, giroHtmlSection: giroHtml, dueHint });
   } else {
-    // Auch ohne GiroCodes liefern wir eine simple HTML-Variante
-    html = buildBodyHtml({ input, salutation, closing, initiatorName, remark, paymentAccounts });
+    html = buildBodyHtml({ input, salutation, closing, initiatorName, remark, paymentAccounts, dueHint });
   }
 
   const to = input.kind === "user" ? input.user.mail : input.clearing.responsible.mail;
