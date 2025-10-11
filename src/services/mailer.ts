@@ -143,16 +143,33 @@ function getEnvMulti(keys: string[], fallback = ""): string {
   return fallback;
 }
 
-function decimalToNumber(v: unknown): number {
-  if (v == null) return 0;
-  if (typeof v === "number") return v;
-  if (typeof (v as any).toNumber === "function") return (v as any).toNumber();
-  const s = String(v);
-  const n = parseFloat(s.replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
+function decimalToNumber(value: unknown): number | null {
+  // Behandle null/undefined
+  if (value == null) return null;
+  // Bereits Zahl
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  // String -> parseFloat mit Komma-Support
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (!s) return null;
+    const n = parseFloat(s.replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  }
+  // Prisma Decimal o.ä. mit toNumber()
+  try {
+    const anyVal: any = value as any;
+    if (anyVal && typeof anyVal.toNumber === "function") {
+      const n = anyVal.toNumber();
+      return typeof n === "number" && Number.isFinite(n) ? n : null;
+    }
+  } catch {
+    // ignoriere und falle unten zurück
+  }
+  return null;
 }
 
-function formatCurrency(value: number): string {
+function formatCurrency(value: number | null): string {
+  if (value === null) return "0,00 €";
   try {
     return new Intl.NumberFormat("de-DE", {
       style: "currency",
@@ -265,9 +282,13 @@ export function buildSubject(_input: MailBuildInput): string {
   return "Zahlungsaufforderung / Kontoinformation";
 }
 
-async function getNextDueDateForAccount(accountId: number): Promise<Date | null> {
-  const d = await prisma.dues.findFirst({ where: { accountId, paid: false }, orderBy: { dueDate: "asc" } });
-  return d?.dueDate ?? null;
+async function getNextDueDateForAccount(accountId: number): Promise<{ dueDate: Date | null; amount: number | null }> {
+  const d = await prisma.dues.findFirst({
+    where: { accountId, paid: false },
+    orderBy: { dueDate: "asc" },
+    select: { dueDate: true, amount: true },
+  });
+  return { dueDate: d?.dueDate ?? null, amount: decimalToNumber(d?.amount) };
 }
 
 function formatDate(d: Date): string {
@@ -370,30 +391,31 @@ function buildBodyHtml(opts: {
     parts.push(`<p style="color:#666;">Hinweis: Du bekommst diese Mail, weil du als Verantwortlicher für das Konto eingetragen bist.</p>`);
   }
 
-  if (remark && remark.trim()) {
-    parts.push(`<p>Bemerkung: <strong>${sanitizeSingleLine(remark)}</strong></p>`);
-  }
+    // Hinweis zu Fälligkeit
+    if (dueHint) {
+        parts.push(`<p style="margin-top:6px;color:#444;">${dueHint}</p>`);
+    }
 
-  const payHtml = buildPaymentInfoHtml(paymentAccounts);
-  if (payHtml) {
-    parts.push(`<div style="margin-top:10px;">${payHtml}</div>`);
-  }
+    if (remark && remark.trim()) {
+        parts.push(`<p>Bemerkung: <strong>${sanitizeSingleLine(remark)}</strong></p>`);
+    }
+
+    const payHtml = buildPaymentInfoHtml(paymentAccounts);
+    if (payHtml) {
+        parts.push(`<div style="margin-top:10px;">${payHtml}</div>`);
+    }
+
+    parts.push(`<p>${closing}<br/>${sanitizeSingleLine(initiatorName)}<br/>${corp}</p>`);
+
+
+    const linkLine = appUrl
+        ? `Alle Details zu deinem Aktivenkonto findest du unter <a href="${appUrl}">${appUrl}</a>.`
+        : "Alle Details zu deinem Aktivenkonto findest du auf der Aktivenkasse-Seite.";
+    parts.push(`<p style="color:#666; font-size:0.95em;">${linkLine}<br/>Falls du dich noch nie eingeloggt hast, setze beim ersten Login dein Passwort zurück.</p>`);
 
   if (giroHtmlSection) {
     parts.push(`<div style="margin-top:6px;">${giroHtmlSection}</div>`);
   }
-
-  // Hinweis zu Fälligkeit
-  if (dueHint) {
-    parts.push(`<p style="margin-top:6px;color:#444;">${dueHint}</p>`);
-  }
-
-  parts.push(`<p>${closing}<br/>${sanitizeSingleLine(initiatorName)}<br/>${corp}</p>`);
-
-  const linkLine = appUrl
-    ? `Alle Details zu deinem Aktivenkonto findest du unter <a href="${appUrl}">${appUrl}</a>.`
-    : "Alle Details zu deinem Aktivenkonto findest du auf der Aktivenkasse-Seite.";
-  parts.push(`<p style="color:#666; font-size:0.95em;">${linkLine}<br/>Falls du dich noch nie eingeloggt hast, setze beim ersten Login dein Passwort zurück.</p>`);
 
   return parts.join("\n");
 }
@@ -439,7 +461,7 @@ export async function buildMail(
   // Due-Hinweis vorbereiten, wenn interest aktiv
   let dueHint: string | null = null;
   let accountId: number | null = null;
-  let interestFlag = false;
+  let interestFlag: boolean;
   if (input.kind === "user") {
     accountId = input.user.account?.id ?? null;
     interestFlag = !!input.user.account?.interest;
@@ -449,8 +471,10 @@ export async function buildMail(
   }
   if (interestFlag && accountId) {
     const nextDue = await getNextDueDateForAccount(accountId);
-    if (nextDue) {
-      dueHint = `Hinweis: Es ist eine Fälligkeit aktiv. Nächste Fälligkeit: ${formatDate(nextDue)}.`;
+    const interestRate = (process.env.INTEREST_RATE_PERCENT || process.env["interest.rate.percent"] || "0").toString().trim();
+    if (nextDue.dueDate && nextDue.amount) {
+      const formattedAmount = formatCurrency(nextDue.amount);
+      dueHint = `Hinweis: ${formattedAmount} sind fällig am ${formatDate(nextDue.dueDate)}. Danach werden ${interestRate} % p.a. Verzugszinsen berechnet.`;
     }
   }
 
@@ -466,8 +490,8 @@ export async function buildMail(
   });
 
   // HTML + GiroCode-Anhänge
-  let html: string | undefined = undefined;
-  let attachments: { filename: string; content: Buffer; cid: string; contentType?: string }[] | undefined = undefined;
+  let html: string;
+  let attachments: { filename: string; content: Buffer; cid: string; contentType?: string }[] | undefined;
   const hasGiro = paymentAccounts.some((b) => b.create_girocode);
   if (hasGiro) {
     const { attachments: att, html: giroHtml } = await buildGirocodeAttachments(paymentAccounts);
