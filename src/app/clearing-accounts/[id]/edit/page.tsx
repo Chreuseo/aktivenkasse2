@@ -13,6 +13,7 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
         name: "",
         responsibleId: "",
         reimbursementEligible: false,
+        interest: false,
     });
     const [users, setUsers] = useState<User[]>([]);
     const [members, setMembers] = useState<Member[]>([]);
@@ -36,6 +37,7 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
                     name: caJson.name || "",
                     responsibleId: caJson.responsibleId ? String(caJson.responsibleId) : "",
                     reimbursementEligible: !!caJson.reimbursementEligible,
+                    interest: !!caJson.interest,
                 });
                 setMembers(Array.isArray(caJson.members) ? caJson.members : []);
             } catch (err: any) {
@@ -109,6 +111,7 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
                     name: formData.name,
                     responsibleId: formData.responsibleId || null,
                     reimbursementEligible: formData.reimbursementEligible,
+                    interest: formData.interest,
                     memberIds: members.map(m => m.id),
                 }),
             });
@@ -143,6 +146,10 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
                         <option value="true">Ja</option>
                         <option value="false">Nein</option>
                     </select>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="checkbox" name="interest" checked={formData.interest} onChange={handleChange} />
+                    <span>Zinsen erheben</span>
                 </label>
                 <div className="edit-members-section">
                     <div className="edit-members-list">

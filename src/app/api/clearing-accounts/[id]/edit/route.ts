@@ -37,7 +37,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
   } catch {
     return NextResponse.json({ error: "Ungültige JSON-Daten" }, { status: 400 });
   }
-  const { name, responsibleId, reimbursementEligible, memberIds } = data;
+  const { name, responsibleId, reimbursementEligible, memberIds, interest } = data;
   if (!name) return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
   // Verantwortlichen prüfen
   let responsible = null;
@@ -54,6 +54,10 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       reimbursementEligible: !!reimbursementEligible,
     },
   });
+  // Interest-Flag am Account setzen
+  if (typeof interest === 'boolean') {
+    await prisma.account.update({ where: { id: (ca as any).accountId }, data: { interest: Boolean(interest) } });
+  }
   // Mitglieder aktualisieren (ersetzen)
   if (Array.isArray(memberIds)) {
     await prisma.clearingAccountMember.deleteMany({ where: { clearingAccountId: idNum } });

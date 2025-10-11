@@ -13,6 +13,7 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
     last_name: "",
     mail: "",
     enabled: true,
+    interest: true,
   });
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,6 +42,7 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
           last_name: userJson.last_name ?? "",
           mail: userJson.mail ?? "",
           enabled: typeof userJson.enabled === "boolean" ? userJson.enabled : true,
+          interest: typeof userJson.interest === "boolean" ? userJson.interest : true,
         });
         setFormLoading(false);
       } catch (err: any) {
@@ -110,9 +112,13 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
             Mailadresse
             <input type="email" name="mail" value={formData.mail} onChange={handleChange} required />
           </label>
-          <label>
-                Aktiviert
-              <input type="checkbox" name="enabled" checked={formData.enabled} onChange={handleChange} />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input type="checkbox" name="enabled" checked={formData.enabled} onChange={handleChange} />
+            <span>Aktiviert</span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input type="checkbox" name="interest" checked={formData.interest} onChange={handleChange} />
+            <span>Zinsen erheben</span>
           </label>
           <button className="button" type="submit" disabled={loading}>Speichern</button>
         </form>
@@ -121,4 +127,3 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
     </div>
   );
 }
-

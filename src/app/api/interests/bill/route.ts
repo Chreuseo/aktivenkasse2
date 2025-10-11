@@ -36,39 +36,45 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Kostenstelle (costCenterId) ist Pflicht." }, { status: 400 });
   }
 
-  const includePaid = parseBool(body.includePaid);
-  const includeUnpaid = parseBool(body.includeUnpaid ?? true); // default beide, aber unten kein Filter = beide
-  const includeBilled = parseBool(body.includeBilled);
-  const includeUnbilled = parseBool(body.includeUnbilled ?? true);
-
-  const where: any = {};
-  if (includePaid !== null || includeUnpaid !== null) {
-    if (includePaid && includeUnpaid) {
-      // kein Filter
-    } else if (includePaid && !includeUnpaid) {
-      where.paid = true;
-    } else if (!includePaid && includeUnpaid) {
-      where.paid = false;
-    } else {
-      where.paid = { in: [null] };
-    }
-  }
-  if (includeBilled !== null || includeUnbilled !== null) {
-    if (includeBilled && includeUnbilled) {
-      // kein Filter
-    } else if (includeBilled && !includeUnbilled) {
-      where.interestBilled = true;
-    } else if (!includeBilled && includeUnbilled) {
-      where.interestBilled = false;
-    } else {
-      where.interestBilled = { in: [null] };
-    }
-  }
-
-  // Optional: ids einschränken
+  // Optional: ids einschränken (hat Vorrang vor den übrigen Filtern)
+  let where: any = {};
+  let ids: number[] = [];
   if (Array.isArray(body.ids) && body.ids.length) {
-    const ids = body.ids.map((x: any) => Number(x)).filter((x: number) => Number.isFinite(x));
-    if (ids.length) where.id = { in: ids };
+    ids = body.ids.map((x: any) => Number(x)).filter((x: number) => Number.isFinite(x));
+    if (ids.length) {
+      where = { id: { in: ids } };
+    }
+  }
+
+  // Nur wenn keine IDs vorgegeben sind, aus den Boolean-Flags filtern
+  if (!ids.length) {
+    const includePaid = parseBool(body.includePaid);
+    const includeUnpaid = parseBool(body.includeUnpaid ?? true);
+    const includeBilled = parseBool(body.includeBilled);
+    const includeUnbilled = parseBool(body.includeUnbilled ?? true);
+
+    if (includePaid !== null || includeUnpaid !== null) {
+      if (includePaid && includeUnpaid) {
+        // kein Filter
+      } else if (includePaid && !includeUnpaid) {
+        where.paid = true;
+      } else if (!includePaid && includeUnpaid) {
+        where.paid = false;
+      } else {
+        where.paid = { in: [null] };
+      }
+    }
+    if (includeBilled !== null || includeUnbilled !== null) {
+      if (includeBilled && includeUnbilled) {
+        // kein Filter
+      } else if (includeBilled && !includeUnbilled) {
+        where.interestBilled = true;
+      } else if (!includeBilled && includeUnbilled) {
+        where.interestBilled = false;
+      } else {
+        where.interestBilled = { in: [null] };
+      }
+    }
   }
 
   // createdBy ermitteln

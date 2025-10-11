@@ -80,6 +80,7 @@ export async function POST(req: Request) {
   }
 
   const { name, responsibleId, reimbursementEligible } = body || {};
+  const interest = typeof body?.interest === 'boolean' ? Boolean(body.interest) : false; // Default: false
   if (!name) {
     return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
   }
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
 
   try {
     const created = await prisma.$transaction(async (p) => {
-      const account = await p.account.create({ data: { balance: 0, interest: true, type: "clearing_account" } });
+      const account = await p.account.create({ data: { balance: 0, interest: interest, type: "clearing_account" } });
       const ca = await p.clearingAccount.create({
         data: {
           name: String(name),

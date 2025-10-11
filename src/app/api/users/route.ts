@@ -71,6 +71,7 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { first_name, last_name, mail } = body;
+        const interest = typeof body?.interest === 'boolean' ? Boolean(body.interest) : true; // Default: true
 
         if (!first_name || !last_name || !mail) {
             return NextResponse.json({ error: "Fehlende Felder" }, { status: 400 });
@@ -89,7 +90,7 @@ export async function POST(req: Request) {
         const account = await prisma.account.create({
             data: {
                 balance: 0,
-                interest: true,
+                interest: interest,
                 type: "user",
             },
         });

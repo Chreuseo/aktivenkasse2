@@ -18,6 +18,24 @@ function getRate(): number {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
+function buildAccountLabel(acc: any): string {
+  if (!acc) return String("");
+  // Präferenz: User, dann Clearing, dann Bank
+  if (Array.isArray(acc.users) && acc.users.length > 0) {
+    const u = acc.users[0];
+    return `${u.first_name} ${u.last_name}`;
+  }
+  if (Array.isArray(acc.clearingAccounts) && acc.clearingAccounts.length > 0) {
+    const c = acc.clearingAccounts[0];
+    return c?.name || "Verrechnungskonto";
+  }
+  if (Array.isArray(acc.bankAccounts) && acc.bankAccounts.length > 0) {
+    const b = acc.bankAccounts[0];
+    return b?.name ? `${b.name} (Bank)` : "Bankkonto";
+  }
+  return acc?.type || "";
+}
+
 export async function GET(req: NextRequest) {
   const perm = await checkPermission(req as unknown as Request, ResourceType.transactions, AuthorizationType.read_all);
   if (!perm.allowed) {
@@ -61,7 +79,7 @@ export async function GET(req: NextRequest) {
   const dues = await prisma.dues.findMany({
     where,
     orderBy: [{ dueDate: "asc" }, { id: "asc" }],
-    include: { account: true },
+    include: { account: { include: { users: true, clearingAccounts: true, bankAccounts: true } } },
   });
 
   const rate = getRate();
@@ -91,6 +109,7 @@ export async function GET(req: NextRequest) {
       id: d.id,
       accountId: d.accountId,
       accountType: acc?.type ?? null,
+      accountLabel: buildAccountLabel(acc),
       interestEnabled: !!acc?.interest,
       amount: principal,
       dueDate: d.dueDate,

@@ -17,12 +17,14 @@ export default function NewUserPage() {
         first_name: "",
         last_name: "",
         mail: "",
+        interest: true,
     });
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, type, value, checked } = e.target;
+        setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -41,7 +43,7 @@ export default function NewUserPage() {
             });
             if (res.ok) {
                 setMessage("✅ User erfolgreich angelegt!");
-                setFormData({ first_name: "", last_name: "", mail: ""});
+                setFormData({ first_name: "", last_name: "", mail: "", interest: true });
             } else {
                 const err = await res.json();
                 setMessage("❌ Fehler: " + err.error);
@@ -70,6 +72,11 @@ export default function NewUserPage() {
                 <label>
                     E-Mail
                     <input type="email" name="mail" value={formData.mail} onChange={handleChange} required />
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="checkbox" name="interest" checked={formData.interest} onChange={handleChange} />
+                    <span>Zinsen erheben</span>
                 </label>
 
                 <button className="button" type="submit" disabled={loading}>Anlegen</button>

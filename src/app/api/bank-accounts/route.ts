@@ -66,9 +66,9 @@ export async function POST(req: Request) {
 
   try {
     const result = await prisma.$transaction(async (p) => {
-      // Konto für das Bankkonto anlegen (Typ: bank, Startsaldo 0)
+      // Konto für das Bankkonto anlegen (Typ: bank, Startsaldo 0) — Zinsen: immer false
       const account = await p.account.create({
-        data: { balance: 0, interest: true, type: "bank" },
+        data: { balance: 0, interest: false, type: "bank" },
       });
 
       // BankAccount-Datensatz anlegen und mit Account verknüpfen

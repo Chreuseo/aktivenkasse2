@@ -112,6 +112,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     responsibleId: ca.responsibleId ?? null,
     balance: ca.account?.balance ? Number(ca.account.balance) : 0,
     reimbursementEligible: ca.reimbursementEligible,
+    interest: !!ca.account?.interest,
     members,
     transactions: txs,
   });

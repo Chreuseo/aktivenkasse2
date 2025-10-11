@@ -21,7 +21,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const idStr = await getIdFromContext(context);
   const idNum = Number(idStr);
   if (!idNum || isNaN(idNum)) return NextResponse.json({ error: "Ungültige Nutzer-ID" }, { status: 400 });
-  const user = await prisma.user.findUnique({ where: { id: idNum } });
+  const user = await prisma.user.findUnique({ where: { id: idNum }, include: { account: true } });
   if (!user) return NextResponse.json({ error: "Nutzer nicht gefunden" }, { status: 404 });
   return NextResponse.json({
     id: user.id,
@@ -29,6 +29,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     last_name: user.last_name,
     mail: user.mail,
     enabled: user.enabled,
+    interest: !!user.account?.interest,
   });
 }
 
@@ -46,7 +47,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
   const idStr = await getIdFromContext(context);
   const idNum = Number(idStr);
   if (!idNum || isNaN(idNum)) return NextResponse.json({ error: "Ungültige Nutzer-ID" }, { status: 400 });
-  const { first_name, last_name, mail, enabled } = body || {};
+  const { first_name, last_name, mail, enabled, interest } = body || {};
   if (!first_name || !last_name || !mail || typeof enabled !== "boolean") {
     return NextResponse.json({ error: "Vorname, Nachname, Mail und Enabled sind erforderlich" }, { status: 400 });
   }
@@ -115,11 +116,14 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     return NextResponse.json({ error: "Fehler beim Update in Keycloak", detail: e?.message }, { status: 500 });
   }
 
-  // 2) DB aktualisieren (inkl. enabled)
+  // 2) DB aktualisieren (inkl. enabled und interest)
   await prisma.user.update({
     where: { id: idNum },
     data: { first_name, last_name, mail, enabled },
   });
+  if (typeof interest === 'boolean') {
+    await prisma.account.update({ where: { id: user.accountId }, data: { interest: Boolean(interest) } });
+  }
 
   return NextResponse.json({ success: true });
 }

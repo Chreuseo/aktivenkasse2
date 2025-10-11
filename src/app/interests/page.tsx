@@ -9,6 +9,7 @@ type DueRow = {
   id: number;
   accountId: number;
   accountType: string | null;
+  accountLabel?: string;
   interestEnabled: boolean;
   amount: number;
   dueDate: string; // ISO
@@ -301,7 +302,7 @@ export default function InterestsPage() {
                   <input type="checkbox" checked={selected[r.id] ?? false} onChange={(e) => setSelected((s) => ({ ...s, [r.id]: e.target.checked }))} aria-label={`Auswählen Due #${r.id}`} />
                 </td>
                 <td>#{r.id}</td>
-                <td>{r.accountId}</td>
+                <td>{r.accountLabel || r.accountId}</td>
                 <td>{r.accountType || "-"}{!r.interestEnabled ? " (zinsfrei)" : ""}</td>
                 <td>{formatCurrency(r.amount)}</td>
                 <td>{formatDate(r.dueDate)}</td>

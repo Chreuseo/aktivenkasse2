@@ -12,6 +12,7 @@ export default function NewClearingAccountPage() {
         name: "",
         responsibleId: "",
         reimbursementEligible: false,
+        interest: false,
     });
     const [users, setUsers] = useState<User[]>([]);
     const [message, setMessage] = useState("");
@@ -67,10 +68,11 @@ export default function NewClearingAccountPage() {
                     name: formData.name,
                     responsibleId: formData.responsibleId || null,
                     reimbursementEligible: formData.reimbursementEligible,
+                    interest: formData.interest,
                 }),
             });
             setMessage("✅ Verrechnungskonto erfolgreich angelegt!");
-            setFormData({ name: "", responsibleId: "", reimbursementEligible: false });
+            setFormData({ name: "", responsibleId: "", reimbursementEligible: false, interest: false });
         } catch (error: any) {
             setMessage("❌ Fehler: " + error.message);
         } finally {
@@ -101,6 +103,10 @@ export default function NewClearingAccountPage() {
                         <option value="true">Ja</option>
                         <option value="false">Nein</option>
                     </select>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="checkbox" name="interest" checked={formData.interest} onChange={handleChange} />
+                    <span>Zinsen erheben</span>
                 </label>
                 <button className="button" type="submit" disabled={loading}>Anlegen</button>
             </form>
