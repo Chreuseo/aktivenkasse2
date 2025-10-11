@@ -1,8 +1,6 @@
 // Zentrale Service-Funktionen zur Erstellung von Transaktionen (einzeln, paarweise, Bulk)
 // Vereinheitlicht die Updates von Kontoständen und Links (Gegenbuchung, Bulk-Verknüpfungen).
 
-import { BulkTransactionType } from '@prisma/client';
-
 // Typen bewusst locker (any), um Transaktionsclient (Prisma tx) kompatibel zu nutzen
 // ohne harte Abhängigkeit auf Prisma-Typen in allen Call-Sites.
 
@@ -19,6 +17,73 @@ export type CreateTransactionParams = {
   costCenterId?: number | null;
   extraData?: Record<string, any>; // optionale zusätzliche Felder (z.B. transactionBulk)
 };
+
+export type BulkTransactionType = 'collection' | 'deposit' | 'payout';
+
+function getEnvMulti(keys: string[], fallback = ""): string {
+  for (const k of keys) {
+    const v = process.env[k];
+    if (v && String(v).trim().length) return String(v);
+  }
+  return fallback;
+}
+
+function getDefaultDueDays(): number {
+  const str = getEnvMulti(["DUE_DEFAULT_DAYS", "DUES_DEFAULT_DAYS", "due.default.days"], "14");
+  const n = parseInt(str, 10);
+  return Number.isFinite(n) && n > 0 ? n : 14;
+}
+
+function computeDueDateFrom(paymentDate: Date): Date {
+  const days = getDefaultDueDays();
+  return new Date(paymentDate.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+export async function settleDuesForAccountOnDeposit(p: PrismaTx, params: { accountId: number; paymentAmount: number; paymentDate: Date }) {
+  const { accountId, paymentAmount, paymentDate } = params;
+  let remaining = Number(paymentAmount);
+  if (!(remaining > 0)) return { paidDueIds: [] as number[], newDueId: null as number | null, remainingPayment: remaining };
+
+  // Offene Fälligkeiten nach Fälligkeit/ID sortiert (FIFO)
+  const dues: Array<{ id: number; amount: any; dueDate: Date }> = await p.dues.findMany({
+    where: { accountId, paid: false },
+    orderBy: [{ dueDate: 'asc' }, { id: 'asc' }],
+    select: { id: true, amount: true, dueDate: true },
+  });
+
+  const paidIds: number[] = [];
+  let newDueId: number | null = null;
+
+  for (const d of dues) {
+    if (!(remaining > 0)) break;
+    const dueAmount = Number(d.amount);
+
+    if (remaining >= dueAmount - 1e-6) {
+      // Vollständig beglichen
+      await p.dues.update({ where: { id: d.id }, data: { paid: true, paidAt: paymentDate } });
+      paidIds.push(d.id);
+      remaining = Math.max(0, remaining - dueAmount);
+    } else {
+      // Teilzahlung: alte Fälligkeit schließen und neue Fälligkeit für Rest ab Zahldatum erzeugen
+      const rest = Math.max(0, dueAmount - remaining);
+      await p.dues.update({ where: { id: d.id }, data: { paid: true, paidAt: paymentDate } });
+      paidIds.push(d.id);
+      const newDue = await p.dues.create({
+        data: {
+          accountId,
+          amount: Number(rest),
+          dueDate: computeDueDateFrom(paymentDate),
+          // createdAt = now() automatisch, paid=false default
+        },
+      });
+      newDueId = newDue.id;
+      remaining = 0;
+      break;
+    }
+  }
+
+  return { paidDueIds: paidIds, newDueId, remainingPayment: remaining };
+}
 
 export async function createTransactionWithBalance(p: PrismaTx, params: CreateTransactionParams) {
   const {
@@ -53,6 +118,13 @@ export async function createTransactionWithBalance(p: PrismaTx, params: CreateTr
     },
   });
   await p.account.update({ where: { id: accountId }, data: { balance: newBal } });
+
+  // Neue Fälligkeitslogik: Einzahlungen gleichen offene Fälligkeiten aus
+  if (Number(amount) > 0) {
+    const paymentDate: Date = dateValued ?? new Date();
+    await settleDuesForAccountOnDeposit(p, { accountId, paymentAmount: Number(amount), paymentDate });
+  }
+
   return tx;
 }
 
@@ -170,7 +242,7 @@ export type AddBulkRowWithCounterParams = {
 export async function addBulkRowWithCounter(p: PrismaTx, params: AddBulkRowWithCounterParams) {
   const { bulkId, mainTxId, rowAccountId, amount, description, createdById, dateValued, reference, attachmentId, costCenterId } = params;
 
-  const txRow = await createTransactionWithBalance(p, {
+  return await createTransactionWithBalance(p, {
     accountId: rowAccountId,
     amount,
     description,
@@ -181,8 +253,6 @@ export async function addBulkRowWithCounter(p: PrismaTx, params: AddBulkRowWithC
     costCenterId: costCenterId ?? null,
     extraData: { transactionBulk: { connect: { id: bulkId } }, counter_transaction: { connect: { id: mainTxId } } },
   });
-
-  return txRow;
 }
 
 export type AddBulkMainCostCenterRowParams = {
@@ -200,7 +270,7 @@ export type AddBulkMainCostCenterRowParams = {
 export async function addBulkMainCostCenterRow(p: PrismaTx, params: AddBulkMainCostCenterRowParams) {
   const { bulkId, mainAccountId, amount, description, createdById, dateValued, reference, attachmentId, costCenterId } = params;
 
-  const tx = await createTransactionWithBalance(p, {
+  return await createTransactionWithBalance(p, {
     accountId: mainAccountId,
     amount,
     description,
@@ -211,8 +281,6 @@ export async function addBulkMainCostCenterRow(p: PrismaTx, params: AddBulkMainC
     costCenterId,
     extraData: { transactionBulk: { connect: { id: bulkId } } },
   });
-
-  return tx;
 }
 
 export type CreateMultipleTransactionsParams = {

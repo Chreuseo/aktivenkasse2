@@ -365,7 +365,7 @@ export default function MailProcessPage() {
                 <td className="kc-checkbox">
                   <input
                     type="checkbox"
-                    checked={selected[r.key]}
+                    checked={selected[r.key] ?? false}
                     onChange={(e) => setSelected((s) => ({ ...s, [r.key]: e.target.checked }))}
                     aria-label={`Auswählen ${r.name}`}
                   />
