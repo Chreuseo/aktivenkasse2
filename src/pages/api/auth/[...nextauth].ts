@@ -2,6 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import NextAuth, { NextAuthOptions } from "next-auth";
 import KeycloakProvider from "next-auth/providers/keycloak";
+import prisma from "@/lib/prisma";
 
 const {
   KEYCLOAK_CLIENT_ID,
@@ -41,6 +42,55 @@ function decode(token: string) {
   return JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
 }
 
+// Leitet aus dem Keycloak-Token robuste Vor-/Nachnamen und eine E-Mail ab
+function deriveIdentity(decoded: any): { sub: string; first_name: string; last_name: string; email: string } {
+  const sub: string | undefined = decoded?.sub;
+  const emailRaw: string | undefined = decoded?.email;
+  const given: string | undefined = decoded?.given_name;
+  const family: string | undefined = decoded?.family_name;
+  const preferred: string | undefined = decoded?.preferred_username;
+  const name: string | undefined = decoded?.name;
+
+  let first = given || "";
+  let last = family || "";
+
+  if ((!first || !last) && name && typeof name === "string") {
+    const parts = name.trim().split(/\s+/);
+    if (!first && parts.length > 0) first = parts[0];
+    if (!last && parts.length > 1) last = parts.slice(1).join(" ");
+  }
+  if (!first) first = preferred || "Keycloak";
+  if (!last) last = sub || preferred || "User";
+
+  const email = (emailRaw && String(emailRaw)) || `${preferred || sub}@local.invalid`;
+
+  if (!sub) throw new Error("Missing sub in Keycloak token");
+  return { sub, first_name: first, last_name: last, email };
+}
+
+async function ensureUserExistsFromToken(decoded: any) {
+  const { sub, first_name, last_name, email } = deriveIdentity(decoded);
+
+  // Upsert per keycloak_id; bei Neuanlage direkt ein Konto anlegen
+  await prisma.user.upsert({
+    where: { keycloak_id: sub },
+    update: {
+      first_name,
+      last_name,
+      mail: email,
+    },
+    create: {
+      first_name,
+      last_name,
+      mail: email,
+      keycloak_id: sub,
+      account: {
+        create: { balance: 0, interest: true, type: "user" },
+      },
+    },
+  });
+}
+
 function buildAuthOptions(issuerBase: string): NextAuthOptions {
   return {
     providers: [
@@ -74,6 +124,13 @@ function buildAuthOptions(issuerBase: string): NextAuthOptions {
             family_name: decoded.family_name,
             email_verified: decoded.email_verified,
           };
+
+          // Beim ersten Login DB-User automatisch anlegen/aktualisieren
+          try {
+            await ensureUserExistsFromToken(decoded);
+          } catch (e) {
+            console.error("Failed to ensure user exists from Keycloak token:", e);
+          }
         }
         return token;
       },
