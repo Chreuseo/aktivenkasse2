@@ -17,7 +17,7 @@ model Account {
   clearingAccounts ClearingAccount[]
   transactions     Transaction[]
   transactionBulks TransactionBulk[]
-  dues             dues[]
+  dues             Dues[]
 }
 
 model User {
@@ -142,7 +142,7 @@ model Transaction {
   transactionBulk       TransactionBulk? @relation("BulkTransactions", fields: [transactionBulkId], references: [id])
   bulkMain              TransactionBulk? @relation("BulkMainTransaction")
   advances              Advances[]
-  dues                  dues[]
+  dues                  Dues[]
 }
 
 model TransactionBulk {
@@ -203,7 +203,7 @@ model Mail {
   attachment  String?
 }
 
-model dues {
+model Dues {
   id             Int          @id @default(autoincrement())
   amount         Decimal
   createdAt      DateTime     @default(now())
