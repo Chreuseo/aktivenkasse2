@@ -7,6 +7,7 @@ import { extractToken, fetchJson } from "@/lib/utils";
 import type { User } from "@/app/types/clearingAccount";
 import type { BankAccount } from "@/app/types/bankAccount";
 import type { ClearingAccount } from "@/app/types/clearingAccount";
+import AttachmentHint from "@/app/components/AttachmentHint";
 
 const accountTypes = [
     { value: "user", label: "Nutzer" },
@@ -409,6 +410,7 @@ export default function NewTransactionPage() {
                         accept="image/*,application/pdf"
                     />
                 </label>
+                <AttachmentHint file={formData.attachment} />
                 <button type="submit" disabled={loading}>Anlegen</button>
             </form>
             {message && <p className="message">{message}</p>}

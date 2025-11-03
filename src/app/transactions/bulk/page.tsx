@@ -8,6 +8,7 @@ import { extractToken, fetchJson } from "@/lib/utils";
 import type { User } from "@/app/types/clearingAccount";
 import type { BankAccount } from "@/app/types/bankAccount";
 import type { ClearingAccount } from "@/app/types/clearingAccount";
+import AttachmentHint from "@/app/components/AttachmentHint";
 
 const bulkTypes = [
   { value: "einzug", label: "Einzug" },
@@ -371,6 +372,7 @@ export default function BulkTransactionPage() {
             accept="image/*,application/pdf"
           />
         </label>
+        <AttachmentHint file={formData.attachment} />
 
       </div>
         <div className="form-table-wrapper">

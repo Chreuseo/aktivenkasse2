@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { extractToken } from "@/lib/utils";
 import "../../css/forms.css";
+import AttachmentHint from "@/app/components/AttachmentHint";
 
 type Props = {
   accounts: { id: number; name: string }[];
@@ -136,6 +137,7 @@ export default function NewAdvanceForm({ accounts }: Props) {
             accept="image/*,application/pdf"
           />
         </label>
+        <AttachmentHint file={file} />
 
         <button type="submit" disabled={loading || !session}>
           {loading ? "Wird gespeichert…" : "Auslage anlegen"}
