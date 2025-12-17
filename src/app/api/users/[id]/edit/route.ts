@@ -4,16 +4,12 @@ import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
 import { resolveEnv, normalizeBaseUrl, getKeycloakToken } from "@/lib/keycloakUtils";
 
-async function getIdFromContext(context: { params: Promise<{ id: string }> | { id: string } }): Promise<string> {
-  const p: any = (context as any).params;
-  if (p && typeof p.then === "function") {
-    const { id } = await p;
-    return id;
-  }
-  return (p?.id ?? "");
+async function getIdFromContext(context: any): Promise<string> {
+  const params = context?.params;
+  return params?.id ?? "";
 }
 
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> | { id: string } }) {
+export async function GET(req: NextRequest, context: any) {
   const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.write_all);
   if (!perm.allowed) {
     return NextResponse.json({ error: "Keine Berechtigung für Nutzer bearbeiten" }, { status: 403 });
@@ -33,7 +29,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   });
 }
 
-export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> | { id: string } }) {
+export async function PUT(req: NextRequest, context: any) {
   const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.write_all);
   if (!perm.allowed) {
     return NextResponse.json({ error: "Keine Berechtigung für Nutzer bearbeiten" }, { status: 403 });

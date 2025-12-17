@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const { id } = await context.params;
+export async function GET(req: NextRequest, context: any) {
+  const id = context?.params?.id as string;
   const attachmentId = Number(id);
   if (!attachmentId || isNaN(attachmentId)) {
     return NextResponse.json({ error: "Ungültige Attachment-ID" }, { status: 400 });

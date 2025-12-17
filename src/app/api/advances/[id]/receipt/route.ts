@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const { id } = await context.params;
+export async function GET(req: NextRequest, context: any) {
+  const id = context?.params?.id as string;
   const advId = Number(id);
   if (!advId || isNaN(advId)) {
     return NextResponse.json({ error: "Ungültige Auslagen-ID" }, { status: 400 });
