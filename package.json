@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
@@ -15,9 +15,9 @@
     "@types/formidable": "^3.4.5",
     "formidable": "^3.5.4",
     "jwt-decode": "^4.0.0",
-    "next": "^15.5.2",
-    "next-auth": "^4.24.11",
-    "nodemailer": "^6.10.1",
+    "next": "^15.5.8",
+    "next-auth": "^4.24.7",
+    "nodemailer": "^7.0.11",
     "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.3",
     "react": "^19.1.0",

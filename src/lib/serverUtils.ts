@@ -113,11 +113,12 @@ export async function saveAttachmentFromTempFile(prisma: PrismaClient, file: { f
         fileBuffer = fs.readFileSync(absoluteFilepath);
     } catch {}
     if (!fileBuffer) return null;
+    const u8 = new Uint8Array(fileBuffer);
     const att = await prisma.attachment.create({
         data: {
             name: file.filename || 'Anhang',
             mimeType: file.mimetype || 'application/octet-stream',
-            data: fileBuffer,
+            data: u8,
         },
     });
     // Temporäre Datei versuchen zu löschen
