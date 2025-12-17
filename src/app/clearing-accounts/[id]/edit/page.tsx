@@ -8,6 +8,7 @@ import "../../../css/edit-form.css";
 
 export default function EditClearingAccountPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
+    const numId = Number(id);
     const { data: session } = useSession();
     const [formData, setFormData] = useState({
         name: "",
@@ -26,7 +27,7 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
             const token = extractToken(session);
             // 1) Clearing-Account zuerst laden (damit Mitglieder immer angezeigt werden)
             try {
-                const caJson = await fetchJson(`/api/clearing-accounts/${id}`, {
+                const caJson = await fetchJson(`/api/clearing-accounts/${numId}`, {
                     method: "GET",
                     headers: {
                         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -62,7 +63,7 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
             }
         }
         loadData();
-    }, [session, id]);
+    }, [session, numId]);
 
     const safeMembers = Array.isArray(members) ? members : [];
     const availableMembers = users.filter(u => !safeMembers.some(m => m.id === u.id));
@@ -101,7 +102,7 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
         setLoading(true);
         try {
             const token = extractToken(session);
-            await fetchJson(`/api/clearing-accounts/${id}/edit`, {
+            await fetchJson(`/api/clearing-accounts/${numId}/edit`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",

@@ -4,17 +4,16 @@ import {AuthorizationType, ResourceType} from "@/app/types/authorization";
 import {checkPermission, getUserIdFromRequest} from "@/services/authService";
 import {clearing_account_roles, getClearingAccountRole} from "@/lib/getUserAuthContext";
 
-export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const { id } = await context.params;
+export async function PUT(req: NextRequest, context: any) {
+  const id = Number(context.params.id);
+  if (!id || isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
   const keycloakId = getUserIdFromRequest(req);
   if (!keycloakId) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
-  const idNum = Number(id);
-  if (isNaN(idNum)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
-  const ca = await prisma.clearingAccount.findUnique({ where: { id: idNum } });
+  const ca = await prisma.clearingAccount.findUnique({ where: { id } });
   if (!ca) return NextResponse.json({ error: "Verrechnungskonto nicht gefunden" }, { status: 404 });
   // Admin-/Globale Berechtigung zuerst prüfen
 
-  const user_role = await getClearingAccountRole(idNum, keycloakId);
+  const user_role = await getClearingAccountRole(id, keycloakId);
   switch (user_role) {
     case clearing_account_roles.none:
       const perm = await checkPermission(req, ResourceType.clearing_accounts, AuthorizationType.write_all);
@@ -47,7 +46,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
   }
   // Update ClearingAccount
   await prisma.clearingAccount.update({
-    where: { id: idNum },
+    where: { id },
     data: {
       name,
       responsibleId: responsible ? (responsible as any).id : null,
@@ -60,12 +59,12 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
   }
   // Mitglieder aktualisieren (ersetzen)
   if (Array.isArray(memberIds)) {
-    await prisma.clearingAccountMember.deleteMany({ where: { clearingAccountId: idNum } });
+    await prisma.clearingAccountMember.deleteMany({ where: { clearingAccountId: id } });
     for (const userId of memberIds) {
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (user) {
         await prisma.clearingAccountMember.create({
-          data: { clearingAccountId: idNum, userId: user.id },
+          data: { clearingAccountId: id, userId: user.id },
         });
       }
     }

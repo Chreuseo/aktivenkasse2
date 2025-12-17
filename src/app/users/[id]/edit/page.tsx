@@ -7,6 +7,7 @@ import "../../../css/edit-form.css";
 
 export default function EditUserPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const numId = Number(id);
   const { data: session, status } = useSession();
   const [formData, setFormData] = useState({
     first_name: "",
@@ -30,7 +31,7 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
           setFormLoading(false);
           return;
         }
-        const userJson = await fetchJson(`/api/users/${id}/edit`, {
+        const userJson = await fetchJson(`/api/users/${numId}/edit`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -51,7 +52,7 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
       }
     }
     loadData();
-  }, [session, status, id]);
+  }, [session, status, numId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -74,7 +75,7 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
       return;
     }
     try {
-      await fetchJson(`/api/users/${id}/edit`, {
+      await fetchJson(`/api/users/${numId}/edit`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

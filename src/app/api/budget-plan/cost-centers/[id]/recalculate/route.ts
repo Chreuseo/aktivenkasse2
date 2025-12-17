@@ -1,22 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import {checkPermission} from "@/services/authService";
-import { ResourceType, AuthorizationType } from "@/app/types/authorization";
+import { AuthorizationType, ResourceType } from "@/app/types/authorization";
+import { checkPermission } from "@/services/authService";
 
 // POST: /api/budget-plan/cost-centers/[id]/recalculate
-export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const { id: idStr } = await context.params;
-  const id = Number(idStr);
-  if (!id) return NextResponse.json({ error: "ID erforderlich" }, { status: 400 });
+export async function POST(req: NextRequest, context: any) {
+  const { id } = context.params;
+  const idNum = Number(id);
+  if (!idNum || isNaN(idNum)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
   const perm = await checkPermission(req, ResourceType.budget_plan, AuthorizationType.write_all);
-  if (!perm.allowed) {
-    return NextResponse.json({ error: "Keine Berechtigung für write_all auf budget_plan" }, { status: 403 });
-  }
+  if (!perm.allowed) return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
 
   // Hole alle Transaktionen mit costCenterId = id (signed amounts)
   const transactions = await prisma.transaction.findMany({
-    where: { costCenterId: id },
+    where: { costCenterId: idNum },
     select: { amount: true },
   });
 
@@ -34,12 +32,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   // Update Kostenstelle
   await prisma.costCenter.update({
-    where: { id },
+    where: { id: idNum },
     data: {
       earnings_actual: earnings,
       costs_actual: costs,
     },
   });
 
-  return NextResponse.json({ success: true, earnings_actual: earnings, costs_actual: costs });
+  return NextResponse.json({ success: true, id: idNum, earnings_actual: earnings, costs_actual: costs });
 }

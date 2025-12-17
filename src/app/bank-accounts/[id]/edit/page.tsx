@@ -8,6 +8,7 @@ import "../../../css/edit-form.css";
 
 export default function EditBankAccountPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
+    const numId = Number(id);
     const { data: session, status } = useSession();
     const [formData, setFormData] = useState({
         name: "",
@@ -33,7 +34,7 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
                     setFormLoading(false);
                     return;
                 }
-                const accJson: BankAccount = await fetchJson(`/api/bank-accounts/${id}`, {
+                const accJson: BankAccount = await fetchJson(`/api/bank-accounts/${numId}` , {
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -56,7 +57,7 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
             }
         }
         loadData();
-    }, [session, status, id]);
+    }, [session, status, numId]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, type, value, checked } = e.target;
@@ -79,7 +80,7 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
             return;
         }
         try {
-            await fetchJson(`/api/bank-accounts/${id}/edit`, {
+            await fetchJson(`/api/bank-accounts/${numId}/edit`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",

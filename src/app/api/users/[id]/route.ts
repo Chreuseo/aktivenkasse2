@@ -3,10 +3,10 @@ import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { checkPermission, extractTokenAndUserId } from "@/services/authService";
 
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, context: any) {
     // Rechtevalidierung für Nutzer-Detailansicht
     const { userId: tokenUserId } = extractTokenAndUserId(req as any);
-    const { id: requestedId } = await context.params;
+    const { id: requestedId } = context.params;
     let requiredPermission = AuthorizationType.read_all;
     if (tokenUserId && (requestedId === tokenUserId || requestedId === String(tokenUserId))) {
         requiredPermission = AuthorizationType.read_own;

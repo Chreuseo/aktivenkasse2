@@ -4,21 +4,12 @@ import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
 import { resolveEnv, normalizeBaseUrl, getKeycloakToken } from "@/lib/keycloakUtils";
 
-async function getIdFromContext(context: { params: Promise<{ id: string }> | { id: string } }): Promise<string> {
-  const p: any = (context as any).params;
-  if (p && typeof p.then === "function") {
-    const { id } = await p;
-    return id;
-  }
-  return (p?.id ?? "");
-}
-
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> | { id: string } }) {
+export async function GET(req: NextRequest, context: any) {
   const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.write_all);
   if (!perm.allowed) {
     return NextResponse.json({ error: "Keine Berechtigung für Nutzer bearbeiten" }, { status: 403 });
   }
-  const idStr = await getIdFromContext(context);
+  const idStr = context.params.id;
   const idNum = Number(idStr);
   if (!idNum || isNaN(idNum)) return NextResponse.json({ error: "Ungültige Nutzer-ID" }, { status: 400 });
   const user = await prisma.user.findUnique({ where: { id: idNum }, include: { account: true } });
@@ -33,7 +24,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   });
 }
 
-export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> | { id: string } }) {
+export async function PUT(req: NextRequest, context: any) {
   const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.write_all);
   if (!perm.allowed) {
     return NextResponse.json({ error: "Keine Berechtigung für Nutzer bearbeiten" }, { status: 403 });
@@ -44,7 +35,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
   } catch {
     return NextResponse.json({ error: "Ungültige JSON-Daten" }, { status: 400 });
   }
-  const idStr = await getIdFromContext(context);
+  const idStr = context.params.id;
   const idNum = Number(idStr);
   if (!idNum || isNaN(idNum)) return NextResponse.json({ error: "Ungültige Nutzer-ID" }, { status: 400 });
   const { first_name, last_name, mail, enabled, interest } = body || {};

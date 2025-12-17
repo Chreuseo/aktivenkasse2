@@ -29,8 +29,8 @@ function mapTypeToLabel(t: string | null | undefined): string {
   }
 }
 
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const { id } = await context.params;
+export async function GET(req: NextRequest, context: any) {
+  const { id } = context.params;
 
   const perm = await checkPermission(req, ResourceType.transactions, AuthorizationType.read_all);
   if (!perm.allowed) {
@@ -95,4 +95,3 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 export async function POST() {
   return NextResponse.json({ error: 'Method Not Allowed' }, { status: 405, headers: { Allow: 'GET' } });
 }
-

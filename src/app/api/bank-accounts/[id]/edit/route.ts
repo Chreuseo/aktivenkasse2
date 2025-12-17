@@ -5,9 +5,9 @@ import { checkPermission } from "@/services/authService";
 
 export async function PUT(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: any
 ) {
-  const { id } = await context.params;
+  const { id } = context.params;
   const idNum = Number(id);
   if (isNaN(idNum)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
   const acc = await prisma.bankAccount.findUnique({ where: { id: idNum } });

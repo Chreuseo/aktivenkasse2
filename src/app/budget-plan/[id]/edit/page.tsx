@@ -14,6 +14,7 @@ const budgetPlanStates = [
 
 export default function EditBudgetPlanPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const numId = Number(id);
   const { data: session, status } = useSession();
   const [formData, setFormData] = useState<BudgetPlanFormData>({
     name: "",
@@ -37,7 +38,7 @@ export default function EditBudgetPlanPage({ params }: { params: Promise<{ id: s
           setFormLoading(false);
           return;
         }
-        const planJson = await fetchJson(`/api/budget-plan/${id}`, {
+        const planJson = await fetchJson(`/api/budget-plan/${numId}`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -55,7 +56,7 @@ export default function EditBudgetPlanPage({ params }: { params: Promise<{ id: s
       }
     }
     loadData();
-  }, [session, status, id]);
+  }, [session, status, numId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     if (isClosed) return;
@@ -84,7 +85,7 @@ export default function EditBudgetPlanPage({ params }: { params: Promise<{ id: s
       return;
     }
     try {
-      await fetchJson(`/api/budget-plan/${id}/edit`, {
+      await fetchJson(`/api/budget-plan/${numId}/edit`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

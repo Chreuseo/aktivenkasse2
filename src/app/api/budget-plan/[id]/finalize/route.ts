@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { AuthorizationType, ResourceType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
-import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 
 // POST: /api/budget-plan/[id]/finalize
 // Führt eine abschließende Neuberechnung durch und setzt den Plan-Status auf "closed".
-export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const { id } = await context.params;
+export async function POST(req: NextRequest, context: any) {
+  const { id } = context.params;
   const planId = Number(id);
   if (isNaN(planId)) {
     return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

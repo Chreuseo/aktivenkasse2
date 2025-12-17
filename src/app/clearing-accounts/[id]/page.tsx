@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, use } from "react";
 import { useSession } from "next-auth/react";
 import { extractToken, fetchJson } from "@/lib/utils";
 import { ClearingAccount } from "@/app/types/clearingAccount";
@@ -15,15 +15,16 @@ interface ClearingAccountData extends ClearingAccount {
 }
 
 export default function ClearingAccountOverviewPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const numId = Number(id);
   const { data: session } = useSession();
-  const resolvedParams = React.use(params);
   const [data, setData] = useState<ClearingAccountData | null>(null);
   const [error, setError] = useState<string>("");
   useEffect(() => {
     async function loadData() {
       try {
         const token = extractToken(session);
-        const json = await fetchJson(`/api/clearing-accounts/${resolvedParams.id}`, {
+        const json = await fetchJson(`/api/clearing-accounts/${numId}`, {
           method: "GET",
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -36,7 +37,7 @@ export default function ClearingAccountOverviewPage({ params }: { params: Promis
       }
     }
     loadData();
-  }, [session, resolvedParams.id]);
+  }, [session, numId]);
 
   if (error) return <div className="kc-infobox" style={{ color: "#e11d48" }}>❌ {error}</div>;
   if (!data) return <div className="kc-infobox">Lade Daten...</div>;
