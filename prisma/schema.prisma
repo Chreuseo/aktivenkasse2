@@ -36,6 +36,11 @@ model User {
   advancesReviewed            Advances[]              @relation("Reviewer")
   mails                       Mail[]
   TransactionCreated          Transaction[]
+  HV_Mitglied                 Boolean                 @default(false)
+  Status                      String                  @default("")
+  Street                      String                  @default("")
+  postalCode                  String                  @default("")
+  City                        String                  @default("")
 }
 
 model Role {

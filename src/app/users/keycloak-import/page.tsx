@@ -67,6 +67,14 @@ export default function KeycloakImportPage() {
     const anySelected = Object.values(selected).some(Boolean);
     setSelected(anySelected ? {} : all);
   }
+  function selectChanged() {
+    // Wählt nur Einträge mit status "changed" aus
+    const onlyChanged = rows.reduce((acc, r) => {
+      acc[r.keycloak_id] = r.status === "changed";
+      return acc;
+    }, {} as Record<string, boolean>);
+    setSelected(onlyChanged);
+  }
 
   async function importSelected() {
     const ids = Object.entries(selected).filter(([,v]) => v).map(([k]) => k);
@@ -126,6 +134,7 @@ export default function KeycloakImportPage() {
       <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>
         <button className="button" onClick={load} disabled={loading}>Aktualisieren</button>
         <button className="button" onClick={toggleAll} disabled={loading}>Alle auswählen/abwählen</button>
+        <button className="button" onClick={selectChanged} disabled={loading}>Änderungen auswählen</button>
         <button className="button" onClick={importSelected} disabled={loading}>Ausgewählte importieren</button>
       </div>
       {msg && <div style={{ marginBottom: 12, fontWeight: 600, color: "var(--secondary-color, #facc15)" }}>{msg}</div>}
