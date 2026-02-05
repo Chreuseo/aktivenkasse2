@@ -316,3 +316,41 @@ export async function createMultipleTransactions(p: PrismaTx, params: CreateMult
   }
   return created;
 }
+
+export async function processPendingTransactions(p: PrismaTx) {
+  // Verarbeite alle Transaktionen, die noch nicht gebucht sind und deren Bewertungsdatum erreicht ist
+  const now = new Date();
+  const pending = await p.transaction.findMany({
+    where: { processed: false, date_valued: { lte: now } },
+    select: { id: true, amount: true, accountId: true, date_valued: true },
+    orderBy: [{ date_valued: 'asc' }, { id: 'asc' }],
+  });
+
+  const processedIds: number[] = [];
+
+  for (const tx of pending) {
+    const acc = await p.account.findUnique({ where: { id: tx.accountId }, select: { id: true, balance: true } });
+    if (!acc) continue;
+
+    const newBal = Number(acc.balance) + Number(tx.amount);
+
+    // Transaktion als verarbeitet markieren und accountValueAfter setzen
+    await p.transaction.update({
+      where: { id: tx.id },
+      data: { processed: true, accountValueAfter: newBal },
+    });
+
+    // Kontostand aktualisieren
+    await p.account.update({ where: { id: acc.id }, data: { balance: newBal } });
+
+    // Einzahlungen gleichen Fälligkeiten aus (analog zu createTransactionWithBalance)
+    if (Number(tx.amount) > 0) {
+      const paymentDate: Date = tx.date_valued ?? now;
+      await settleDuesForAccountOnDeposit(p, { accountId: acc.id, paymentAmount: Number(tx.amount), paymentDate });
+    }
+
+    processedIds.push(tx.id);
+  }
+
+  return { count: processedIds.length, ids: processedIds };
+}
