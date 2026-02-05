@@ -29,7 +29,7 @@ export default function GeneralTransactionTable({ transactions }: GeneralTransac
           <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Transaktionen vorhanden</td></tr>
         )}
         {transactions.map((tx: Transaction) => (
-          <tr key={tx.id} className="kc-row">
+          <tr key={tx.id} className="kc-row" style={{ opacity: tx.processed === false ? 0.5 : 1 }}>
             <td>
               {tx.main ? (
                 <span>

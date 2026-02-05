@@ -28,7 +28,7 @@ export default function TransactionTable({ transactions }: TransactionTableProps
           <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Transaktionen vorhanden</td></tr>
         )}
         {transactions.map((tx: Transaction) => (
-          <tr key={tx.id} className="kc-row">
+          <tr key={tx.id} className="kc-row" style={{ opacity: tx.processed === false ? 0.5 : 1 }}>
             <td style={{ color: tx.amount < 0 ? "#e11d48" : "#059669", fontWeight: 600 }}>{tx.amount.toFixed(2)} €</td>
             <td>{new Date(tx.date).toLocaleDateString()}</td>
             <td>{tx.description}</td>

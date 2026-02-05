@@ -131,6 +131,7 @@ model Transaction {
   date_valued           DateTime         @default(now())
   description           String
   reference             String?
+  processed             Boolean          @default(true)
   accountId             Int
   account               Account          @relation(fields: [accountId], references: [id])
   createdById           Int

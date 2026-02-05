@@ -69,6 +69,7 @@ export async function GET(req: Request) {
       date: (tx.date ?? tx.date_valued ?? new Date()).toISOString(),
       description: tx.description,
       reference: tx.reference || undefined,
+      processed: !!tx.processed,
       other: null,
       main,
       attachmentId: tx.attachmentId || undefined,

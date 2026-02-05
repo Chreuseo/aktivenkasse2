@@ -101,28 +101,40 @@ export async function createTransactionWithBalance(p: PrismaTx, params: CreateTr
   const acc = await p.account.findUnique({ where: { id: accountId } });
   if (!acc) throw new Error('Account nicht gefunden');
   const bal = Number(acc.balance);
-  const newBal = bal + Number(amount);
+
+  // Bewertungsdatum bestimmen und prüfen, ob es in der Zukunft liegt
+  const valuedDate: Date | undefined = dateValued ?? undefined;
+  const isFuture = !!valuedDate && valuedDate.getTime() > Date.now();
+
+  // Wenn in der Zukunft: nicht buchen (processed=false), Kontostand unverändert
+  // Sonst: buchen (processed=true)
+  const willProcess = !isFuture;
+  const newBal = willProcess ? bal + Number(amount) : bal;
 
   const tx = await p.transaction.create({
     data: {
       amount: Number(amount),
-      ...(dateValued ? { date_valued: dateValued } : {}),
+      ...(valuedDate ? { date_valued: valuedDate } : {}),
       description: String(description),
       ...(reference ? { reference: String(reference) } : {}),
       account: { connect: { id: accountId } },
       accountValueAfter: newBal,
+      processed: willProcess,
       ...(attachmentId ? { attachment: { connect: { id: Number(attachmentId) } } } : {}),
       ...(costCenterId ? { costCenter: { connect: { id: Number(costCenterId) } } } : {}),
       createdBy: { connect: { id: createdById } },
       ...(extraData || {}),
     },
   });
-  await p.account.update({ where: { id: accountId }, data: { balance: newBal } });
 
-  // Neue Fälligkeitslogik: Einzahlungen gleichen offene Fälligkeiten aus
-  if (Number(amount) > 0) {
-    const paymentDate: Date = dateValued ?? new Date();
-    await settleDuesForAccountOnDeposit(p, { accountId, paymentAmount: Number(amount), paymentDate });
+  if (willProcess) {
+    await p.account.update({ where: { id: accountId }, data: { balance: newBal } });
+
+    // Neue Fälligkeitslogik: Einzahlungen gleichen offene Fälligkeiten aus
+    if (Number(amount) > 0) {
+      const paymentDate: Date = valuedDate ?? new Date();
+      await settleDuesForAccountOnDeposit(p, { accountId, paymentAmount: Number(amount), paymentDate });
+    }
   }
 
   return tx;

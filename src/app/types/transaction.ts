@@ -4,6 +4,7 @@ export type Transaction = {
     date: string;
     description: string;
     reference?: string;
+    processed?: boolean;
     other?: {
         type: "user" | "bank" | "clearing_account";
         name: string;
