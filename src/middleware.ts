@@ -21,6 +21,7 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
     pathname.startsWith("/api/auth") ||
+    pathname === "/api/cron" || // Cron-API offen lassen, da sie sich selbst mit Secret schützt
     pathname === "/login"
   ) {
     return NextResponse.next();
