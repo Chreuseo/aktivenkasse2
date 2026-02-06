@@ -27,21 +27,29 @@ export async function GET(req: Request) {
     }
 
     const accountId = user.accountId;
-    const transactionsRaw = await prisma.transaction.findMany({
-      where: { accountId },
-      orderBy: { date: "desc" },
-      include: {
-        counter_transaction: {
-          include: {
-            account: { include: { users: true, bankAccounts: true, clearingAccounts: true } },
-          },
-        },
-        costCenter: { include: { budget_plan: true } },
-        attachment: true,
-      },
-    });
 
-    const txs = transactionsRaw.map((tx: any) => {
+    const [transactionsRaw, allowances] = await Promise.all([
+      prisma.transaction.findMany({
+        where: { accountId },
+        orderBy: { date: "desc" },
+        include: {
+          counter_transaction: {
+            include: {
+              account: { include: { users: true, bankAccounts: true, clearingAccounts: true } },
+            },
+          },
+          costCenter: { include: { budget_plan: true } },
+          attachment: true,
+        },
+      }),
+      prisma.allowance.findMany({
+        where: { accountId },
+        orderBy: { date: "desc" },
+        include: { account: { include: { users: true, bankAccounts: true, clearingAccounts: true } } },
+      }),
+    ]);
+
+    const txDto = (tx: any) => {
       const other = tx.counter_transaction
         ? (() => {
             const acc = tx.counter_transaction.account;
@@ -69,12 +77,16 @@ export async function GET(req: Request) {
         description: tx.description,
         reference: tx.reference || undefined,
         other,
+        processed: !!tx.processed,
         attachmentId: tx.attachmentId || undefined,
         receiptUrl: tx.attachmentId ? `/api/transactions/${tx.id}/receipt` : undefined,
         costCenterLabel,
         bulkId: tx.transactionBulkId ? Number(tx.transactionBulkId) : undefined,
       };
-    });
+    };
+
+    const planned = transactionsRaw.filter(t => !t.processed).map(txDto);
+    const past = transactionsRaw.filter(t => t.processed).map(txDto);
 
     return NextResponse.json({
       user: {
@@ -83,8 +95,11 @@ export async function GET(req: Request) {
         last_name: user.last_name,
         mail: user.mail,
         balance: user.account?.balance ? Number(user.account.balance) : 0,
+        accountId,
       },
-      transactions: txs,
+      planned,
+      past,
+      allowances,
     });
   } catch (error: any) {
     console.error(error);

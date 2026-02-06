@@ -94,6 +94,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       receiptUrl: tx.attachmentId ? `/api/transactions/${tx.id}/receipt` : undefined,
       costCenterLabel,
       bulkId: tx.transactionBulkId ? Number(tx.transactionBulkId) : undefined,
+      processed: !!tx.processed,
     };
   });
 
@@ -104,16 +105,30 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     mail: m.user.mail,
   }));
 
+  // allowances des verknüpften Accounts
+  const allowances = await prisma.allowance.findMany({
+    where: { accountId: ca.accountId },
+    orderBy: { date: "desc" },
+  });
+
+  // Transaktionen in geplant und vergangen aufteilen
+  const planned = txs.filter(t => !t.processed);
+  const past = txs.filter(t => !!t.processed);
+
   return NextResponse.json({
-    id: ca.id,
-    name: ca.name,
-    responsible: ca.responsible ? `${ca.responsible.first_name} ${ca.responsible.last_name}` : null,
-    responsibleMail: ca.responsible ? ca.responsible.mail : null,
-    responsibleId: ca.responsibleId ?? null,
-    balance: ca.account?.balance ? Number(ca.account.balance) : 0,
-    reimbursementEligible: ca.reimbursementEligible,
-    interest: !!ca.account?.interest,
-    members,
-    transactions: txs,
+    clearingAccount: {
+      id: ca.id,
+      name: ca.name,
+      responsible: ca.responsible ? `${ca.responsible.first_name} ${ca.responsible.last_name}` : null,
+      responsibleMail: ca.responsible ? ca.responsible.mail : null,
+      responsibleId: ca.responsibleId ?? null,
+      balance: ca.account?.balance ? Number(ca.account.balance) : 0,
+      reimbursementEligible: ca.reimbursementEligible,
+      interest: !!ca.account?.interest,
+      members,
+    },
+    planned,
+    past,
+    allowances,
   });
 }

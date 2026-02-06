@@ -72,6 +72,7 @@ export default function AllowancesOverviewPage() {
           <thead>
             <tr>
               <th>Datum</th>
+              <th>Name</th>
               <th>Beschreibung</th>
               <th>Betrag</th>
               <th>Einbehalt</th>
@@ -79,15 +80,23 @@ export default function AllowancesOverviewPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => (
-              <tr key={r.id}>
-                <td>{new Date(r.date).toLocaleDateString()}</td>
-                <td>{r.description || "-"}</td>
-                <td>{r.amount.toFixed(2)} €</td>
-                <td>{r.withheld ? r.withheld.toFixed(2) + " €" : "-"}</td>
-                <td>{r.returnDate ? new Date(r.returnDate).toLocaleDateString() : "-"}</td>
-              </tr>
-            ))}
+            {rows.map(r => {
+              const acc = r.account || {};
+              const user = Array.isArray(acc.users) && acc.users[0] ? acc.users[0] : null;
+              const bank = Array.isArray(acc.bankAccounts) && acc.bankAccounts[0] ? acc.bankAccounts[0] : null;
+              const clearing = Array.isArray(acc.clearingAccounts) && acc.clearingAccounts[0] ? acc.clearingAccounts[0] : null;
+              const name = user ? `${user.first_name} ${user.last_name}` : bank ? bank.name : clearing ? clearing.name : "-";
+              return (
+                <tr key={r.id}>
+                  <td>{new Date(r.date).toLocaleDateString()}</td>
+                  <td>{name}</td>
+                  <td>{r.description || "-"}</td>
+                  <td>{r.amount.toFixed(2)} €</td>
+                  <td>{r.withheld ? r.withheld.toFixed(2) + " €" : "-"}</td>
+                  <td>{r.returnDate ? new Date(r.returnDate).toLocaleDateString() : "-"}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

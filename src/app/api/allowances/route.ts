@@ -29,10 +29,13 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const filter = searchParams.get("filter") || "open"; // open | returned | all
+  const accountIdParam = searchParams.get("accountId");
+  const accountId = accountIdParam ? Number(accountIdParam) : undefined;
 
   const where: any = {};
   if (filter === "open") where.returnDate = null;
   if (filter === "returned") where.returnDate = { not: null };
+  if (accountId && Number.isFinite(accountId)) where.accountId = accountId;
 
   const list = await prisma.allowance.findMany({
     where,
