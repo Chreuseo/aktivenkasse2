@@ -120,8 +120,34 @@ export async function GET(req: Request) {
     }
 
     try {
+        const url = new URL(req.url);
+        const action = url.searchParams.get('action');
+        if (action === 'statuses') {
+            // Liefere alle in der DB vorkommenden Status-Werte (distinct, nur für enabled Nutzer)
+            const statusesRaw = await prisma.user.findMany({
+                where: { enabled: true },
+                select: { status: true },
+            });
+            const set = new Set<string>();
+            statusesRaw.forEach(s => { if (s.status) set.add(s.status); });
+            const statuses = Array.from(set).sort((a, b) => a.localeCompare(b));
+            return NextResponse.json(statuses);
+        }
+
+        // Filter: status und hv (ja|nein|alle)
+        const status = url.searchParams.get('status');
+        const hv = url.searchParams.get('hv');
+        let hvFilter: boolean | undefined = undefined;
+        if (hv === 'ja') hvFilter = true;
+        else if (hv === 'nein') hvFilter = false;
+        // 'alle' oder fehlend => undefined
+
         const users = await prisma.user.findMany({
-            where: { enabled: true },
+            where: {
+                enabled: true,
+                ...(status ? { status } : {}),
+                ...(typeof hvFilter === 'boolean' ? { hv_mitglied: hvFilter } : {}),
+            },
             include: {
                 account: {
                     select: { balance: true }
@@ -134,7 +160,9 @@ export async function GET(req: Request) {
             first_name: u.first_name,
             last_name: u.last_name,
             mail: u.mail,
-            balance: u.account?.balance ? Number(u.account.balance) : 0
+            balance: u.account?.balance ? Number(u.account.balance) : 0,
+            status: u.status || null,
+            hv_mitglied: Boolean(u.hv_mitglied),
         }));
         return NextResponse.json(result);
     } catch (error: any) {

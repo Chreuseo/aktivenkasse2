@@ -63,6 +63,15 @@ export default function BulkTransactionPage() {
   const [budgetPlans, setBudgetPlans] = useState<any[]>([]);
   const [costCentersByPlan, setCostCentersByPlan] = useState<Record<string, any[]>>({});
 
+  // Zusatz: Filter-Lade-Box State
+  const [statusOptions, setStatusOptions] = useState<string[]>([]);
+  const [loadFilter, setLoadFilter] = useState<{ status: string; hv: "alle" | "ja" | "nein"; description: string; amount: string }>({
+    status: "",
+    hv: "alle",
+    description: "",
+    amount: "",
+  });
+
   useEffect(() => {
     const token = extractToken(session);
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
@@ -70,6 +79,8 @@ export default function BulkTransactionPage() {
     fetchJson("/api/bank-accounts", { headers }).then(setBankOptions).catch(() => setBankOptions([]));
     fetchJson("/api/clearing-accounts", { headers }).then(setClearingOptions).catch(() => setClearingOptions([]));
     fetchJson("/api/budget-plan", { headers }).then(list => setBudgetPlans(Array.isArray(list) ? list.filter((p: any) => p?.state === 'active') : [])).catch(() => setBudgetPlans([]));
+    // Status-Optionen laden
+    fetchJson("/api/users?action=statuses", { headers }).then((list: string[]) => setStatusOptions(Array.isArray(list) ? list : [])).catch(() => setStatusOptions([]));
   }, [session]);
 
   useEffect(() => {
@@ -149,6 +160,9 @@ export default function BulkTransactionPage() {
   };
   const removeRow = () => {
     if (rows.length > 1) setRows(prev => prev.slice(0, -1));
+  };
+  const removeRowAt = (idx: number) => {
+    setRows(prev => prev.filter((_, i) => i !== idx));
   };
 
   const rowAccountTypes = [
@@ -237,6 +251,37 @@ export default function BulkTransactionPage() {
   };
 
   const globalCostCenters = formData.globalBudgetPlanId ? (costCentersByPlan[formData.globalBudgetPlanId] || []) : [];
+
+  // Nutzer anhand Filter laden und Zeilen auffüllen (nur Client-seitig, kein Absenden)
+  const handleLoadTemplate = async () => {
+    const token = extractToken(session);
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const params = new URLSearchParams();
+    if (loadFilter.status) params.set('status', loadFilter.status);
+    if (loadFilter.hv) params.set('hv', loadFilter.hv);
+    try {
+      const users: any[] = await fetchJson(`/api/users?${params.toString()}`, { headers });
+      // Entferne eine letzte leere Zeile, falls vorhanden
+      setRows(prev => {
+        let base = prev;
+        if (base.length && !base[base.length - 1].id && !base[base.length - 1].amount && !base[base.length - 1].description) {
+          base = base.slice(0, -1);
+        }
+        const appended = users.map(u => ({
+          date: individualDates ? formData.date_valued : "",
+          type: "user",
+          id: String(u.id),
+          amount: loadFilter.amount || "",
+          description: loadFilter.description || "",
+          budgetPlanId: "",
+          costCenterId: "",
+        }));
+        return [...base, ...appended];
+      });
+    } catch (err: any) {
+      setMessage("❌ Fehler beim Laden der Nutzer: " + (err?.message || 'Unbekannt'));
+    }
+  };
 
   return (
     <div className="kc-page">
@@ -392,6 +437,7 @@ export default function BulkTransactionPage() {
                 <th>Beschreibung</th>
                 <th>Budgetplan</th>
                 <th>Kostenstelle</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -478,11 +524,70 @@ export default function BulkTransactionPage() {
                       ))}
                     </select>
                   </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button type="button" className="form-btn form-btn-danger" onClick={() => removeRowAt(idx)}>x</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
+        {/* Zusatzbox zum Vorlagenladen */}
+        <div className="form-container" style={{ marginTop: '1rem', borderTop: '1px solid #ddd', paddingTop: '1rem' }}>
+          <h3>Vorlage laden</h3>
+          <label>
+            Status
+            <select
+              className="form-select form-select-max"
+              value={loadFilter.status}
+              onChange={e => setLoadFilter(prev => ({ ...prev, status: e.target.value }))}
+              style={{ maxWidth: "220px" }}
+            >
+              <option value="">Alle</option>
+              {statusOptions.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Hausvereinsmitglied
+            <select
+              className="form-select form-select-max"
+              value={loadFilter.hv}
+              onChange={e => setLoadFilter(prev => ({ ...prev, hv: e.target.value as any }))}
+              style={{ maxWidth: "220px" }}
+            >
+              <option value="alle">Alle</option>
+              <option value="ja">Ja</option>
+              <option value="nein">Nein</option>
+            </select>
+          </label>
+          <label>
+            Beschreibung
+            <input
+              type="text"
+              className="kc-input"
+              value={loadFilter.description}
+              onChange={e => setLoadFilter(prev => ({ ...prev, description: e.target.value }))}
+            />
+          </label>
+          <label>
+            Betrag
+            <input
+              type="number"
+              className="kc-input"
+              value={loadFilter.amount}
+              onChange={e => setLoadFilter(prev => ({ ...prev, amount: e.target.value }))}
+              step="0.01"
+              inputMode="decimal"
+            />
+          </label>
+          <div>
+            <button type="button" className="form-btn form-btn-secondary" onClick={handleLoadTemplate}>Laden</button>
+          </div>
+        </div>
+
         <div className="form-table-buttons">
           <button type="button" className="form-btn form-btn-secondary" onClick={addRow}>Zeile hinzufügen</button>
           <button type="button" className="form-btn form-btn-danger" onClick={removeRow} disabled={rows.length === 1}>Zeile löschen</button>
