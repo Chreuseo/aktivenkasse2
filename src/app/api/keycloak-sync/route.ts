@@ -87,7 +87,7 @@ export async function GET(req: Request) {
     const ids = kcUsers.map(u => u.id);
     const dbUsers = await prisma.user.findMany({
       where: { keycloak_id: { in: ids.length ? ids : ["__none__"] } },
-      select: { id: true, keycloak_id: true, mail: true, first_name: true, last_name: true, Street: true, postalCode: true, City: true, Status: true, HV_Mitglied: true },
+      select: { id: true, keycloak_id: true, mail: true, first_name: true, last_name: true, street: true, postal_code: true, city: true, status: true, hv_mitglied: true, enabled: true },
     });
     const dbMap = new Map(dbUsers.map(u => [u.keycloak_id, u]));
     const result = kcUsers.map(u => {
@@ -100,8 +100,8 @@ export async function GET(req: Request) {
           lastName: u.lastName,
           email: u.email,
           enabled: u.enabled,
-          status: "new",
-          diffs: { first_name: null, last_name: null, mail: null, Street: null, postalCode: null, City: null, Status: null, HV_Mitglied: null },
+          status: "new" as const,
+          diffs: { first_name: null, last_name: null, mail: null, street: null, postal_code: null, city: null, status: null, hv_mitglied: null },
         };
       }
       const diffs: any = {};
@@ -109,19 +109,19 @@ export async function GET(req: Request) {
       if ((db.first_name || "") !== (u.firstName || "")) { changed = true; diffs.first_name = { from: db.first_name, to: u.firstName }; } else diffs.first_name = null;
       if ((db.last_name || "") !== (u.lastName || "")) { changed = true; diffs.last_name = { from: db.last_name, to: u.lastName }; } else diffs.last_name = null;
       if ((db.mail || "") !== (u.email || "")) { changed = true; diffs.mail = { from: db.mail, to: u.email }; } else diffs.mail = null;
-      if ((db.Street || "") !== (u.street || "")) { changed = true; diffs.Street = { from: db.Street, to: u.street }; } else diffs.Street = null;
-      if ((db.postalCode || "") !== (u.postalCode || "")) { changed = true; diffs.postalCode = { from: db.postalCode, to: u.postalCode }; } else diffs.postalCode = null;
-      if ((db.City || "") !== (u.city || "")) { changed = true; diffs.City = { from: db.City, to: u.city }; } else diffs.City = null;
-      if ((db.Status || "") !== (u.status || "")) { changed = true; diffs.Status = { from: db.Status, to: u.status }; } else diffs.Status = null;
-      if (Boolean(db.HV_Mitglied) !== Boolean(u.hv_member)) { changed = true; diffs.HV_Mitglied = { from: Boolean(db.HV_Mitglied), to: Boolean(u.hv_member) }; } else diffs.HV_Mitglied = null;
+      if ((db.street || "") !== (u.street || "")) { changed = true; diffs.street = { from: db.street, to: u.street }; } else diffs.street = null;
+      if ((db.postal_code || "") !== (u.postalCode || "")) { changed = true; diffs.postal_code = { from: db.postal_code, to: u.postalCode }; } else diffs.postal_code = null;
+      if ((db.city || "") !== (u.city || "")) { changed = true; diffs.city = { from: db.city, to: u.city }; } else diffs.city = null;
+      if ((db.status || "") !== (u.status || "")) { changed = true; diffs.status = { from: db.status, to: u.status }; } else diffs.status = null;
+      if (Boolean(db.hv_mitglied) !== Boolean(u.hv_member)) { changed = true; diffs.hv_mitglied = { from: Boolean(db.hv_mitglied), to: Boolean(u.hv_member) }; } else diffs.hv_mitglied = null;
       return {
         keycloak_id: u.id,
         username: u.username,
         firstName: u.firstName,
         lastName: u.lastName,
         email: u.email,
-        enabled: u.enabled,
-        status: changed ? "changed" : "same",
+        enabled: db.enabled,
+        status: changed ? ("changed" as const) : ("same" as const),
         diffs,
       };
     });
@@ -181,11 +181,12 @@ export async function POST(req: Request) {
             mail: kc.email,
             keycloak_id: kc.id,
             accountId: account.id,
-            Street: kc.street,
-            postalCode: kc.postalCode,
-            City: kc.city,
-            Status: kc.status,
-            HV_Mitglied: kc.hv_member,
+            street: kc.street,
+            postal_code: kc.postalCode,
+            city: kc.city,
+            status: kc.status,
+            hv_mitglied: kc.hv_member,
+            enabled: true,
           },
         });
         created.push(kc.id);
@@ -196,11 +197,11 @@ export async function POST(req: Request) {
             first_name: kc.firstName,
             last_name: kc.lastName,
             mail: kc.email,
-            Street: kc.street,
-            postalCode: kc.postalCode,
-            City: kc.city,
-            Status: kc.status,
-            HV_Mitglied: kc.hv_member,
+            street: kc.street,
+            postal_code: kc.postalCode,
+            city: kc.city,
+            status: kc.status,
+            hv_mitglied: kc.hv_member,
           },
         });
         updated.push(kc.id);
@@ -264,6 +265,13 @@ export async function PATCH(req: Request) {
       const text = await putRes.text().catch(() => "");
       return NextResponse.json({ error: `Keycloak-Update fehlgeschlagen: ${putRes.status} ${text}` }, { status: 502 });
     }
+
+    // 3) Lokalen enabled-Status spiegeln (optional, falls gewünscht)
+    await prisma.user.update({
+      where: { keycloak_id: id },
+      data: { enabled },
+    }).catch(() => undefined); // falls User lokal noch nicht existiert, ignorieren
+
     return NextResponse.json({ id, enabled });
   } catch (err: any) {
     console.error(err);

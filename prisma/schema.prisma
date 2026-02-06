@@ -27,6 +27,11 @@ model User {
   last_name                   String
   mail                        String                  @unique
   keycloak_id                 String                  @unique
+  street                      String?
+  postal_code                 String?
+  city                        String?
+  hv_mitglied                 Boolean                 @default(false)
+  status                      String?
   enabled                     Boolean                 @default(true)
   accountId                   Int
   account                     Account                 @relation(fields: [accountId], references: [id])
@@ -37,11 +42,6 @@ model User {
   advancesReviewed            Advances[]              @relation("Reviewer")
   mails                       Mail[]
   TransactionCreated          Transaction[]
-  HV_Mitglied                 Boolean                 @default(false)
-  Status                      String                  @default("")
-  Street                      String                  @default("")
-  postalCode                  String                  @default("")
-  City                        String                  @default("")
   donations                   Donation[]
 }
 

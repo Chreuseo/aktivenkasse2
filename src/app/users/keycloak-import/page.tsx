@@ -19,7 +19,16 @@ type Row = {
   email: string;
   enabled: boolean;
   status: "new" | "changed" | "same";
-  diffs: { first_name: null | { from: string; to: string }; last_name: null | { from: string; to: string }; mail: null | { from: string; to: string } };
+  diffs: {
+    first_name: null | { from: string; to: string };
+    last_name: null | { from: string; to: string };
+    mail: null | { from: string; to: string };
+    street?: null | { from: string; to: string };
+    postal_code?: null | { from: string; to: string };
+    city?: null | { from: string; to: string };
+    status?: null | { from: string; to: string };
+    hv_mitglied?: null | { from: boolean; to: boolean };
+  };
 };
 
 export default function KeycloakImportPage() {
