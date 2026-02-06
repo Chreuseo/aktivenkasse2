@@ -41,7 +41,10 @@ const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
         { label: 'Künftige Transaktionen', href: '/transactions/future' },
         { label: 'Neue Transaktion', href: '/transactions/new' },
         { label: 'Sammeltransaktion', href: '/transactions/bulk' },
-        { label: 'Belegupload', href: '/attachments/upload' }
+        { label: 'Belegupload', href: '/attachments/upload' },
+        { label: 'Rückstellungen', href: '/allowances/all'},
+        { label: 'Rückstellung erfassen', href: '/allowances/new'},
+        { label: 'Rückstellung erstatten', href: '/allowances/return'},
         ],
     Prozesse: [
         { label: 'Mailversand', href: '/processes/mail' },

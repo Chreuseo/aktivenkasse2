@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { extractToken } from '@/lib/utils';
 
 export default function Page() {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<any>({});
@@ -16,15 +16,15 @@ export default function Page() {
       setError(null);
       try {
         const token = extractToken(session as any);
-        const res = await fetch('/api/overview', {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          cache: 'no-store',
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json?.error || `${res.status} ${res.statusText}`);
-        setData(json || {});
+        const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+        const overviewRes = await fetch('/api/overview', { headers, cache: 'no-store' });
+        const overviewJson = await overviewRes.json();
+        if (!overviewRes.ok) {
+          setError(overviewJson?.error || `${overviewRes.status} ${overviewRes.statusText}`);
+          setData({});
+        } else {
+          setData(overviewJson || {});
+        }
       } catch (e: any) {
         setError(e?.message || String(e));
         setData({});
@@ -44,7 +44,7 @@ export default function Page() {
   const bankTotal: string = data.bankTotal ?? '0';
   const clearingAccounts: Array<{ id: number; name: string; reimbursementEligible: boolean; balance: string }> = data.clearingAccounts ?? [];
   const users = data.users ?? { liabilities: { sum: '0', count: 0, max: '0' }, receivables: { sum: '0', count: 0, max: '0' } };
-  const totals = data.totals ?? { assets: '0', liabilities: '0', net: '0' };
+  const totals = data.totals ?? { assets: '0', liabilities: '0', net: '0', allowances: '0', netBeforeAllowances: '0' };
 
   return (
     <div className="wide-container" style={{ padding: '1rem' }}>
@@ -167,6 +167,11 @@ export default function Page() {
                 <tr className="kc-row kc-entry-end">
                   <td>Passiva (Verbindlichkeiten)</td>
                   <td style={{ textAlign: 'right' }}>{formatCurrency(totals.liabilities)}</td>
+                </tr>
+                {/* Neue Zeile: Rückstellungen (Summe der offenen Allowances) */}
+                <tr className="kc-row">
+                  <td>Rückstellungen (offen)</td>
+                  <td style={{ textAlign: 'right' }}>{formatCurrency(totals.allowances ?? '0')}</td>
                 </tr>
                 <tr className="kc-sum-row">
                   <td>Nettovermögen / Finanzsaldo</td>

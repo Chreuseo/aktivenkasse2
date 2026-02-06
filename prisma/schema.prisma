@@ -18,6 +18,7 @@ model Account {
   transactions     Transaction[]
   transactionBulks TransactionBulk[]
   dues             Dues[]
+  allowances       Allowance[]
 }
 
 model User {
@@ -41,6 +42,7 @@ model User {
   Street                      String                  @default("")
   postalCode                  String                  @default("")
   City                        String                  @default("")
+  donations                   Donation[]
 }
 
 model Role {
@@ -117,11 +119,32 @@ model CostCenter {
   costs_actual       Decimal       @default(0)
   budget_planId      Int
   budget_plan        BudgetPlan    @relation(fields: [budget_planId], references: [id])
+  is_donation        Boolean       @default(false)
   budgetPlanFirst    BudgetPlan[]  @relation("FirstCostCenter")
   nextCostCenter     Int?
   nextCostCenterObj  CostCenter?   @relation("NextCostCenter", fields: [nextCostCenter], references: [id])
   previousCostCenter CostCenter[]  @relation("NextCostCenter")
   Transaction        Transaction[]
+}
+
+model Allowance {
+  id          Int       @id @default(autoincrement())
+  date        DateTime  @default(now())
+  returnDate  DateTime?
+  description String?
+  amount      Decimal
+  accountId   Int
+  account     Account   @relation(fields: [accountId], references: [id])
+  withheld    Decimal   @default(0)
+}
+
+model Donation {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @default(now())
+  description String
+  amount      Decimal
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
 }
 
 model Transaction {
@@ -253,4 +276,10 @@ enum BulkTransactionType {
   collection
   deposit
   payout
+}
+
+enum DonationType {
+  financial
+  material
+  waive_fees
 }

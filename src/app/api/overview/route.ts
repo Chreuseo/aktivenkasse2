@@ -110,7 +110,16 @@ export async function GET(req: Request) {
     const liabilitiesFinal =
       userLiabilitiesList.reduce((a, b) => a + b, 0) +
       clearingEligiblePositive;
-    const netFinal = assetsFinal - liabilitiesFinal;
+
+    // Rückstellungen (offen) summieren und im Finanzsaldo berücksichtigen
+    const openAllowances = await prisma.allowance.findMany({
+      where: { returnDate: null },
+      select: { amount: true },
+    });
+    const allowancesSum = openAllowances.reduce((sum, a) => sum + toNumberSafely(a.amount), 0);
+
+    const netFinalBeforeAllowances = assetsFinal - liabilitiesFinal;
+    const netFinal = netFinalBeforeAllowances - allowancesSum;
 
     return NextResponse.json({
       bankAccounts: bankAccountsDto,
@@ -125,6 +134,8 @@ export async function GET(req: Request) {
         assets: String(assetsFinal),
         liabilities: String(liabilitiesFinal),
         net: String(netFinal),
+        allowances: String(allowancesSum),
+        netBeforeAllowances: String(netFinalBeforeAllowances),
       },
     });
   } catch (err: unknown) {
