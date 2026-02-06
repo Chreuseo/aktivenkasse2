@@ -22,6 +22,8 @@ type RowState = {
   file: File | null;
   reason: string;
   costCenters: { id: number; name: string }[];
+  isDonation: boolean;
+  donationType: 'material' | 'waive_fees';
 };
 
 export default function AllAdvancesClient() {
@@ -126,6 +128,8 @@ export default function AllAdvancesClient() {
         canCancel: false,
         receiptUrl: a.receiptUrl || undefined,
         reason: a.reason || undefined,
+        is_donation: !!a.is_donation,
+        donationType: a.donationType || null,
       }));
       setItems(norm);
 
@@ -141,6 +145,8 @@ export default function AllAdvancesClient() {
           file: null,
           reason: it.reason || "",
           costCenters: [],
+          isDonation: !!(it as any).is_donation,
+          donationType: ((it as any).donationType === 'waive_fees' ? 'waive_fees' : 'material'),
         };
       }
       setRows(rs);
@@ -179,7 +185,20 @@ export default function AllAdvancesClient() {
   };
 
   const handleRowChange = (id: number, field: keyof RowState, value: any) => {
-    setRows(prev => ({ ...(prev), [id]: { ...(prev[id]!), [field]: value } }));
+    setRows(prev => {
+      const next = { ...(prev), [id]: { ...(prev[id]!), [field]: value } };
+      const row = next[id]!;
+
+      // Regel: wenn Spende, dann weder Verrechnungskonto noch Budget/Kostenstelle
+      if (field === 'isDonation' && value === true) {
+        row.clearingAccountId = '';
+        row.budgetPlanId = '';
+        row.costCenterId = '';
+        row.costCenters = [];
+      }
+
+      return next;
+    });
   };
 
   const uploadAttachment = async (file: File | null) => {
@@ -212,6 +231,8 @@ export default function AllAdvancesClient() {
         id: it.id,
         description: row.description,
         reason: row.reason || undefined,
+        is_donation: !!row.isDonation,
+        donationType: row.isDonation ? row.donationType : null,
       };
       // amount override (try to parse)
       if (row.amount) {
@@ -311,7 +332,7 @@ export default function AllAdvancesClient() {
             <label style={{ fontWeight: 600, marginBottom: 6 }}>Verrechnungskonto</label>
             <select className="form-select form-select-max" value={clearingAccountId} onChange={(e) => setClearingAccountId(e.target.value)}>
               <option value="">— Alle —</option>
-              <option value="none">— Keines —</option>
+              <option value="none">— Verrechnungskonto —</option>
               {clearingOptions.map(c => (
                 <option key={c.id} value={String(c.id)}>{c.name}</option>
               ))}
@@ -332,68 +353,41 @@ export default function AllAdvancesClient() {
             <tr>
               <th>Datum</th>
               <th>Beschreibung</th>
-              <th>Verrechnungskonto</th>
-              <th>Budgetplan</th>
               <th>Status</th>
               <th>Bearbeiter</th>
             </tr>
             <tr>
               <th>Einreicher</th>
               <th>Betrag</th>
-              <th>Beleg</th>
+              <th>Spende</th>
+              <th>Art</th>
+            </tr>
+            <tr>
+              <th>Verrechnungskonto</th>
+              <th>Budgetplan</th>
               <th>Kostenstelle</th>
-              <th>Begründung</th>
               <th>Aktion</th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: "center", color: "#888" }}>Keine Auslagen gefunden.</td>
+                <td colSpan={4} style={{ textAlign: "center", color: "#888" }}>Keine Auslagen gefunden.</td>
               </tr>
             ) : (
               items.map((it) => {
                 const row = rows[it.id];
+                const isDonation = !!((it as any).is_donation);
+                const dt = ((it as any).donationType === 'waive_fees' ? 'waive_fees' : 'material');
+                const donationLabel = dt === 'waive_fees' ? 'Verzichtsspende' : 'Sachspende';
+
                 return (
-                  // two rows per item
                   <React.Fragment key={it.id}>
-                    <tr key={`${it.id}-top`} className="kc-row">
+                    {/* Zeile 1 */}
+                    <tr key={`${it.id}-r1`} className="kc-row">
                       <td>{new Date(it.date_advance).toLocaleDateString("de-DE")}</td>
                       <td>
                         <input type="text" value={row?.description || ''} onChange={(e) => handleRowChange(it.id, 'description', e.target.value)} />
-                      </td>
-                      <td>
-                        <select value={row?.clearingAccountId || ''} onChange={(e) => {
-                          const v = e.target.value;
-                          handleRowChange(it.id, 'clearingAccountId', v);
-                          if (v) {
-                            handleRowChange(it.id, 'budgetPlanId', '');
-                            handleRowChange(it.id, 'costCenterId', '');
-                          }
-                        }}>
-                          <option value="">— Keines —</option>
-                          {clearingOptions.map(c => (
-                            <option key={c.id} value={String(c.id)}>{c.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <select value={row?.budgetPlanId || ''} onChange={(e) => {
-                          const v = e.target.value;
-                          handleRowChange(it.id, 'budgetPlanId', v);
-                          if (v) {
-                            handleRowChange(it.id, 'clearingAccountId', '');
-                            void fetchCostCentersForRow(it.id, v);
-                          } else {
-                            handleRowChange(it.id, 'costCenterId', '');
-                            handleRowChange(it.id, 'costCenters', []);
-                          }
-                        }} disabled={!!(row?.clearingAccountId)}>
-                          <option value="">— Keiner —</option>
-                          {budgetPlans.map(bp => (
-                            <option key={bp.id} value={String(bp.id)}>{bp.name}</option>
-                          ))}
-                        </select>
                       </td>
                       <td>
                         <span className={`kc-badge ${it.state === "open" ? "new" : it.state === "cancelled" ? "changed" : "same"}`}>
@@ -403,41 +397,105 @@ export default function AllAdvancesClient() {
                       <td>{it.reviewer ? `${it.reviewer.first_name} ${it.reviewer.last_name}` : "—"}</td>
                     </tr>
 
-                    <tr key={`${it.id}-bottom`} className="kc-row kc-entry-end">
+                    {/* Zeile 2 */}
+                    <tr key={`${it.id}-r2`} className="kc-row">
                       <td>{it.user || "—"}</td>
                       <td>
-                        <input type="text" value={row?.amount || ''} onChange={(e) => handleRowChange(it.id, 'amount', e.target.value)} style={{ width: 120 }} />
+                        <input
+                          type="text"
+                          value={row?.amount || ''}
+                          onChange={(e) => handleRowChange(it.id, 'amount', e.target.value)}
+                          style={{ width: 120 }}
+                        />
                       </td>
                       <td>
-                        {it.receiptUrl ? (
-                          <a className="button" href={it.receiptUrl} target="_blank" rel="noopener noreferrer">Beleg herunterladen</a>
-                        ) : (
-                          <input type="file" onChange={(e) => handleRowChange(it.id, 'file', (e.target as HTMLInputElement).files?.[0] || null)} accept="image/*,application/pdf" />
-                        )}
+                        <input type="checkbox" checked={isDonation} disabled />
                       </td>
                       <td>
-                        <select value={row?.costCenterId || ''} onChange={(e) => handleRowChange(it.id, 'costCenterId', e.target.value)} disabled={!row?.budgetPlanId}>
-                          <option value="">— Keine —</option>
+                        {/* read-only Anzeige ohne React-Warnung */}
+                        <select defaultValue={dt} disabled={!isDonation} aria-label="Spendenart">
+                          <option value="material">Sachspende</option>
+                          <option value="waive_fees">Verzichtsspende</option>
+                        </select>
+                        {!isDonation && <span style={{ marginLeft: 8, color: 'var(--muted)' }}>—</span>}
+                      </td>
+                    </tr>
+
+                    {/* Zeile 3 */}
+                    <tr key={`${it.id}-r3`} className="kc-row kc-entry-end">
+                      <td>
+                        <select
+                          value={row?.clearingAccountId || ''}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            handleRowChange(it.id, 'clearingAccountId', v);
+                            if (v) {
+                              handleRowChange(it.id, 'budgetPlanId', '');
+                              handleRowChange(it.id, 'costCenterId', '');
+                            }
+                          }}
+                          disabled={isDonation}
+                          title={isDonation ? 'Bei Spende sind Verrechnungskonto/Kostenstelle nicht erlaubt' : undefined}
+                        >
+                          <option value="">— Verrechnungskonto —</option>
+                          {clearingOptions.map(c => (
+                            <option key={c.id} value={String(c.id)}>{c.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          value={row?.budgetPlanId || ''}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            handleRowChange(it.id, 'budgetPlanId', v);
+                            if (v) {
+                              handleRowChange(it.id, 'clearingAccountId', '');
+                              void fetchCostCentersForRow(it.id, v);
+                            } else {
+                              handleRowChange(it.id, 'costCenterId', '');
+                              handleRowChange(it.id, 'costCenters', []);
+                            }
+                          }}
+                          disabled={isDonation || !!(row?.clearingAccountId)}
+                          title={isDonation ? 'Bei Spende sind Verrechnungskonto/Kostenstelle nicht erlaubt' : undefined}
+                        >
+                          <option value="">— Haushaltsplan —</option>
+                          {budgetPlans.map(bp => (
+                            <option key={bp.id} value={String(bp.id)}>{bp.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          value={row?.costCenterId || ''}
+                          onChange={(e) => handleRowChange(it.id, 'costCenterId', e.target.value)}
+                          disabled={isDonation || !row?.budgetPlanId}
+                          title={isDonation ? 'Bei Spende sind Verrechnungskonto/Kostenstelle nicht erlaubt' : undefined}
+                        >
+                          <option value="">— Kostenstelle —</option>
                           {row?.costCenters?.map(cc => (
                             <option key={cc.id} value={String(cc.id)}>{cc.name}</option>
                           ))}
                         </select>
                       </td>
                       <td>
-                        <input type="text" disabled={it.state !== "open"} value={row?.reason || ''} onChange={(e) => handleRowChange(it.id, 'reason', e.target.value)} />
-                      </td>
-                      <td>
                         <button className="button" title="Annehmen" onClick={() => void handleAccept(it)} disabled={loading || it.state !== 'open'} hidden={loading || it.state !== 'open'}>✔</button>
                         <button className="button" title="Ablehnen" onClick={() => void handleDecline(it)} disabled={loading || it.state !== 'open'} hidden={loading || it.state !== 'open'} style={{ marginLeft: 6 }}>✖</button>
+                        {isDonation && (
+                          <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
+                            Spende: {donationLabel}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   </React.Fragment>
-                 );
-               })
-             )}
-           </tbody>
-         </table>
-       )}
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

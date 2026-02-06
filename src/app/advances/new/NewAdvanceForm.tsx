@@ -16,6 +16,8 @@ export default function NewAdvanceForm({ accounts }: Props) {
   const [description, setDescription] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [clearingAccountId, setClearingAccountId] = useState<string>("");
+  const [isDonation, setIsDonation] = useState<boolean>(false);
+  const [donationType, setDonationType] = useState<'material' | 'waive_fees'>('material');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string>("");
@@ -39,6 +41,8 @@ export default function NewAdvanceForm({ accounts }: Props) {
       fd.append("description", description);
       fd.append("amount", amt.toString());
       if (clearingAccountId) fd.append("clearingAccountId", clearingAccountId);
+      fd.append("is_donation", isDonation ? 'true' : 'false');
+      if (isDonation) fd.append('donationType', donationType);
       if (file) fd.append("beleg", file);
 
       const token = extractToken(session);
@@ -58,6 +62,8 @@ export default function NewAdvanceForm({ accounts }: Props) {
       setDateAdvance(new Date().toISOString().slice(0, 10));
       setAmount("");
       setClearingAccountId("");
+      setIsDonation(false);
+      setDonationType('material');
       setFile(null);
       const fileInput = document.getElementById("beleg-input") as HTMLInputElement | null;
       if (fileInput) fileInput.value = "";
@@ -138,6 +144,29 @@ export default function NewAdvanceForm({ accounts }: Props) {
           />
         </label>
         <AttachmentHint file={file} />
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <input
+            type="checkbox"
+            checked={isDonation}
+            onChange={(e) => setIsDonation(e.target.checked)}
+          />
+          Spende
+        </label>
+
+        {isDonation && (
+          <label>
+            Art
+            <select
+              className="form-select form-select-max"
+              value={donationType}
+              onChange={(e) => setDonationType(e.target.value as any)}
+            >
+              <option value="material">Sachspende</option>
+              <option value="waive_fees">Verzichtsspende</option>
+            </select>
+          </label>
+        )}
 
         <button type="submit" disabled={loading || !session}>
           {loading ? "Wird gespeichert…" : "Auslage anlegen"}

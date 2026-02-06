@@ -149,8 +149,10 @@ model Donation {
   transaction   Transaction? @relation(fields: [transactionId], references: [id])
   userId        Int
   user          User         @relation("FromUser", fields: [userId], references: [id])
+  createdAt     DateTime     @default(now())
   processorId   Int
   processor     User         @relation("DonationProcessor", fields: [processorId], references: [id])
+  advances      Advances[]
 }
 
 model Transaction {
@@ -209,6 +211,10 @@ model Advances {
   clearingAccount   ClearingAccount? @relation(fields: [clearingAccountId], references: [id])
   transactionId     Int?
   transaction       Transaction?     @relation(fields: [transactionId], references: [id])
+  is_donation       Boolean          @default(false)
+  donationType      DonationType?
+  donationId        Int?
+  donation          Donation?        @relation(fields: [donationId], references: [id])
   reviewerId        Int?
   reviewer          User?            @relation("Reviewer", fields: [reviewerId], references: [id])
   state             advanceState     @default(open)

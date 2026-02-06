@@ -59,6 +59,8 @@ export async function POST(req: Request) {
   const dateAdvanceRaw = firstFieldFromForm(formData, ['date_advance', 'auslagedatum']);
   const amountRaw = firstFieldFromForm(formData, ['amount']);
   const clearingAccountIdRaw = firstFieldFromForm(formData, ['clearingAccountId']) || '';
+  const isDonationRaw = firstFieldFromForm(formData, ['is_donation', 'isDonation']) || 'false';
+  const donationTypeRaw = firstFieldFromForm(formData, ['donationType']) || undefined;
 
   if (!descriptionRaw || !dateAdvanceRaw) {
     return NextResponse.json({ error: 'Beschreibung und Auslagedatum sind erforderlich' }, { status: 400 });
@@ -104,6 +106,17 @@ export async function POST(req: Request) {
     clearingAccountId: clearingAccountIdNum,
     attachmentId: attachmentId || undefined,
   };
+
+  const isDonation = ['1', 'true', 'yes', 'on'].includes(String(isDonationRaw).toLowerCase());
+  if (isDonation) {
+    data.is_donation = true;
+    // nur material / waive_fees erlauben
+    const dt = String(donationTypeRaw || 'material');
+    data.donationType = dt === 'waive_fees' ? 'waive_fees' : 'material';
+  } else {
+    data.is_donation = false;
+    data.donationType = null;
+  }
 
   const advance = await prisma.advances.create({ data });
 

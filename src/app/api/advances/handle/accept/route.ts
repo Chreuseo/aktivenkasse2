@@ -38,6 +38,15 @@ export async function POST(req: Request) {
   const reasonRaw = Object.prototype.hasOwnProperty.call(body, 'reason') ? body.reason : undefined;
   const reason = reasonRaw === undefined ? undefined : String(reasonRaw);
 
+  // Spendenflag (kann im Body überschrieben werden)
+  const isDonation = (body && Object.prototype.hasOwnProperty.call(body, 'is_donation'))
+    ? !!body.is_donation
+    : !!(advance as any).is_donation;
+  const donationTypeRaw = (body && Object.prototype.hasOwnProperty.call(body, 'donationType'))
+    ? body.donationType
+    : (advance as any).donationType;
+  const donationType = String(donationTypeRaw || 'material') === 'waive_fees' ? 'waive_fees' : 'material';
+
   // Betrag validieren
   const amountNum = typeof advance.amount === 'number' ? advance.amount : Number(advance.amount);
   if (!isFinite(amountNum)) return NextResponse.json({ error: 'Ungültiger Betrag in Auslage' }, { status: 400 });
@@ -54,8 +63,14 @@ export async function POST(req: Request) {
   const clearingAccountId = body?.clearingAccountId ? Number(body.clearingAccountId) : (advance.clearingAccountId ?? null);
   const costCenterId = body?.costCenterId ? Number(body.costCenterId) : null;
 
-  if (!clearingAccountId && !costCenterId) {
-    return NextResponse.json({ error: 'Entweder clearingAccountId oder costCenterId muss angegeben sein' }, { status: 400 });
+  if (isDonation) {
+    if (clearingAccountId || costCenterId) {
+      return NextResponse.json({ error: 'Bei Spenden-Auslagen dürfen weder Verrechnungskonto noch Kostenstelle gesetzt sein' }, { status: 400 });
+    }
+  } else {
+    if (!clearingAccountId && !costCenterId) {
+      return NextResponse.json({ error: 'Entweder clearingAccountId oder costCenterId muss angegeben sein' }, { status: 400 });
+    }
   }
 
   const reference = 'Auslagenabrechnung vom ' + advance.date.toISOString().split('T')[0];
@@ -93,6 +108,35 @@ export async function POST(req: Request) {
 
   try {
     const result = await prisma.$transaction(async (p: any) => {
+      if (isDonation) {
+        const donation = await p.donation.create({
+          data: {
+            date: now,
+            description: advance.description,
+            amount: amt,
+            type: donationType,
+            userId: submitter.id,
+            processorId: reviewer.id,
+          },
+        });
+
+        await p.advances.update({
+          where: { id: advance.id },
+          data: {
+            state: 'accepted',
+            reviewerId: reviewer.id,
+            decidedAt: now,
+            donationId: donation.id,
+            transactionId: null,
+            is_donation: true,
+            donationType,
+            ...(reason !== undefined ? { reason } : {}),
+          },
+        });
+
+        return { donationId: donation.id };
+      }
+
       if (clearingAccountId) {
         // Gegenkonto (Clearing)
         const clearing = await p.clearingAccount.findUnique({ where: { id: clearingAccountId }, include: { account: true } });

@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
       id: true,
       name: true,
       description: true,
+      is_donation: true,
       earnings_expected: true,
       costs_expected: true,
       earnings_actual: true,
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
     data: {
       name: data.name,
       description: data.description ?? "",
+      is_donation: typeof data.is_donation === "boolean" ? data.is_donation : undefined,
       earnings_expected: data.earnings_expected ?? 0,
       costs_expected: data.costs_expected ?? 0,
       budget_planId: data.budget_planId,

@@ -64,7 +64,7 @@ function CostCentersPageInner() {
 
   function handleAddNewRow() {
     if (isClosed) return;
-    setNewRows(rows => [...rows, { name: "", earnings_expected: 0, costs_expected: 0 }]);
+    setNewRows(rows => [...rows, { name: "", is_donation: false, earnings_expected: 0, costs_expected: 0 }]);
   }
 
   function handleNewRowChange(index: number, field: keyof CostCenter, value: any) {
@@ -118,6 +118,7 @@ function CostCentersPageInner() {
           allCostCenters.push({
             id: newIds[i],
             name: newRows[i].name ?? "",
+            is_donation: newRows[i].is_donation ?? false,
             earnings_expected: newRows[i].earnings_expected ?? 0,
             costs_expected: newRows[i].costs_expected ?? 0,
             nextCostCenter: undefined,
@@ -255,6 +256,7 @@ function CostCentersPageInner() {
         <thead>
           <tr>
             <th style={{ minWidth: "220px" }}>Name</th>
+            <th style={{ minWidth: "150px" }}>Zuwendungsbescheide</th>
             <th>Plan-Soll Erträge (€)</th>
             <th>Plan-Soll Aufwendungen (€)</th>
             <th>Plan-Saldo (€)</th>
@@ -267,6 +269,14 @@ function CostCentersPageInner() {
             <tr key={cc.id} className="kc-row">
               <td>
                 <input type="text" className="kc-input" value={editRows[cc.id]?.name ?? cc.name} onChange={e => handleEdit(cc.id, "name", e.target.value)} disabled={isClosed} />
+              </td>
+              <td style={{ textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(editRows[cc.id]?.is_donation ?? cc.is_donation)}
+                  onChange={e => handleEdit(cc.id, "is_donation", e.target.checked)}
+                  disabled={isClosed}
+                />
               </td>
               <td>
                 <input type="number" className="kc-input" value={editRows[cc.id]?.earnings_expected ?? cc.earnings_expected} onChange={e => handleEdit(cc.id, "earnings_expected", parseFloat(e.target.value))} disabled={isClosed} />
@@ -290,6 +300,14 @@ function CostCentersPageInner() {
             <tr key={"new-"+idx} className="kc-row">
               <td>
                 <input type="text" className="kc-input" value={row.name ?? ""} onChange={e => handleNewRowChange(idx, "name", e.target.value)} placeholder="Neue Kostenstelle" disabled={isClosed} />
+              </td>
+              <td style={{ textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(row.is_donation)}
+                  onChange={e => handleNewRowChange(idx, "is_donation", e.target.checked)}
+                  disabled={isClosed}
+                />
               </td>
               <td>
                 <input type="number" className="kc-input" value={row.earnings_expected ?? ""} onChange={e => handleNewRowChange(idx, "earnings_expected", parseFloat(e.target.value))} placeholder="Einnahmen" disabled={isClosed} />

@@ -45,6 +45,8 @@ export async function GET(req: Request) {
     clearingAccountName: a.clearingAccount ? a.clearingAccount.name : undefined,
     attachmentId: a.attachmentId || undefined,
     receiptUrl: a.attachmentId ? `/api/advances/${a.id}/receipt` : undefined,
+    is_donation: !!(a as any).is_donation,
+    donationType: (a as any).donationType || null,
   }));
 
   return NextResponse.json({ advances: res });

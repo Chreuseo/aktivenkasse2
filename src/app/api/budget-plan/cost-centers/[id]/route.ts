@@ -28,6 +28,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     data: {
       name: data.name,
       description: data.description ?? undefined,
+      is_donation: typeof data.is_donation === "boolean" ? data.is_donation : undefined,
       earnings_expected: data.earnings_expected ?? undefined,
       costs_expected: data.costs_expected ?? undefined,
     },
@@ -54,12 +55,15 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   }
 
   const data = await req.json();
-  // Erwartet: { nextCostCenter: number | null }
+  // Whitelist: nur definierte Felder patchen
+  const patchData: { nextCostCenter?: number | null; is_donation?: boolean } = {
+    nextCostCenter: ("nextCostCenter" in data) ? (data.nextCostCenter ?? null) : undefined,
+    is_donation: (typeof data.is_donation === "boolean") ? data.is_donation : undefined,
+  };
+
   const cc = await prisma.costCenter.update({
     where: { id },
-    data: {
-      nextCostCenter: data.nextCostCenter ?? null,
-    },
+    data: patchData,
   });
   return NextResponse.json(cc);
 }

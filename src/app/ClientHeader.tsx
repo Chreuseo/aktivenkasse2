@@ -50,12 +50,15 @@ const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
         { label: 'Mailversand', href: '/processes/mail' },
         { label: 'Zinsrechnung', href: '/interests' },
         { label: 'Mail-Log', href: '/processes/mail-log' },
+        { label: 'Zuwendungsbescheide', href: '/processes/donations' },
+        { label: ' Zuwendungsbescheid erstellen', href: '/processes/donations/create' },
         { label: 'Daten-Export', href: '/processes/export' }
         ],
     Konto: [
         { label: 'Übersicht', href: '/account' },
         { label: 'Meine Auslagen', href: '/advances/mine' },
         { label: 'Mein Konto', href: '/account/me' },
+        { label: 'Meine Spenden', href: '/account/donations' },
         { label: 'Abmelden', href: '/api/auth/signout' }
         ],
 };
