@@ -42,7 +42,8 @@ model User {
   advancesReviewed            Advances[]              @relation("Reviewer")
   mails                       Mail[]
   TransactionCreated          Transaction[]
-  donations                   Donation[]
+  donations                   Donation[]              @relation("FromUser")
+  donationsProcessed          Donation[]              @relation("DonationProcessor")
 }
 
 model Role {
@@ -139,12 +140,17 @@ model Allowance {
 }
 
 model Donation {
-  id          Int      @id @default(autoincrement())
-  date        DateTime @default(now())
-  description String
-  amount      Decimal
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id])
+  id            Int          @id @default(autoincrement())
+  date          DateTime     @default(now())
+  description   String
+  amount        Decimal
+  type          DonationType
+  transactionId Int?         @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  userId        Int
+  user          User         @relation("FromUser", fields: [userId], references: [id])
+  processorId   Int
+  processor     User         @relation("DonationProcessor", fields: [processorId], references: [id])
 }
 
 model Transaction {
@@ -172,6 +178,7 @@ model Transaction {
   bulkMain              TransactionBulk? @relation("BulkMainTransaction")
   advances              Advances[]
   dues                  Dues[]
+  donations             Donation[]
 }
 
 model TransactionBulk {
