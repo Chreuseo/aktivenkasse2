@@ -12,7 +12,7 @@ import AttachmentHint from "@/app/components/AttachmentHint";
 
 const bulkTypes = [
   { value: "einzug", label: "Einzug" },
-  { value: "einzahlung", label: "Einzahlung" },
+  { value: "einzahlung", label: "Kontobewegung" },
   { value: "auszahlung", label: "Auszahlung" },
 ];
 const accountTypes = [
@@ -39,6 +39,8 @@ function getAccountDisplayName(opt: any) {
 
 export default function BulkTransactionPage() {
   const { data: session } = useSession();
+  // Datum einzeln Toggle (vorher konstant false)
+  const [individualDates, setIndividualDates] = useState<boolean>(false);
   const [formData, setFormData] = useState({
     date_valued: "",
     description: "",
@@ -54,7 +56,7 @@ export default function BulkTransactionPage() {
   const [bankOptions, setBankOptions] = useState<BankAccount[]>([]);
   const [clearingOptions, setClearingOptions] = useState<ClearingAccount[]>([]);
   const [rows, setRows] = useState([
-    { type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "" },
+    { date: "", type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "" },
   ]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -77,10 +79,33 @@ export default function BulkTransactionPage() {
     }
   }, [formData.date_valued]);
 
+  // Wenn Toggle für individuelle Daten aktiviert wird, passe accountType je nach bulkType an
+  useEffect(() => {
+    setFormData(prev => {
+      // Kontobewegung: nur Bank als Hauptkonto, individuelle Daten erlaubt
+      if (prev.bulkType === 'einzahlung') {
+        const next: any = { ...prev, accountType: 'bank' };
+        // Bei Kontobewegung keine globale Kostenstelle
+        next.globalBudgetPlanId = '';
+        next.globalCostCenterId = '';
+        return next;
+      }
+      // Einzug/Auszahlung: individuelle Daten nur im Kostenstellenmodus zulässig
+      if (individualDates && ["einzug", "auszahlung"].includes(prev.bulkType)) {
+        return { ...prev, accountType: 'cost_center', accountId: '', /* schalte auf Haushaltsplan-Auswahl */ };
+      }
+      return prev;
+    });
+  }, [individualDates, formData.bulkType]);
+
+  // Bestehende Logik zum Setzen des accountType je nach bulkType beibehalten, aber berücksichtige individuellen Modus
   useEffect(() => {
     setFormData(prev => {
       if (prev.bulkType === 'einzahlung') {
         return { ...prev, accountType: 'bank', globalBudgetPlanId: '', globalCostCenterId: '' };
+      }
+      if (individualDates && ["einzug", "auszahlung"].includes(prev.bulkType)) {
+        return { ...prev, accountType: 'cost_center', accountId: '' };
       }
       if (prev.accountType === 'bank') return { ...prev, accountType: 'clearing_account' };
       return prev;
@@ -115,23 +140,12 @@ export default function BulkTransactionPage() {
     const file = e.target.files?.[0] || null;
     setFormData(prev => ({ ...prev, attachment: file }));
   };
-  const handleRowChange = (idx: number, field: string, value: string) => {
-    setRows(prev => prev.map((row, i) => {
-      if (i !== idx) return row;
-      let newRow = { ...row, [field]: value } as any;
-      if (field === "budgetPlanId" && formData.accountType !== 'cost_center') newRow.costCenterId = "";
-      return newRow;
-    }));
-    if (field === "budgetPlanId" && value && formData.accountType !== 'cost_center') {
-      const token = extractToken(session);
-      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-      fetchJson(`/api/budget-plan/cost-centers?planId=${value}`, { headers })
-        .then(costCenters => setCostCentersByPlan(prev => ({ ...prev, [value]: costCenters })))
-        .catch(() => setCostCentersByPlan(prev => ({ ...prev, [value]: [] })));
-    }
+  // Handler: Änderung von Zeilenfeldern inkl. Datum
+  const handleRowChange = (idx: number, field: string, value: any) => {
+    setRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
   };
   const addRow = () => {
-    setRows(prev => [...prev, { type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "" }]);
+    setRows(prev => [...prev, { date: "", type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "" }]);
   };
   const removeRow = () => {
     if (rows.length > 1) setRows(prev => prev.slice(0, -1));
@@ -146,6 +160,7 @@ export default function BulkTransactionPage() {
     setMessage("");
     setLoading(true);
     try {
+      // Validierung je Modus
       if (formData.accountType === 'cost_center') {
         if (!formData.globalBudgetPlanId || !formData.globalCostCenterId) {
           setMessage('❌ Bitte Haushaltsplan und Kostenstelle oben auswählen.');
@@ -160,33 +175,14 @@ export default function BulkTransactionPage() {
         }
       }
 
-      for (let i = 0; i < rows.length; i++) {
-        const r = rows[i];
-        if (!r.type) {
-          setMessage(`❌ Zeile ${i + 1}: Typ ist ein Pflichtfeld`);
-          setLoading(false);
-          return;
-        }
-        // Neue Logik: Auswahl (id) nur Pflicht, wenn keine Kostenstelle gesetzt ist
-        if (!r.id && !r.costCenterId) {
-          setMessage(`❌ Zeile ${i + 1}: Bitte entweder eine Auswahl oder eine Kostenstelle angeben.`);
-          setLoading(false);
-          return;
-        }
-        const amt = Number(r.amount);
-        if (!isFinite(amt) || amt <= 0) {
-          setMessage(`❌ Zeile ${i + 1}: Ungültiger Betrag`);
-          setLoading(false);
-          return;
-        }
-      }
-
       const token = extractToken(session);
       const formDataObj = new FormData();
       formDataObj.append("date_valued", formData.date_valued);
       formDataObj.append("description", formData.description);
       formDataObj.append("reference", formData.reference);
       formDataObj.append("bulkType", formData.bulkType);
+      // Flag mitgeben, damit Route gezielt reagieren kann
+      formDataObj.append("individualDates", String(individualDates));
 
       if (formData.accountType === 'cost_center') {
         formDataObj.append("globalBudgetPlanId", formData.globalBudgetPlanId);
@@ -231,10 +227,10 @@ export default function BulkTransactionPage() {
           globalCostCenterId: "",
           attachment: null,
         });
-        setRows([{ type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "" }]);
+        setRows([{ date: "", type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "" }]);
       }
-    } catch (error: any) {
-      setMessage("❌ " + (error?.message || "Serverfehler"));
+    } catch (e: any) {
+      setMessage("❌ " + (e?.message || "Serverfehler"));
     } finally {
       setLoading(false);
     }
@@ -243,7 +239,7 @@ export default function BulkTransactionPage() {
   const globalCostCenters = formData.globalBudgetPlanId ? (costCentersByPlan[formData.globalBudgetPlanId] || []) : [];
 
   return (
-    <div className="wide-container">
+    <div className="kc-page">
       <h1>Sammeltransaktion anlegen</h1>
       <form onSubmit={e => { e.preventDefault(); handleSubmit(); }} className="form">
         <div className="form-container">
@@ -254,8 +250,18 @@ export default function BulkTransactionPage() {
             name="date_valued"
             value={formData.date_valued}
             onChange={handleChange}
+            disabled={individualDates}
           />
         </label>
+          <label>
+            Datum einzeln
+            <input
+              type="checkbox"
+                name="individualDates"
+                checked={individualDates || false}
+                onChange={e => setIndividualDates(e.target.checked)}
+                />
+          </label>
         <label>
           Beschreibung
           <input
@@ -379,6 +385,7 @@ export default function BulkTransactionPage() {
           <table className="kc-table compact">
             <thead>
               <tr>
+                <th hidden={!individualDates}>Datum einzeln</th>
                 <th>Typ</th>
                 <th>Auswahl</th>
                 <th>Betrag</th>
@@ -390,6 +397,15 @@ export default function BulkTransactionPage() {
             <tbody>
               {rows.map((row, idx) => (
                 <tr key={idx}>
+                  <td hidden={!individualDates}>
+                    <input
+                      type="date"
+                      className="kc-input"
+                      value={row.date || formData.date_valued}
+                      onChange={e => handleRowChange(idx, "date", e.target.value)}
+                      disabled={!individualDates}
+                    />
+                  </td>
                   <td>
                     <select
                       className="kc-select"
@@ -421,7 +437,8 @@ export default function BulkTransactionPage() {
                       className="kc-input"
                       value={row.amount}
                       onChange={e => handleRowChange(idx, "amount", e.target.value)}
-                      min="0"
+                      // Bei Kontobewegung sind auch negative Werte erlaubt
+                      min={formData.bulkType === 'einzahlung' ? undefined : "0"}
                       step="0.01"
                       inputMode="decimal"
                       required

@@ -6,7 +6,7 @@ import { extractUserFromAuthHeader, resolveAccountId as resolveAccountIdUtil } f
 import {AuthorizationType, ResourceType} from "@/app/types/authorization";
 import {checkPermission} from "@/services/authService";
 import { saveAttachmentFromFormFileData as saveAttachmentFromFormFile } from '@/lib/apiHelpers';
-import { createBulkWithMain, addBulkRowWithCounter, addBulkMainCostCenterRow, createMultipleTransactions } from '@/services/transactionService';
+import { createBulkWithMain, addBulkRowWithCounter, addBulkMainCostCenterRow, createMultipleTransactions, createPairedTransactions } from '@/services/transactionService';
 
 export async function POST(req: Request) {
   const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
@@ -52,6 +52,7 @@ export async function POST(req: Request) {
   const rowsRaw = getField('rows');
   const globalBudgetPlanId = getField('globalBudgetPlanId');
   const globalCostCenterId = getField('globalCostCenterId');
+  const individualDates = String(getField('individualDates') || '').toLowerCase() === 'true';
 
   if (!date_valued || !description || !bulkType) {
     return NextResponse.json({ error: 'Pflichtfelder fehlen', fields: { date_valued, description, bulkType } }, { status: 400 });
@@ -128,7 +129,7 @@ export async function POST(req: Request) {
   function rowAmountSigned(raw: number): number {
     if (bulkTypeLower === 'einzug') return -Math.abs(raw);
     if (bulkTypeLower === 'auszahlung') return Math.abs(raw);
-    if (bulkTypeLower === 'einzahlung') return Math.abs(raw);
+    if (bulkTypeLower === 'einzahlung') return Number(raw); // Vorzeichen übernehmen (auch negativ erlaubt)
     return Math.abs(raw);
   }
   // Sign für Hauptkonto (Gegenbuchung zu user rows)
@@ -137,21 +138,28 @@ export async function POST(req: Request) {
   if (bulkTypeLower === 'einzug') mainSign = 1;
   if (bulkTypeLower === 'einzahlung') mainSign = 1;
 
-  type PreparedRow = { accountId: number, amount: number, description: string, reference?: string, costCenterId?: number };
-  type PreparedCostCenterRow = { amount: number, description: string, reference?: string, costCenterId: number };
+  type PreparedRow = { accountId: number, amount: number, description: string, reference?: string, costCenterId?: number, dateValued?: Date };
+  type PreparedCostCenterRow = { amount: number, description: string, reference?: string, costCenterId: number, dateValued?: Date };
   const preparedRows: PreparedRow[] = []; // rows mit Konto (user / clearing)
   const preparedCostCenterRows: PreparedCostCenterRow[] = []; // rows nur Kostenstelle
-  let totalAbsAmount = 0; // summe nur der rows mit Konto
+  let totalAbsAmount = 0; // summe nur der rows mit Konto (für Einzug/Auszahlung)
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const idxInfo = `Zeile ${i + 1}`;
 
-    const rawAmountNum = parsePositiveAmount(row.amount);
+    // Betrag parsen: bei Kontobewegung auch negative zulässig, sonst positiv
+    let rawAmountNum: number | null;
+    if (bulkTypeLower === 'einzahlung') {
+      const num = Number(row.amount);
+      rawAmountNum = Number.isFinite(num) ? num : null;
+    } else {
+      rawAmountNum = parsePositiveAmount(row.amount);
+    }
     if (rawAmountNum === null) {
       return NextResponse.json({ error: `${idxInfo}: Ungültiger Betrag` }, { status: 400 });
     }
-    const amountCents = roundToTwoDecimals(rawAmountNum);
+    const amountCents = roundToTwoDecimals(Math.abs(rawAmountNum));
 
     const hasRowAccount = Boolean(row.id);
     const hasRowCostCenter = Boolean(row.costCenterId && row.budgetPlanId);
@@ -176,6 +184,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `${idxInfo}: Entweder Auswahl (Konto) oder Kostenstelle erforderlich` }, { status: 400 });
     }
 
+    // zeilenweises Datum
+    const rowDateStr: string | undefined = individualDates ? String(row.date || '') : undefined;
+    const rowDateVal: Date | undefined = rowDateStr ? new Date(rowDateStr) : undefined;
+
     // Fall 1: Row nur Kostenstelle (kein Konto) -> direkte Buchung auf Hauptkonto, aber nur wenn Hauptkonto vorhanden (kein globaler Modus)
     if (!hasRowAccount && hasRowCostCenter) {
       if (isCostCenterMode) {
@@ -187,7 +199,7 @@ export async function POST(req: Request) {
       const signed = mainSign * amountCents; // direkt auf Hauptkonto
       let txDescription = String(description);
       if (row.description) txDescription += ' - ' + row.description;
-      preparedCostCenterRows.push({ amount: signed, description: txDescription, reference: String(reference || ''), costCenterId: Number(row.costCenterId) });
+      preparedCostCenterRows.push({ amount: signed, description: txDescription, reference: String(reference || ''), costCenterId: Number(row.costCenterId), ...(rowDateVal ? { dateValued: rowDateVal } : {}) });
       continue; // nächste Zeile
     }
 
@@ -215,13 +227,11 @@ export async function POST(req: Request) {
       }
     }
 
-    const signed = rowAmountSigned(amountCents);
+    const signed = rowAmountSigned(rawAmountNum!);
     totalAbsAmount += amountCents;
     let txDescription = String(description);
     if (row.description) txDescription += ' - ' + row.description;
-    preparedRows.push({ accountId: accId, amount: signed, description: txDescription, reference: String(reference || ''), ...(
-      hasRowCostCenter ? { costCenterId: Number(row.costCenterId) } : (globalCostCenterIdNum ? { costCenterId: globalCostCenterIdNum } : {})
-    ) });
+    preparedRows.push({ accountId: accId, amount: signed, description: txDescription, reference: String(reference || ''), ...(hasRowCostCenter ? { costCenterId: Number(row.costCenterId) } : (globalCostCenterIdNum ? { costCenterId: globalCostCenterIdNum } : {})), ...(rowDateVal ? { dateValued: rowDateVal } : {}) });
   }
 
   const attachmentId = await saveAttachmentFromFormFile(prisma as any, file);
@@ -229,8 +239,38 @@ export async function POST(req: Request) {
   try {
     const dateVal = new Date(String(date_valued));
 
+    // Sonderfall: Kontobewegung -> keine Sammeltransaktion; jede Zeile als Paar-Transaktion (Gegenbuchung) verbuchen.
+    if (bulkTypeLower === 'einzahlung') {
+      if (!mainAccountId) {
+        return NextResponse.json({ error: 'Bei Kontobewegungen muss ein Bank-Hauptkonto gewählt werden' }, { status: 400 });
+      }
+      const created = await prisma.$transaction(async (p: any) => {
+        const createdPairs: any[] = [];
+        for (const r of preparedRows) {
+          const dv = r.dateValued ?? dateVal;
+          // Gegenbuchung: gleicher Vorzeichenbetrag auf Hauptkonto
+          const { tx1, tx2 } = await createPairedTransactions(p, {
+            account1Id: r.accountId,
+            amount1: r.amount,
+            account2Id: Number(mainAccountId),
+            amount2: r.amount,
+            description: r.description,
+            createdById: currentUser.id,
+            reference: r.reference,
+            dateValued: dv,
+            attachmentId: attachmentId ?? null,
+            costCenterId1: r.costCenterId ?? null,
+            costCenterId2: null,
+          });
+          createdPairs.push({ id1: tx1.id, id2: tx2.id });
+        }
+        return createdPairs;
+      });
+      return NextResponse.json({ count: created.length }, { status: 201 });
+    }
+
+    // Kostenstellenmodus global + individuelle Daten: einzelne Transaktionen mit je Datum
     if (isCostCenterMode) {
-      // Globaler Kostenstellenmodus: nur Konto-Zeilen erlaubt, jede Zeile wird als einzelne Buchung verbucht
       await prisma.$transaction(async (p: any) => {
         await createMultipleTransactions(p, {
           rows: preparedRows.map(r => ({
@@ -238,7 +278,7 @@ export async function POST(req: Request) {
             amount: r.amount,
             description: r.description,
             createdById: currentUser.id,
-            dateValued: dateVal,
+            dateValued: r.dateValued ?? dateVal,
             reference: r.reference,
             attachmentId: attachmentId ?? null,
             costCenterId: r.costCenterId ?? null,
@@ -262,7 +302,7 @@ export async function POST(req: Request) {
         attachmentId: attachmentId ?? null,
       });
 
-      // Rows mit Konto (Gegenbuchung zu mainTx)
+      // Rows mit Konto (Gegenbuchung zu mainTx) – Datum je Zeile oder global
       for (const r of preparedRows) {
         await addBulkRowWithCounter(p, {
           bulkId: bulk.id,
@@ -271,14 +311,14 @@ export async function POST(req: Request) {
           amount: r.amount,
           description: r.description,
           createdById: currentUser.id,
-          dateValued: dateVal,
+          dateValued: r.dateValued ?? dateVal,
           reference: r.reference,
           attachmentId: attachmentId ?? null,
           costCenterId: r.costCenterId ?? null,
         });
       }
 
-      // Rows nur Kostenstelle -> zusätzliche Buchung auf Hauptkonto
+      // Rows nur Kostenstelle -> zusätzliche Buchung auf Hauptkonto – Datum je Zeile oder global
       for (const r of preparedCostCenterRows) {
         await addBulkMainCostCenterRow(p, {
           bulkId: bulk.id,
@@ -286,7 +326,7 @@ export async function POST(req: Request) {
           amount: r.amount,
           description: r.description,
           createdById: currentUser.id,
-          dateValued: dateVal,
+          dateValued: r.dateValued ?? dateVal,
           reference: r.reference,
           attachmentId: attachmentId ?? null,
           costCenterId: r.costCenterId,
