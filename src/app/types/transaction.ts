@@ -1,7 +1,12 @@
 export type Transaction = {
     id: number;
     amount: number;
+    /** Buchungsdatum (fachlich) */
     date: string;
+    /** Erzeugt am (DB createdAt) */
+    createdAt?: string;
+    /** Wertstellung */
+    dateValued?: string;
     description: string;
     reference?: string;
     processed?: boolean;

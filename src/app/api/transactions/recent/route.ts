@@ -44,10 +44,19 @@ export async function GET(req: NextRequest) {
     const main = tx.account ? inferOtherFromAccount(tx.account) : null;
     const other = tx.counter_transaction ? inferOtherFromAccount(tx.counter_transaction.account) : null;
     const costCenterLabel = tx.costCenter && tx.costCenter.budget_plan ? `${tx.costCenter.budget_plan.name} - ${tx.costCenter.name}` : undefined;
+
+    const createdAtDate: Date = tx.createdAt instanceof Date
+      ? tx.createdAt
+      : (tx.createdAt ? new Date(tx.createdAt) : (tx.date ? new Date(tx.date) : new Date()));
+
+    const dateValuedDate: Date | null = tx.date_valued ? new Date(tx.date_valued) : null;
+
     return {
       id: tx.id,
       amount: Number(tx.amount),
       date: (tx.date ?? tx.date_valued ?? new Date()).toISOString(),
+      createdAt: createdAtDate.toISOString(),
+      dateValued: dateValuedDate ? dateValuedDate.toISOString() : undefined,
       description: tx.description,
       reference: tx.reference || undefined,
       other,

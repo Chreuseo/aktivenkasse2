@@ -80,9 +80,15 @@ export async function POST(req: Request) {
       const txUser = tx.account.users[0];
 
       try {
+        const txDateValued: Date | null = tx.date_valued ? new Date(tx.date_valued) : null;
+        const txDate: Date | null = tx.date ? new Date(tx.date) : null;
+
         const createdDonation = await p.donation.create({
           data: {
-            date: tx.date_valued || tx.date,
+            // createdAt bewusst = now; fachliches Datum aus der Transaktion
+            createdAt: new Date(),
+            date: txDateValued || txDate || new Date(),
+            date_valued: txDateValued || txDate || new Date(),
             description: String(r.description || tx.description),
             amount: Math.abs(Number(tx.amount)),
             type: toDbType(r.type || 'financial'),

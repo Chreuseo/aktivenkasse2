@@ -136,12 +136,6 @@ export default function DonationCreateOverviewPage() {
         </div>
       </div>
 
-      {negativeOnly && (
-        <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', border: '1px solid #f59e0b', background: '#fffbeb' }}>
-          Bitte Geldeingang sorgfältig prüfen.
-        </div>
-      )}
-
       {loading && <div style={{ color: 'var(--muted)' }}>Lade Daten ...</div>}
       {error && <div style={{ marginBottom: '1rem' }}>Fehler: {error}</div>}
       {message && <div style={{ marginBottom: '1rem' }}>{message}</div>}
@@ -157,7 +151,23 @@ export default function DonationCreateOverviewPage() {
         />
       )}
 
-      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {negativeOnly && (
+        <div
+          className="message"
+          style={{
+            marginTop: '1rem',
+            marginBottom: '0.75rem',
+            border: '1px solid #f59e0b',
+            background: '#fffbeb',
+            color: '#92400e',
+            fontWeight: 600,
+          }}
+        >
+          Bitte Zahlungseingänge sorgfältig prüfen.
+        </div>
+      )}
+
+      <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ color: 'var(--muted)' }}>{selectedCount} ausgewählt</div>
         <button className="button" onClick={createDonations} disabled={submitting || loading || selectedCount === 0}>
           {submitting ? 'Erzeuge ...' : 'erzeugen'}

@@ -60,6 +60,16 @@ export async function GET(req: Request) {
   const transactions: Transaction[] = txsRaw.map((tx: any) => {
     const main = tx.account ? inferOtherFromAccount(tx.account) : null;
     const costCenterLabel = tx.costCenter && tx.costCenter.budget_plan ? `${tx.costCenter.budget_plan.name} - ${tx.costCenter.name}` : undefined;
+
+
+    const createdAtDate: Date = tx.createdAt instanceof Date
+        ? tx.createdAt
+        : (tx.createdAt ? new Date(tx.createdAt) : (tx.date ? new Date(tx.date) : new Date()));
+
+    const dateValuedDate: Date | null = tx.date_valued ? new Date(tx.date_valued) : null;
+
+
+
     const original = Number(tx.amount);
     const isBank = tx.account?.type === "bank";
     const amount = isBank ? original : -original;
@@ -67,6 +77,8 @@ export async function GET(req: Request) {
       id: tx.id,
       amount,
       date: (tx.date ?? tx.date_valued ?? new Date()).toISOString(),
+      createdAt: createdAtDate.toISOString(),
+      dateValued: dateValuedDate ? dateValuedDate.toISOString() : undefined,
       description: tx.description,
       reference: tx.reference || undefined,
       processed: !!tx.processed,

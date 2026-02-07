@@ -708,35 +708,70 @@ export async function generateDonationReceiptPdf(input: {
     y -= opts?.gapAfter ?? lineHeight;
   }
 
-  // Kopf: Körperschaft + Adresse (links oben)
-  page.setFont(boldFont);
-  page.setFontSize(12);
-  page.drawText(input.corporation, { x: margin, y });
-  y -= lineHeight;
-  page.setFont(normalFont);
-  page.setFontSize(11);
-  for (const line of input.address.split(/\r?\n|,\s*/).filter(Boolean)) {
-    page.drawText(line.trim(), { x: margin, y });
-    y -= lineHeight;
-  }
+  // Kopfbereich in zwei Spalten: links Empfänger, rechts ausstellender Verein
+  const topY = y;
+  const colGap = 30;
+  const colWidth = (page.getWidth() - 2 * margin - colGap) / 2;
+  const leftX = margin;
+  const rightX = margin + colWidth + colGap;
 
-  // Adressblock des Zuwendungsempfängers rechts (klassisch)
-  const addrX = page.getWidth() / 2 + 10;
-  let addrY = page.getHeight() - margin - 20;
-  page.setFont(normalFont);
-  page.setFontSize(11);
-  const addrLines = [
+  const blockFs = 11;
+  const blockLineHeight = 14;
+
+  const userLines = [
     input.user.name,
     input.user.street,
     `${input.user.postalCode} ${input.user.city}`.trim(),
   ].filter((l) => (l || '').trim().length > 0);
-  for (const l of addrLines) {
-    page.drawText(l, { x: addrX, y: addrY });
-    addrY -= lineHeight;
+
+  const corpLines = [
+    input.corporation,
+    ...input.address
+      .split(/\r?\n|,\s*/)
+      .map((s) => s.trim())
+      .filter(Boolean),
+  ];
+
+  const leftHeight = userLines.length * blockLineHeight;
+  const rightHeight = corpLines.length * blockLineHeight;
+  const headHeight = Math.max(leftHeight, rightHeight);
+
+  // Links: Name+Adresse
+  page.setFont(normalFont);
+  page.setFontSize(blockFs);
+  let leftY = topY;
+  for (const l of userLines) {
+    page.drawText(l, { x: leftX, y: leftY });
+    leftY -= blockLineHeight;
   }
 
-  // etwas Luft nach dem Kopf
-  y -= 10;
+  // Rechts: ausstellender Verein
+  page.setFont(boldFont);
+  page.setFontSize(12);
+  let rightY = topY;
+  if (corpLines.length > 0) {
+    page.drawText(corpLines[0], { x: rightX, y: rightY });
+    rightY -= blockLineHeight;
+  }
+  page.setFont(normalFont);
+  page.setFontSize(blockFs);
+  for (const l of corpLines.slice(1)) {
+    page.drawText(l, { x: rightX, y: rightY });
+    rightY -= blockLineHeight;
+  }
+
+  // mehr Abstand zwischen den Blöcken (damit nichts ineinander läuft)
+  // dezente gepunktete Trennlinie zwischen den Spalten
+  const sepX = margin + colWidth + colGap / 2;
+  const sepTop = topY + 6;
+  const sepBottom = topY - headHeight - 2;
+  const dotStep = 6;
+  for (let yy = sepTop; yy > sepBottom; yy -= dotStep) {
+    page.drawText('·', { x: sepX, y: yy, color: rgb(0.7, 0.7, 0.7) });
+  }
+
+  // y nach Kopfbereich setzen
+  y = topY - headHeight - 18;
 
   // Datum + Zeitraum
   page.setFont(normalFont);
@@ -767,30 +802,47 @@ export async function generateDonationReceiptPdf(input: {
   const cellPadX = 3;
   const headerFs = 11;
   const rowFs = 10.5;
-  const rowLineHeight = 13;
+  const rowLineHeight = 14; // etwas mehr Luft
+  const headerPadTop = 6;
+  const headerPadBottom = 6;
+  const headerGapAfter = 6;
 
   function drawTableHeader() {
-    ensureSpace(40);
+    ensureSpace(60);
     page.setFont(boldFont);
     page.setFontSize(headerFs);
-    let x = tableX;
+
+    // Kopfzeile etwas nach unten ziehen und dann Linien mit Abstand setzen
+    y -= headerPadTop;
+
+    // obere Linie
     page.drawLine({
-      start: { x: tableX, y: y + 8 },
-      end: { x: tableX + tableWidth, y: y + 8 },
+      start: { x: tableX, y: y + headerFs + 4 },
+      end: { x: tableX + tableWidth, y: y + headerFs + 4 },
       thickness: 1,
       color: rgb(0.75, 0.75, 0.75),
     });
+
+    let x = tableX;
     for (const c of tableCols) {
       page.drawText(c.label, { x: x + cellPadX, y });
       x += c.width;
     }
+
+    // Platz unter Header-Text
     y -= rowLineHeight;
+
+    // untere Linie
     page.drawLine({
-      start: { x: tableX, y: y + 6 },
-      end: { x: tableX + tableWidth, y: y + 6 },
+      start: { x: tableX, y: y + headerPadBottom },
+      end: { x: tableX + tableWidth, y: y + headerPadBottom },
       thickness: 1,
       color: rgb(0.75, 0.75, 0.75),
     });
+
+    // kleiner Abstand bevor die erste Datenzeile beginnt
+    y -= headerGapAfter;
+
     page.setFont(normalFont);
     page.setFontSize(rowFs);
   }
@@ -803,7 +855,11 @@ export async function generateDonationReceiptPdf(input: {
     const wrappedDesc = wrapText(font, rowFs, cells.description, tableCols[1].width - cellPadX * 2);
     const wrappedType = wrapText(font, rowFs, cells.type, tableCols[2].width - cellPadX * 2);
     const maxLines = Math.max(1, wrappedDesc.length, wrappedType.length);
-    const required = maxLines * rowLineHeight + 2;
+
+    // extra Puffer oben/unten pro Zeile, damit Text nie auf Linien sitzt
+    const rowPadTop = 2;
+    const rowPadBottom = 2;
+    const required = rowPadTop + maxLines * rowLineHeight + rowPadBottom;
 
     if (y - required < margin) {
       page = pdfDoc.addPage(pageSize);
@@ -813,22 +869,24 @@ export async function generateDonationReceiptPdf(input: {
 
     // datum, beschreibung, art (multiline), amount rechtsbündig
     let x = tableX;
-    page.drawText(cells.date, { x: x + cellPadX, y });
+    const textY = y - rowPadTop;
+
+    page.drawText(cells.date, { x: x + cellPadX, y: textY });
     x += tableCols[0].width;
 
     for (let i = 0; i < wrappedDesc.length; i++) {
-      page.drawText(wrappedDesc[i], { x: x + cellPadX, y: y - i * rowLineHeight });
+      page.drawText(wrappedDesc[i], { x: x + cellPadX, y: textY - i * rowLineHeight });
     }
     x += tableCols[1].width;
 
     for (let i = 0; i < wrappedType.length; i++) {
-      page.drawText(wrappedType[i], { x: x + cellPadX, y: y - i * rowLineHeight });
+      page.drawText(wrappedType[i], { x: x + cellPadX, y: textY - i * rowLineHeight });
     }
     x += tableCols[2].width;
 
     const amountText = cells.amount;
     const amountWidth = font.widthOfTextAtSize(amountText, rowFs);
-    page.drawText(amountText, { x: x + tableCols[3].width - cellPadX - amountWidth, y });
+    page.drawText(amountText, { x: x + tableCols[3].width - cellPadX - amountWidth, y: textY });
 
     y -= required;
   }
@@ -851,12 +909,12 @@ export async function generateDonationReceiptPdf(input: {
 
   // Summenzeile
   page.drawLine({
-    start: { x: tableX, y: y + 6 },
-    end: { x: tableX + tableWidth, y: y + 6 },
+    start: { x: tableX, y: y + 8 },
+    end: { x: tableX + tableWidth, y: y + 8 },
     thickness: 1,
     color: rgb(0.6, 0.6, 0.6),
   });
-  y -= 4;
+  y -= 6;
   drawRow({ date: '', description: 'Summe', type: '', amount: formatCurrency(sum) }, true);
 
   y -= 8;

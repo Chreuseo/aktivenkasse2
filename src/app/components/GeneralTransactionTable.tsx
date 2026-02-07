@@ -15,7 +15,8 @@ export default function GeneralTransactionTable({ transactions }: GeneralTransac
         <tr>
           <th>Hauptkonto</th>
           <th>Betrag</th>
-          <th>Datum</th>
+          <th>erzeugt am</th>
+          <th>Wertstellung</th>
           <th>Beschreibung</th>
           <th>Referenz</th>
           <th>Gegenkonto</th>
@@ -26,7 +27,7 @@ export default function GeneralTransactionTable({ transactions }: GeneralTransac
       </thead>
       <tbody>
         {transactions.length === 0 && (
-          <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Transaktionen vorhanden</td></tr>
+          <tr><td colSpan={10} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Transaktionen vorhanden</td></tr>
         )}
         {transactions.map((tx: Transaction) => (
           <tr key={tx.id} className="kc-row" style={{ opacity: tx.processed === false ? 0.5 : 1 }}>
@@ -40,7 +41,8 @@ export default function GeneralTransactionTable({ transactions }: GeneralTransac
               ) : <span style={{ color: "var(--muted)" }}>-</span>}
             </td>
             <td style={{ color: tx.amount < 0 ? "#e11d48" : "#059669", fontWeight: 600 }}>{tx.amount.toFixed(2)} €</td>
-            <td>{new Date(tx.date).toLocaleDateString()}</td>
+            <td>{new Date(tx.createdAt ?? tx.date).toLocaleDateString()}</td>
+            <td>{tx.dateValued ? new Date(tx.dateValued).toLocaleDateString() : <span style={{ color: "var(--muted)" }}>-</span>}</td>
             <td>{tx.description}</td>
             <td>{tx.reference || "-"}</td>
             <td>
