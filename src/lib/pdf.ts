@@ -584,3 +584,305 @@ function formatCurrency(n: number): string {
     return `${n.toFixed(2)} €`;
   }
 }
+
+export type DonationReceiptRow = {
+  date: string; // ISO
+  description: string;
+  type: 'financial' | 'material' | 'waiver';
+  amount: number;
+};
+
+// Hinweis: bewusst kein separates Config-Interface exportiert, da die Funktion die Felder direkt erhält.
+
+export async function generateDonationReceiptPdf(input: {
+  corporation: string;
+  address: string;
+  donationHeader: string;
+  donationEntry: string;
+  donationFooter: string;
+  signatory1Role: string;
+  signatory1Name: string;
+  signatory2Role: string;
+  signatory2Name: string;
+  signatureFooter: string;
+  user: { name: string; street: string; postalCode: string; city: string };
+  createdAt: Date;
+  from: Date;
+  to: Date;
+  rows: DonationReceiptRow[];
+}): Promise<Buffer> {
+  const pdfDoc = await PDFDocument.create();
+  const pageSize = PageSizes.A4; // portrait
+  const margin = 50;
+
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const normalFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  let page = pdfDoc.addPage(pageSize);
+  let y = page.getHeight() - margin;
+
+  const bodyFontSize = 11;
+  const lineHeight = 14;
+
+  const formatDateOnly = (d: Date) => d.toLocaleDateString('de-DE');
+  const typeLabel = (t: DonationReceiptRow['type']) => {
+    switch (t) {
+      case 'financial':
+        return 'Geldspende';
+      case 'material':
+        return 'Sachspende';
+      case 'waiver':
+        return 'Verzichtsspende';
+      default:
+        return t;
+    }
+  };
+
+  function ensureSpace(required: number) {
+    if (y - required < margin) {
+      page = pdfDoc.addPage(pageSize);
+      y = page.getHeight() - margin;
+    }
+  }
+
+  function wrapText(font: any, fontSize: number, text: string, maxWidth: number): string[] {
+    const t = (text || '').toString();
+    if (!t) return [''];
+    const measure = (s: string) => font.widthOfTextAtSize(s, fontSize);
+    const words = t.split(/\s+/);
+    const lines: string[] = [];
+    let current = '';
+
+    for (let w of words) {
+      if (measure(w) > maxWidth) {
+        // sehr langes Wort hart umbrechen
+        while (w.length > 0) {
+          let lo = 1,
+            hi = w.length,
+            fit = 1;
+          while (lo <= hi) {
+            const mid = (lo + hi) >> 1;
+            const part = w.slice(0, mid);
+            if (measure(part) <= maxWidth) {
+              fit = mid;
+              lo = mid + 1;
+            } else {
+              hi = mid - 1;
+            }
+          }
+          const chunk = w.slice(0, fit);
+          w = w.slice(fit);
+          if (current) {
+            lines.push(current.trim());
+            current = '';
+          }
+          lines.push(chunk);
+        }
+        continue;
+      }
+
+      const candidate = current ? `${current} ${w}` : w;
+      if (measure(candidate) <= maxWidth) {
+        current = candidate;
+      } else {
+        if (current) lines.push(current.trim());
+        current = w;
+      }
+    }
+    if (current) lines.push(current.trim());
+    return lines.length > 0 ? lines : [''];
+  }
+
+  function drawParagraph(text: string, opts?: { bold?: boolean; fontSize?: number; gapAfter?: number }) {
+    const fs = opts?.fontSize ?? bodyFontSize;
+    const font = opts?.bold ? boldFont : normalFont;
+    const maxWidth = page.getWidth() - 2 * margin;
+    const lines = wrapText(font, fs, text, maxWidth);
+    ensureSpace(lines.length * lineHeight + (opts?.gapAfter ?? lineHeight));
+    page.setFont(font);
+    page.setFontSize(fs);
+    for (const line of lines) {
+      page.drawText(line, { x: margin, y });
+      y -= lineHeight;
+    }
+    y -= opts?.gapAfter ?? lineHeight;
+  }
+
+  // Kopf: Körperschaft + Adresse (links oben)
+  page.setFont(boldFont);
+  page.setFontSize(12);
+  page.drawText(input.corporation, { x: margin, y });
+  y -= lineHeight;
+  page.setFont(normalFont);
+  page.setFontSize(11);
+  for (const line of input.address.split(/\r?\n|,\s*/).filter(Boolean)) {
+    page.drawText(line.trim(), { x: margin, y });
+    y -= lineHeight;
+  }
+
+  // Adressblock des Zuwendungsempfängers rechts (klassisch)
+  const addrX = page.getWidth() / 2 + 10;
+  let addrY = page.getHeight() - margin - 20;
+  page.setFont(normalFont);
+  page.setFontSize(11);
+  const addrLines = [
+    input.user.name,
+    input.user.street,
+    `${input.user.postalCode} ${input.user.city}`.trim(),
+  ].filter((l) => (l || '').trim().length > 0);
+  for (const l of addrLines) {
+    page.drawText(l, { x: addrX, y: addrY });
+    addrY -= lineHeight;
+  }
+
+  // etwas Luft nach dem Kopf
+  y -= 10;
+
+  // Datum + Zeitraum
+  page.setFont(normalFont);
+  page.setFontSize(10);
+  const createdAtStr = input.createdAt.toLocaleDateString('de-DE');
+  page.drawText(`Datum: ${createdAtStr}`, { x: margin, y, color: rgb(0.4, 0.4, 0.4) });
+  y -= lineHeight;
+  page.drawText(`Zeitraum: ${formatDateOnly(input.from)} – ${formatDateOnly(input.to)}`, {
+    x: margin,
+    y,
+    color: rgb(0.4, 0.4, 0.4),
+  });
+  y -= 22;
+
+  // Header / Einleitung
+  drawParagraph(input.donationHeader, { bold: true, fontSize: 14, gapAfter: 10 });
+  drawParagraph(input.donationEntry, { fontSize: 11, gapAfter: 12 });
+
+  // Tabelle
+  const tableCols = [
+    { key: 'date', label: 'Datum', width: 80 },
+    { key: 'description', label: 'Beschreibung', width: 260 },
+    { key: 'type', label: 'Art', width: 110 },
+    { key: 'amount', label: 'Betrag', width: 85 },
+  ] as const;
+  const tableWidth = tableCols.reduce((s, c) => s + c.width, 0);
+  const tableX = margin;
+  const cellPadX = 3;
+  const headerFs = 11;
+  const rowFs = 10.5;
+  const rowLineHeight = 13;
+
+  function drawTableHeader() {
+    ensureSpace(40);
+    page.setFont(boldFont);
+    page.setFontSize(headerFs);
+    let x = tableX;
+    page.drawLine({
+      start: { x: tableX, y: y + 8 },
+      end: { x: tableX + tableWidth, y: y + 8 },
+      thickness: 1,
+      color: rgb(0.75, 0.75, 0.75),
+    });
+    for (const c of tableCols) {
+      page.drawText(c.label, { x: x + cellPadX, y });
+      x += c.width;
+    }
+    y -= rowLineHeight;
+    page.drawLine({
+      start: { x: tableX, y: y + 6 },
+      end: { x: tableX + tableWidth, y: y + 6 },
+      thickness: 1,
+      color: rgb(0.75, 0.75, 0.75),
+    });
+    page.setFont(normalFont);
+    page.setFontSize(rowFs);
+  }
+
+  function drawRow(cells: { date: string; description: string; type: string; amount: string }, bold = false) {
+    const font = bold ? boldFont : normalFont;
+    page.setFont(font);
+    page.setFontSize(rowFs);
+
+    const wrappedDesc = wrapText(font, rowFs, cells.description, tableCols[1].width - cellPadX * 2);
+    const wrappedType = wrapText(font, rowFs, cells.type, tableCols[2].width - cellPadX * 2);
+    const maxLines = Math.max(1, wrappedDesc.length, wrappedType.length);
+    const required = maxLines * rowLineHeight + 2;
+
+    if (y - required < margin) {
+      page = pdfDoc.addPage(pageSize);
+      y = page.getHeight() - margin;
+      drawTableHeader();
+    }
+
+    // datum, beschreibung, art (multiline), amount rechtsbündig
+    let x = tableX;
+    page.drawText(cells.date, { x: x + cellPadX, y });
+    x += tableCols[0].width;
+
+    for (let i = 0; i < wrappedDesc.length; i++) {
+      page.drawText(wrappedDesc[i], { x: x + cellPadX, y: y - i * rowLineHeight });
+    }
+    x += tableCols[1].width;
+
+    for (let i = 0; i < wrappedType.length; i++) {
+      page.drawText(wrappedType[i], { x: x + cellPadX, y: y - i * rowLineHeight });
+    }
+    x += tableCols[2].width;
+
+    const amountText = cells.amount;
+    const amountWidth = font.widthOfTextAtSize(amountText, rowFs);
+    page.drawText(amountText, { x: x + tableCols[3].width - cellPadX - amountWidth, y });
+
+    y -= required;
+  }
+
+  drawTableHeader();
+
+  let sum = 0;
+  for (const r of input.rows) {
+    sum += Number(r.amount || 0);
+    drawRow(
+      {
+        date: formatDate(r.date),
+        description: r.description,
+        type: typeLabel(r.type),
+        amount: formatCurrency(Number(r.amount || 0)),
+      },
+      false,
+    );
+  }
+
+  // Summenzeile
+  page.drawLine({
+    start: { x: tableX, y: y + 6 },
+    end: { x: tableX + tableWidth, y: y + 6 },
+    thickness: 1,
+    color: rgb(0.6, 0.6, 0.6),
+  });
+  y -= 4;
+  drawRow({ date: '', description: 'Summe', type: '', amount: formatCurrency(sum) }, true);
+
+  y -= 8;
+
+  // Footer / Signaturen
+  drawParagraph(input.donationFooter, { fontSize: 11, gapAfter: 10 });
+
+  ensureSpace(90);
+  page.setFont(normalFont);
+  page.setFontSize(11);
+
+  const signY = y;
+  const col1X = margin;
+  const col2X = page.getWidth() / 2 + 10;
+
+  page.drawText(input.signatory1Role, { x: col1X, y: signY });
+  page.drawText(input.signatory1Name, { x: col1X, y: signY - lineHeight });
+
+  page.drawText(input.signatory2Role, { x: col2X, y: signY });
+  page.drawText(input.signatory2Name, { x: col2X, y: signY - lineHeight });
+
+  y = signY - 3 * lineHeight;
+
+  drawParagraph(input.signatureFooter, { fontSize: 10, gapAfter: 0 });
+
+  const bytes = await pdfDoc.save();
+  return Buffer.from(bytes);
+}
+
