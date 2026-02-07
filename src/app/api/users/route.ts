@@ -163,6 +163,12 @@ export async function GET(req: Request) {
             balance: u.account?.balance ? Number(u.account.balance) : 0,
             status: u.status || null,
             hv_mitglied: Boolean(u.hv_mitglied),
+            // SEPA Mandat (für Prozessseiten)
+            sepa_mandate: Boolean((u as any).sepa_mandate),
+            sepa_mandate_date: (u as any).sepa_mandate_date ? (u as any).sepa_mandate_date.toISOString() : null,
+            sepa_mandate_reference: (u as any).sepa_mandate_reference ?? null,
+            sepa_iban: (u as any).sepa_iban ?? null,
+            sepa_bic: (u as any).sepa_bic ?? null,
         }));
         return NextResponse.json(result);
     } catch (error: any) {

@@ -35,6 +35,11 @@ model User {
   enabled                     Boolean                 @default(true)
   accountId                   Int
   account                     Account                 @relation(fields: [accountId], references: [id])
+  sepa_mandate                Boolean                 @default(false)
+  sepa_mandate_date           DateTime?
+  sepa_mandate_reference      String?
+  sepa_iban                   String?
+  sepa_bic                    String?
   roles                       Role[]
   clearingAccounts            ClearingAccountMember[]
   responsibleClearingAccounts ClearingAccount[]       @relation("responsible")

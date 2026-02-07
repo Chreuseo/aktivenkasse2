@@ -252,7 +252,7 @@ export type AddBulkRowWithCounterParams = {
 };
 
 export async function addBulkRowWithCounter(p: PrismaTx, params: AddBulkRowWithCounterParams) {
-  const { bulkId, mainTxId, rowAccountId, amount, description, createdById, dateValued, reference, attachmentId, costCenterId } = params;
+  const { bulkId, rowAccountId, amount, description, createdById, dateValued, reference, attachmentId, costCenterId } = params;
 
   return await createTransactionWithBalance(p, {
     accountId: rowAccountId,
@@ -263,7 +263,8 @@ export async function addBulkRowWithCounter(p: PrismaTx, params: AddBulkRowWithC
     dateValued,
     attachmentId,
     costCenterId: costCenterId ?? null,
-    extraData: { transactionBulk: { connect: { id: bulkId } }, counter_transaction: { connect: { id: mainTxId } } },
+    // Bulk ist 1:n. counter_transaction ist 1:1 und darf hier NICHT gesetzt werden.
+    extraData: { transactionBulk: { connect: { id: bulkId } } },
   });
 }
 

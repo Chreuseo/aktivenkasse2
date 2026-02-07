@@ -47,7 +47,7 @@ export async function GET(req: Request) {
   const result = txs.map((tx: any) => {
     const main = tx.account ? inferAccount(tx.account) : null;
     const costCenterLabel = tx.costCenter && tx.costCenter.budget_plan ? `${tx.costCenter.budget_plan.name} - ${tx.costCenter.name}` : undefined;
-    const amount = Number(tx.amount) * (tx.account?.type === "bank" ? 1 : -1);
+    const amount = Number(tx.amount);
     return {
       id: tx.id,
       amount,
@@ -78,18 +78,37 @@ export async function DELETE(req: Request) {
   if (!idParam) return NextResponse.json({ error: "id ist Pflicht" }, { status: 400 });
   const txId = Number(idParam);
 
-  const tx = await prisma.transaction.findUnique({ where: { id: txId }, select: { id: true, processed: true, counter_transactionId: true } });
+  const tx = await prisma.transaction.findUnique({
+    where: { id: txId },
+    select: { id: true, processed: true, counter_transactionId: true, transactionBulkId: true },
+  });
   if (!tx) return NextResponse.json({ error: "Transaktion nicht gefunden" }, { status: 404 });
   if (tx.processed) return NextResponse.json({ error: "Transaktion ist bereits gebucht" }, { status: 409 });
 
   try {
     await prisma.$transaction(async (p) => {
+      // 1) Falls Transaktion Haupttransaktion eines Bulks ist, muss zuerst der Bulk gelöscht werden.
+      //    Grund: TransactionBulk.transactionId zeigt auf diese Transaktion.
+      const bulkAsMain = await p.transactionBulk.findFirst({
+        where: { transactionId: txId },
+        select: { id: true },
+      });
+      if (bulkAsMain) {
+        // Alle Bulk-Transaktionen (inkl mainTx selbst) löschen
+        await p.transaction.deleteMany({ where: { transactionBulkId: bulkAsMain.id } });
+        await p.transactionBulk.delete({ where: { id: bulkAsMain.id } });
+        return;
+      }
+
+      // 2) Falls Gegenbuchung existiert (Paired-Tx), beide löschen
       if (tx.counter_transactionId) {
         const c = await p.transaction.findUnique({ where: { id: tx.counter_transactionId }, select: { id: true, processed: true } });
         if (!c) throw new Error("Gegenbuchung nicht gefunden");
         if (c.processed) throw new Error("Gegenbuchung ist bereits gebucht");
         await p.transaction.delete({ where: { id: c.id } });
       }
+
+      // 3) Normale (ggf. Bulk-Row) Transaktion löschen
       await p.transaction.delete({ where: { id: txId } });
     });
     return NextResponse.json({ ok: true });
@@ -97,4 +116,3 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: e?.message || String(e) }, { status: 500 });
   }
 }
-

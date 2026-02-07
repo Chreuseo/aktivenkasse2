@@ -49,6 +49,7 @@ const submenuLinks: Record<MenuKey, SubmenuLink[]> = {
     Prozesse: [
         { label: 'Mailversand', href: '/processes/mail' },
         { label: 'Zinsrechnung', href: '/interests' },
+        { label: 'Sepa-XML', href: '/processes/sepa-xml' },
         { label: 'Mail-Log', href: '/processes/mail-log' },
         { label: 'Zuwendungsbescheide', href: '/processes/donations' },
         { label: ' Zuwendungsbescheid erstellen', href: '/processes/donations/create' },

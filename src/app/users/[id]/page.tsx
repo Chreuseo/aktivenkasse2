@@ -9,11 +9,20 @@ import { extractToken } from "@/lib/utils";
 import { Transaction } from "@/app/types/transaction";
 import TransactionTable from "@/app/components/TransactionTable";
 
+type UserPayload = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  mail: string;
+  balance: number;
+  accountId?: number;
+};
+
 export default function UserDetailPage() {
   const params = useParams();
   const id = params?.id as string;
   const { data: session } = useSession();
-  const [data, setData] = useState<{ user: { id: number; first_name: string; last_name: string; mail: string; balance: number; accountId?: number }, planned: Transaction[], past: Transaction[], allowances: any[] } | null>(null);
+  const [data, setData] = useState<{ user: UserPayload; planned: Transaction[]; past: Transaction[]; allowances: any[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
