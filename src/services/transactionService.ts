@@ -355,3 +355,59 @@ export async function processPendingTransactions(p: PrismaTx) {
 
   return { count: processedIds.length, ids: processedIds };
 }
+
+export type CreateDonationDepositPairParams = {
+  bankAccountId: number;
+  bankAmount: number; // positiv (Einzahlung auf Bankkonto)
+  userAccountId: number;
+  description: string;
+  createdById: number;
+  reference?: string | null;
+  dateValued?: Date | null;
+  attachmentId?: number | null;
+  donationCostCenterId: number; // Kostenstelle für die negative Nutzer-Transaktion
+};
+
+export async function createDonationDepositPair(p: PrismaTx, params: CreateDonationDepositPairParams) {
+  const {
+    bankAccountId,
+    bankAmount,
+    userAccountId,
+    description,
+    createdById,
+    reference,
+    dateValued,
+    attachmentId,
+    donationCostCenterId,
+  } = params;
+
+  const amount = Number(bankAmount);
+  if (!(amount > 0)) throw new Error('Betrag muss positiv sein');
+
+  // 1) Paarbuchung ohne Kostenstelle: Bank + und Nutzer + (beide positiv)
+  const { tx1: bankTx, tx2: userCounterTx } = await createPairedTransactions(p, {
+    account1Id: bankAccountId,
+    amount1: amount,
+    account2Id: userAccountId,
+    amount2: amount,
+    description,
+    createdById,
+    reference,
+    dateValued,
+    attachmentId,
+  });
+
+  // 2) Spende als einzelne Buchung: Nutzer negativ, ohne Gegenkonto, mit Kostenstelle
+  const donationTx = await createTransactionWithBalance(p, {
+    accountId: userAccountId,
+    amount: -amount,
+    description,
+    createdById,
+    reference,
+    dateValued,
+    attachmentId,
+    costCenterId: donationCostCenterId,
+  });
+
+  return { bankTx, userCounterTx, donationTx };
+}

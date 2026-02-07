@@ -5,7 +5,8 @@ import { computeAccount2Negative, normalizeBoolean, isAllowedAttachment, parsePo
 import { extractUserFromAuthHeader, resolveAccountId as resolveAccountIdUtil } from '@/lib/serverUtils';
 import { checkPermission} from "@/services/authService";
 import { saveAttachmentFromFormFileData as saveAttachmentFromFormFile } from '@/lib/apiHelpers';
-import { createPairedTransactions, createTransactionWithBalance } from '@/services/transactionService';
+import { createPairedTransactions, createTransactionWithBalance, createDonationDepositPair } from '@/services/transactionService';
+import { createDonationForTransaction } from '@/services/donationService';
 
 function inferOtherFromAccount(acc: any): { type: 'user'|'bank'|'clearing_account'; name: string; mail?: string; bank?: string; iban?: string } | null {
   if (!acc) return null;
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
   const costCenterId = getField('costCenterId');
   const budgetPlanId = getField('budgetPlanId');
   const file = formData.get('attachment') as File | null;
+  const isDonation = normalizeBoolean(getField('isDonation'), false);
 
   // Pflichtfelder prüfen
   if (!amount || !description || !account1Type || !account1Id) {
@@ -94,13 +96,20 @@ export async function POST(req: Request) {
   }
 
   // Budget-/Kostenstellen-Konsistenz
-  if (a2Type) {
-    if (budgetPlanId || costCenterId) {
-      return NextResponse.json({ error: 'Budgetplan/Kostenstelle nur ohne Gegenkonto erlaubt' }, { status: 400 });
+  if (isDonation) {
+    // im Spendenmodus sind Budgetplan+Kostenstelle verpflichtend, trotz Gegenkonto
+    if (!budgetPlanId || !costCenterId) {
+      return NextResponse.json({ error: 'Budgetplan und Kostenstelle sind Pflicht für Spenden' }, { status: 400 });
     }
   } else {
-    if (!budgetPlanId || !costCenterId) {
-      return NextResponse.json({ error: 'Kostenstelle ist Pflicht ohne Gegenkonto (Budgetplan und Kostenstelle angeben)' }, { status: 400 });
+    if (a2Type) {
+      if (budgetPlanId || costCenterId) {
+        return NextResponse.json({ error: 'Budgetplan/Kostenstelle nur ohne Gegenkonto erlaubt' }, { status: 400 });
+      }
+    } else {
+      if (!budgetPlanId || !costCenterId) {
+        return NextResponse.json({ error: 'Kostenstelle ist Pflicht ohne Gegenkonto (Budgetplan und Kostenstelle angeben)' }, { status: 400 });
+      }
     }
   }
   if (costCenterId && !budgetPlanId) {
@@ -121,7 +130,7 @@ export async function POST(req: Request) {
 
   // Budget-/Kostenstelle prüfen (Existenz/Zuordnung)
   let costCenterIdNum: number | null = null;
-  if (!a2Type) {
+  if (!a2Type || isDonation) {
     const cc = await prisma.costCenter.findUnique({ where: { id: Number(costCenterId) } });
     if (!cc) {
       return NextResponse.json({ error: 'Kostenstelle nicht gefunden' }, { status: 400 });
@@ -138,6 +147,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Budgetplan ist nicht aktiv' }, { status: 400 });
     }
     costCenterIdNum = cc.id;
+
+    if (isDonation && cc.is_donation !== true) {
+      return NextResponse.json({ error: 'Kostenstelle ist keine Spenden-Kostenstelle' }, { status: 400 });
+    }
   }
 
   const attachmentId = file ? await saveAttachmentFromFormFile(prisma as any, file) : null;
@@ -147,6 +160,72 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Ungültiger Betrag' }, { status: 400 });
   }
   const amountCents = roundToTwoDecimals(amountNum);
+
+  // Spendenmodus: nur Bankkonto <-> Nutzer, Betrag positiv, und als Einzahlung (Bank +, Nutzer -)
+  if (isDonation) {
+    if (!a2Type || !acc2Id) {
+      return NextResponse.json({ error: 'Spende erfordert ein Gegenkonto' }, { status: 400 });
+    }
+
+    const types = [a1Type, a2Type].sort().join(':');
+    if (types !== 'bank:user') {
+      return NextResponse.json({ error: 'Spende ist nur zwischen Nutzer und Bankkonto möglich' }, { status: 400 });
+    }
+
+    if (!(amountCents > 0)) {
+      return NextResponse.json({ error: 'Spende erfordert einen positiven Betrag' }, { status: 400 });
+    }
+
+    // Wir unterstützen im Spendenmodus nur die Richtung Einzahlung: Bank wird positiv gebucht.
+    // Nutzer ist das Gegenkonto der Einzahlung.
+    const bankAccountId = a1Type === 'bank' ? acc1Id : (acc2Id as number);
+    const userAccountId = a1Type === 'user' ? acc1Id : (acc2Id as number);
+
+    // Richtungsprüfung: „positiv“ heißt hier: Bank und Nutzer werden beide positiv gebucht.
+    const a1Neg = normalizeBoolean(account1Negative, false);
+    const a2Neg = computeAccount2Negative(a1Type, a2Type as AccountTypeStr, a1Neg);
+    const bankWillBeNegative = (a1Type === 'bank' ? a1Neg : a2Neg);
+    const userWillBeNegative = (a1Type === 'user' ? a1Neg : a2Neg);
+    if (bankWillBeNegative || userWillBeNegative) {
+      return NextResponse.json({ error: 'Spende erfordert positive Buchung auf Bankkonto und Nutzer (beide Vorzeichen müssen + sein)' }, { status: 400 });
+    }
+
+    if (!costCenterIdNum) {
+      return NextResponse.json({ error: 'Kostenstelle ist Pflicht für Spenden' }, { status: 400 });
+    }
+
+    try {
+      const result = await prisma.$transaction(async (p: any) => {
+        const dateVal = date_valued ? new Date(String(date_valued)) : undefined;
+
+        const { bankTx, donationTx } = await createDonationDepositPair(p, {
+          bankAccountId,
+          bankAmount: amountCents,
+          userAccountId,
+          description: String(description),
+          createdById: currentUser.id,
+          reference: reference ? String(reference) : undefined,
+          dateValued: dateVal,
+          attachmentId: attachmentId ?? null,
+          donationCostCenterId: costCenterIdNum as number,
+        });
+
+        const donation = await createDonationForTransaction(p, {
+          transactionId: donationTx.id,
+          description: String(description),
+          type: 'financial',
+          processorId: currentUser.id,
+        });
+
+        return { id: bankTx.id, donationId: donation.id, donationTransactionId: donationTx.id };
+      });
+
+      return NextResponse.json(result, { status: 201 });
+    } catch (e: any) {
+      console.error('Spenden-Transaktion fehlgeschlagen', e);
+      return NextResponse.json({ error: 'Spenden-Transaktion fehlgeschlagen', detail: e?.message }, { status: 500 });
+    }
+  }
 
   const a1Neg = normalizeBoolean(account1Negative, false);
   const a2Neg = a2Type ? computeAccount2Negative(a1Type, a2Type as AccountTypeStr, a1Neg) : null;

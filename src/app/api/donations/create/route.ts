@@ -3,15 +3,7 @@ import prisma from '@/lib/prisma';
 import { ResourceType, AuthorizationType } from '@/app/types/authorization';
 import { checkPermission } from '@/services/authService';
 import { extractUserFromAuthHeader } from '@/lib/serverUtils';
-
-type DonationTypeUi = 'financial' | 'material' | 'waiver';
-
-function toDbType(t: DonationTypeUi): any {
-  if (t === 'financial') return 'financial';
-  if (t === 'material') return 'material';
-  if (t === 'waiver') return 'waiver';
-  return 'financial';
-}
+import { createDonationForTransaction, type DonationTypeUi } from '@/services/donationService';
 
 export async function POST(req: Request) {
   const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
@@ -77,29 +69,17 @@ export async function POST(req: Request) {
         continue;
       }
 
-      const txUser = tx.account.users[0];
-
       try {
-        const txDateValued: Date | null = tx.date_valued ? new Date(tx.date_valued) : null;
-        const txDate: Date | null = tx.date ? new Date(tx.date) : null;
-
-        const createdDonation = await p.donation.create({
-          data: {
-            // createdAt bewusst = now; fachliches Datum aus der Transaktion
-            createdAt: new Date(),
-            date: txDateValued || txDate || new Date(),
-            date_valued: txDateValued || txDate || new Date(),
-            description: String(r.description || tx.description),
-            amount: Math.abs(Number(tx.amount)),
-            type: toDbType(r.type || 'financial'),
-            transactionId: tx.id,
-            userId: txUser.id,
-            processorId: currentUser.id,
-          },
+        const createdDonation = await createDonationForTransaction(p, {
+          transactionId: tx.id,
+          description: String(r.description || tx.description),
+          type: (r.type || 'financial') as DonationTypeUi,
+          processorId: currentUser.id,
         });
         created.push(createdDonation.id);
       } catch (e: any) {
-        skipped.push({ transactionId: tx.id, reason: 'Erzeugen fehlgeschlagen (evtl. Unique-Konflikt)' });
+        const msg = String(e?.message || 'Erzeugen fehlgeschlagen');
+        skipped.push({ transactionId: tx.id, reason: msg });
       }
     }
   });

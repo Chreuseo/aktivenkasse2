@@ -57,6 +57,21 @@ export default function NewTransactionPage() {
     const [costCenterId, setCostCenterId] = useState<string>("");
     const [account1Negative, setAccount1Negative] = useState(false);
     const [account2Negative, setAccount2Negative] = useState(false);
+    const [isDonation, setIsDonation] = useState(false);
+
+    const amountNum = Number(formData.amount);
+    const amountPositive = Number.isFinite(amountNum) && amountNum > 0;
+    const hasUserAndBank =
+        !!formData.account2Type &&
+        ((formData.account1Type === 'user' && formData.account2Type === 'bank') ||
+            (formData.account1Type === 'bank' && formData.account2Type === 'user'));
+    const signsArePlus = !account1Negative && !account2Negative;
+    const canDonate = hasUserAndBank && amountPositive && signsArePlus;
+
+    useEffect(() => {
+        // Falls Bedingungen nicht mehr erfüllt sind, Spendenmodus deaktivieren
+        if (!canDonate && isDonation) setIsDonation(false);
+    }, [canDonate, isDonation]);
 
     // Daten laden
     useEffect(() => {
@@ -149,12 +164,21 @@ export default function NewTransactionPage() {
         setMessage("");
         setLoading(true);
         try {
-            // Client-Validierung: Ohne Gegenkonto sind Budgetplan & Kostenstelle Pflicht
-            if (!formData.account2Type) {
+            // Client-Validierung
+            if (isDonation) {
                 if (!budgetPlanId || !costCenterId) {
-                    setMessage("❌ Kostenstelle ist Pflicht ohne Gegenkonto (Budgetplan und Kostenstelle angeben)");
+                    setMessage("❌ Budgetplan und Kostenstelle sind Pflicht für Spenden");
                     setLoading(false);
                     return;
+                }
+            } else {
+                // Ohne Gegenkonto sind Budgetplan & Kostenstelle Pflicht
+                if (!formData.account2Type) {
+                    if (!budgetPlanId || !costCenterId) {
+                        setMessage("❌ Kostenstelle ist Pflicht ohne Gegenkonto (Budgetplan und Kostenstelle angeben)");
+                        setLoading(false);
+                        return;
+                    }
                 }
             }
 
@@ -176,6 +200,9 @@ export default function NewTransactionPage() {
             if (costCenterId) formDataObj.append("costCenterId", costCenterId);
             if (formData.attachment) {
                 formDataObj.append("attachment", formData.attachment);
+            }
+            if (isDonation) {
+                formDataObj.append('isDonation', 'true');
             }
             const res = await fetch("/api/transactions", {
                 method: "POST",
@@ -213,6 +240,7 @@ export default function NewTransactionPage() {
                 });
                 setAccount1Negative(false);
                 setAccount2Negative(false);
+                setIsDonation(false);
                 setBudgetPlanId("");
                 setCostCenterId("");
             }
@@ -368,14 +396,14 @@ export default function NewTransactionPage() {
                     </label>
                 </div>
                 <label>
-                    Budgetplan {formData.account2Type ? "(optional)" : "(Pflicht ohne Gegenkonto)"}
+                    Budgetplan {formData.account2Type && !isDonation ? "(optional)" : "(Pflicht)"}
                     <select
                         name="budgetPlanId"
                         className="form-select form-select-max"
                         value={budgetPlanId}
                         onChange={e => setBudgetPlanId(e.target.value)}
-                        disabled={!!formData.account2Type}
-                        required={!formData.account2Type}
+                        disabled={!!formData.account2Type && !isDonation}
+                        required={!formData.account2Type || isDonation}
                         style={{ maxWidth: "220px" }}
                     >
                         <option value="">Kein Budgetplan</option>
@@ -385,14 +413,14 @@ export default function NewTransactionPage() {
                     </select>
                 </label>
                 <label>
-                    Kostenstelle {formData.account2Type ? "(optional)" : "(Pflicht ohne Gegenkonto)"}
+                    Kostenstelle {formData.account2Type && !isDonation ? "(optional)" : "(Pflicht)"}
                     <select
                         name="costCenterId"
                         className="form-select form-select-max"
                         value={costCenterId}
                         onChange={e => setCostCenterId(e.target.value)}
                         disabled={!budgetPlanId}
-                        required={!formData.account2Type}
+                        required={!formData.account2Type || isDonation}
                         style={{ maxWidth: "220px" }}
                     >
                         <option value="">Bitte wählen</option>
@@ -401,6 +429,20 @@ export default function NewTransactionPage() {
                         ))}
                     </select>
                 </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input
+                        type="checkbox"
+                        checked={isDonation}
+                        onChange={(e) => setIsDonation(e.target.checked)}
+                        disabled={!canDonate}
+                    />
+                    Spende
+                </label>
+                {!canDonate && (
+                    <p className="hint" style={{ marginTop: '-0.5rem' }}>
+                        (Spende ist verfügbar bei Nutzer + Bankkonto, positivem Betrag und wenn beide Vorzeichen auf + stehen)
+                    </p>
+                )}
                 <label>
                     Anhang
                     <input
