@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
 import { resolveEnv, normalizeBaseUrl, getKeycloakToken } from "@/lib/keycloakUtils";
+import { hasKeycloakRolePrefix, ensureKeycloakRolePrefixed } from "@/lib/keycloakRolePrefix";
 
 async function fetchKeycloakRoles(token: string) {
   const baseRaw = resolveEnv(
@@ -22,7 +23,8 @@ async function fetchKeycloakRoles(token: string) {
   }
   const roles = await res.json();
   return Array.isArray(roles)
-    ? roles.filter((r: any) => typeof r.name === 'string' && r.name.startsWith('aktivenkasse_'))
+    ? roles
+        .filter((r: any) => typeof r.name === "string" && hasKeycloakRolePrefix(r.name))
         .map((r: any) => ({ id: r.id, name: r.name }))
     : [];
 }
@@ -38,7 +40,7 @@ async function createKeycloakRole(token: string, name: string) {
   const realm = resolveEnv("KEYCLOAK_REALM", "KEYCLOAK_REALM_NAME", "NEXT_PUBLIC_KEYCLOAK_REALM");
   if (!baseRaw || !realm) throw new Error("Missing KEYCLOAK_BASE_URL or KEYCLOAK_REALM");
   const base = normalizeBaseUrl(baseRaw);
-  const roleName = name.startsWith('aktivenkasse_') ? name : `aktivenkasse_${name}`;
+  const roleName = ensureKeycloakRolePrefixed(name);
   const createRes = await fetch(`${base}/admin/realms/${realm}/roles`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },

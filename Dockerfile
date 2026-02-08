@@ -20,6 +20,7 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy source
 COPY . .
 # Ensure prisma client is generated before build
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummydb"
 RUN npx prisma generate
 # Next.js standalone build
 ENV NEXT_TELEMETRY_DISABLED=1
