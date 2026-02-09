@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import "@/app/css/tables.css";
-import { stripKeycloakRolePrefix } from "@/lib/keycloakRolePrefix";
 
 type AuthorizationType = 'none' | 'read_own' | 'read_all' | 'write_all';
 
@@ -264,6 +263,17 @@ export default function RolesPage() {
     } finally { setLoading(false); }
   }
 
+  function getRoleDisplayName(role: Role, users: {id: number, first_name: string, last_name: string, mail: string}[]): string {
+    if (role.userId) {
+      const user = users.find(u => u.id === role.userId);
+      return user ? `${user.first_name} ${user.last_name}` : "Nutzerrolle";
+    }
+    if (role.name && role.name.startsWith("aktivenkasse_")) {
+      return role.name.replace("aktivenkasse_", "");
+    }
+    return role.name || "Rolle";
+  }
+
   return (
     <div className="wide-container">
       <div style={{ margin: "1.5rem auto", padding: "1rem" }}>
@@ -406,7 +416,7 @@ export default function RolesPage() {
             >
               <option value="">Rolle wählen…</option>
               {roles.filter(r => !!r.keycloak_id).map(r => (
-                <option key={r.id} value={r.id}>{stripKeycloakRolePrefix(r.name || '')}</option>
+                <option key={r.id} value={r.id}>{(r.name || '').replace(/^aktivenkasse_/, '')}</option>
               ))}
             </select>
             <button className="button" onClick={() => selectedKcRoleId ? loadKcMembers(selectedKcRoleId) : undefined} disabled={kcLoading || !selectedKcRoleId}>Mitglieder laden</button>
@@ -466,5 +476,3 @@ export default function RolesPage() {
     </div>
   );
 }
-
-
