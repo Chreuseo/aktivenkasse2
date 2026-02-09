@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { BulkTransactionType } from '@prisma/client';
 import { isAllowedAttachment, isAllowedMainAccountForBulk, isAllowedRowTypeForBulk, parsePositiveAmount, roundToTwoDecimals } from '@/lib/validation';
 import { extractUserFromAuthHeader, resolveAccountId as resolveAccountIdUtil } from '@/lib/serverUtils';
 import {AuthorizationType, ResourceType} from "@/app/types/authorization";
 import {checkPermission} from "@/services/authService";
 import { saveAttachmentFromFormFileData as saveAttachmentFromFormFile } from '@/lib/apiHelpers';
 import { createBulkWithMain, addBulkRowWithCounter, addBulkMainCostCenterRow, createMultipleTransactions, createPairedTransactions } from '@/services/transactionService';
+
+type BulkTransactionType = 'collection' | 'deposit' | 'payout';
 
 export async function POST(req: Request) {
   const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
@@ -68,9 +69,9 @@ export async function POST(req: Request) {
   // BulkType bestimmen
   const bulkTypeLower = String(bulkType).toLowerCase();
   let bulkTypeEnum: BulkTransactionType | null = null;
-  if (bulkTypeLower === 'auszahlung') bulkTypeEnum = BulkTransactionType.payout;
-  if (bulkTypeLower === 'einzug') bulkTypeEnum = BulkTransactionType.collection;
-  if (bulkTypeLower === 'einzahlung') bulkTypeEnum = BulkTransactionType.deposit;
+  if (bulkTypeLower === 'auszahlung') bulkTypeEnum = 'payout';
+  if (bulkTypeLower === 'einzug') bulkTypeEnum = 'collection';
+  if (bulkTypeLower === 'einzahlung') bulkTypeEnum = 'deposit';
   if (!bulkTypeEnum) {
     return NextResponse.json({ error: 'Ungültige Einzugsart' }, { status: 400 });
   }

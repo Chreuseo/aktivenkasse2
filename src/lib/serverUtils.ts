@@ -1,7 +1,7 @@
 import formidable from "formidable";
 import type { NextApiRequest } from "next";
 import { jwtDecode } from "jwt-decode";
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client";
 import fs from "fs";
 import path from "path"; // hinzugefügt
 

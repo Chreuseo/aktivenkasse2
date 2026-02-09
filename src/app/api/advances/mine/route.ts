@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { extractUserFromAuthHeader } from '@/lib/serverUtils';
 
 export async function GET(req: Request) {
@@ -34,7 +33,7 @@ export async function GET(req: Request) {
         id: a.id,
         date_advance: a.date_advance.toISOString(),
         description: a.description,
-        amount: (a.amount as Prisma.Decimal).toString(),
+        amount: a.amount != null ? String(a.amount) : "0",
         state: a.state,
         attachmentId: a.attachmentId,
         clearingAccount: a.clearingAccount ? { id: a.clearingAccount.id, name: a.clearingAccount.name } : null,
