@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { extractUserFromAuthHeader } from '@/lib/serverUtils';
 import { saveAttachmentFromFormFileData as saveAttachmentFromFormFile, firstFieldFromFormData as firstFieldFromForm } from '@/lib/apiHelpers';
 import { sendPlainMail } from '@/services/mailService';
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
   if (!isFinite(amountNum) || amountNum <= 0) {
     return NextResponse.json({ error: 'Betrag muss größer als 0 sein' }, { status: 400 });
   }
-  const amountDecimal = amountStr;
+  const amountDecimal = new Prisma.Decimal(amountStr);
 
   let clearingAccountIdNum: number | null = null;
   if (clearingAccountIdRaw !== '') {

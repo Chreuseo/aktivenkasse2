@@ -3,9 +3,7 @@ datasource db {
 }
 
 generator client {
-  provider   = "prisma-client"
-  output     = "../src/generated/prisma"
-  engineType = "client"
+  provider = "prisma-client-js"
 }
 
 model Account {

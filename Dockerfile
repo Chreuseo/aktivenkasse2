@@ -47,8 +47,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 # Prisma engines sometimes aren't included in standalone; copy them explicitly
-# (Nicht mehr nötig bei Prisma engineType="client" – es gibt keine .prisma engine binaries)
-# COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/prisma ./prisma
 
 # Expose and run
