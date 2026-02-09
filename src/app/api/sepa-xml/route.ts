@@ -48,7 +48,7 @@ function formatCurrency(value: number): string {
 }
 
 export async function POST(req: NextRequest) {
-  const perm = await checkPermission(req as unknown as Request, ResourceType.transactions, AuthorizationType.write_all);
+  const perm = await checkPermission(req as unknown as Request, ResourceType.mails, AuthorizationType.write_all);
   if (!perm.allowed) {
     return NextResponse.json({ error: perm.error || "Nicht erlaubt" }, { status: 403 });
   }
