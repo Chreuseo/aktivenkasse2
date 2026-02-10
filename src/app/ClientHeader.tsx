@@ -69,6 +69,7 @@ export default function ClientHeader() {
     const [submenuOpen, setSubmenuOpen] = useState<{ [key in MenuKey]?: boolean }>({});
     const [filterMode, setFilterMode] = useState<FilterMode>('Standard');
     const [company, setCompany] = useState<string>("");
+    const [webTitle, setWebTitle] = useState<string>("");
 
     const toggleSubmenu = (key: MenuKey) => {
         setSubmenuOpen(prev => ({ ...prev, [key]: !prev[key] }));
@@ -108,20 +109,25 @@ export default function ClientHeader() {
         }
     }, [filterMode]);
 
-    // Firmenname zur Laufzeit laden
+    // Firmenname + Web-Titel zur Laufzeit laden
     useEffect(() => {
         let cancelled = false;
-        async function loadCompany() {
+        async function loadPublicConfig() {
             try {
                 const res = await fetch('/api/public-config', { cache: 'no-store' });
                 if (!res.ok) throw new Error(String(res.status));
                 const json = await res.json();
-                if (!cancelled) setCompany(String(json?.company || ''));
+                if (cancelled) return;
+                setCompany(String(json?.company || ''));
+                setWebTitle(String(json?.webTitle || ''));
             } catch {
-                if (!cancelled) setCompany(String(process.env.NEXT_PUBLIC_COMPANY || ''));
+                if (!cancelled) {
+                    setCompany(String(process.env.NEXT_PUBLIC_COMPANY || ''));
+                    setWebTitle(String((process.env as any).NEXT_PUBLIC_WEB_TITLE || ''));
+                }
             }
         }
-        loadCompany();
+        loadPublicConfig();
         return () => { cancelled = true; };
     }, []);
 
@@ -141,7 +147,7 @@ export default function ClientHeader() {
     return (
         <header className="bg-gray-800 text-white">
             <nav className="max-w-6xl mx-auto px-4 flex items-center justify-between h-16">
-                <div className="text-xl font-bold">Aktivenkasse { company }</div>
+                <div className="text-xl font-bold">{webTitle || ""}</div>
                 <ul className="hidden md:flex space-x-6">
                     {itemsToRender.map(item => (
                         <li key={item} className="relative group">
