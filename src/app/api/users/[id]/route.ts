@@ -3,11 +3,14 @@ import prisma from "@/lib/prisma";
 import { AuthorizationType, ResourceType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+type IdRouteContext = { params: Promise<{ id: string }> };
+
+export async function GET(req: NextRequest, ctx: IdRouteContext) {
   const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.read_all);
   if (!perm.allowed) return NextResponse.json({ error: perm.error || "Forbidden" }, { status: 403 });
 
-  const id = Number(params.id);
+  const { id: idStr } = await ctx.params;
+  const id = Number(idStr);
   if (!Number.isFinite(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
   const user = await prisma.user.findUnique({
@@ -94,11 +97,12 @@ function normalizeDateOrNull(v: any): Date | null {
   return Number.isFinite(d.getTime()) ? d : null;
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, ctx: IdRouteContext) {
   const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.write_all);
   if (!perm.allowed) return NextResponse.json({ error: perm.error || "Forbidden" }, { status: 403 });
 
-  const id = Number(params.id);
+  const { id: idStr } = await ctx.params;
+  const id = Number(idStr);
   if (!Number.isFinite(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
   let body: any;

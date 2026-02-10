@@ -3,11 +3,12 @@ import prisma from "@/lib/prisma";
 import { AuthorizationType, ResourceType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const perm = await checkPermission(req, ResourceType.bank_accounts, AuthorizationType.read_all);
   if (!perm.allowed) return NextResponse.json({ error: perm.error || "Forbidden" }, { status: 403 });
 
-  const id = Number(params.id);
+  const { id: idStr } = await ctx.params;
+  const id = Number(idStr);
   if (!Number.isFinite(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
   const bankAccount = await prisma.bankAccount.findUnique({
