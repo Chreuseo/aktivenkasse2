@@ -141,7 +141,7 @@ export default function ClientHeader() {
     return (
         <header className="bg-gray-800 text-white">
             <nav className="max-w-6xl mx-auto px-4 flex items-center justify-between h-16">
-                <div className="text-xl font-bold">{ webtitle }</div>
+                <div className="text-xl font-bold">{ webtitle } </div>
                 <ul className="hidden md:flex space-x-6">
                     {itemsToRender.map(item => (
                         <li key={item} className="relative group">
