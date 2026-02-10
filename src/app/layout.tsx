@@ -10,8 +10,8 @@ import ClientHeader from "./ClientHeader";
 import Providers from "./providers";
 
 export const metadata: Metadata = {
-    title: "Kasse",
-    description: "Kasse Webanwendung",
+    title: "Aktivenkasse",
+    description: "Aktivenkasse Webanwendung",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
