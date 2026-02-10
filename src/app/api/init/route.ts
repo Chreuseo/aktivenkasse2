@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { resolveEnv, normalizeBaseUrl, getKeycloakToken } from "@/lib/keycloakUtils";
 
+function getRequiredKeycloakRolePrefix(): string {
+  const prefix = process.env.KEYCLOAK_ROLE_PREFIX;
+  if (typeof prefix !== "string" || prefix.trim().length === 0) {
+    throw new Error("Missing env KEYCLOAK_ROLE_PREFIX (required, no fallback)");
+  }
+  return prefix.trim();
+}
+
 function getEnvInit(key: string): string | undefined {
   // Versucht mehrere Schreibweisen (UPPER_SNAKE, lower_snake, Capitalized)
   const variants = [
@@ -27,7 +35,8 @@ async function kcBaseAndRealm() {
 
 async function ensureKeycloakRole(token: string, nameInput: string) {
   const { base, realm } = await kcBaseAndRealm();
-  const roleName = nameInput.startsWith("aktivenkasse_") ? nameInput : `aktivenkasse_${nameInput}`;
+  const rolePrefix = getRequiredKeycloakRolePrefix();
+  const roleName = nameInput.startsWith(rolePrefix) ? nameInput : `${rolePrefix}${nameInput}`;
   // Erstellen (201) oder bereits vorhanden (409)
   const createRes = await fetch(`${base}/admin/realms/${realm}/roles`, {
     method: "POST",
