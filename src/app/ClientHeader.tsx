@@ -68,7 +68,7 @@ export default function ClientHeader() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [submenuOpen, setSubmenuOpen] = useState<{ [key in MenuKey]?: boolean }>({});
     const [filterMode, setFilterMode] = useState<FilterMode>('Standard');
-    const [company, setCompany] = useState<string>("");
+    const [webtitle, setwebtitle] = useState<string>("");
 
     const toggleSubmenu = (key: MenuKey) => {
         setSubmenuOpen(prev => ({ ...prev, [key]: !prev[key] }));
@@ -111,17 +111,17 @@ export default function ClientHeader() {
     // Firmenname zur Laufzeit laden
     useEffect(() => {
         let cancelled = false;
-        async function loadCompany() {
+        async function loadWebTitle() {
             try {
                 const res = await fetch('/api/public-config', { cache: 'no-store' });
                 if (!res.ok) throw new Error(String(res.status));
                 const json = await res.json();
-                if (!cancelled) setCompany(String(json?.company || ''));
+                if (!cancelled) setwebtitle(String(json?.webtitle || ''));
             } catch {
-                if (!cancelled) setCompany(String(process.env.NEXT_PUBLIC_COMPANY || ''));
+                if (!cancelled) setwebtitle(String(process.env.WEB_TITLE || ''));
             }
         }
-        loadCompany();
+        loadWebTitle();
         return () => { cancelled = true; };
     }, []);
 
@@ -141,7 +141,7 @@ export default function ClientHeader() {
     return (
         <header className="bg-gray-800 text-white">
             <nav className="max-w-6xl mx-auto px-4 flex items-center justify-between h-16">
-                <div className="text-xl font-bold">Aktivenkasse { company }</div>
+                <div className="text-xl font-bold">{ webtitle }</div>
                 <ul className="hidden md:flex space-x-6">
                     {itemsToRender.map(item => (
                         <li key={item} className="relative group">
