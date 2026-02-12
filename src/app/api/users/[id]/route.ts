@@ -28,6 +28,15 @@ export async function GET(req: NextRequest, ctx: IdRouteContext) {
       ? prisma.transaction.findMany({
           where: { accountId },
           orderBy: { date: "desc" },
+          include: {
+            counter_transaction: {
+              include: {
+                account: { include: { users: true, bankAccounts: true, clearingAccounts: true } },
+              },
+            },
+            costCenter: { include: { budget_plan: true } },
+            attachment: true,
+          } as any,
         })
       : Promise.resolve([]),
     accountId
@@ -39,16 +48,26 @@ export async function GET(req: NextRequest, ctx: IdRouteContext) {
       : Promise.resolve([]),
   ]);
 
-  const mapTx = (tx: any) => ({
-    id: tx.id,
-    amount: Number(tx.amount),
-    date: (tx.date_valued ?? tx.date).toISOString(),
-    description: tx.description,
-    reference: tx.reference || undefined,
-    processed: !!tx.processed,
-    attachmentId: tx.attachmentId || undefined,
-    receiptUrl: tx.attachmentId ? `/api/transactions/${tx.id}/receipt` : undefined,
-  });
+  const mapTx = (tx: any) => {
+    const costCenterLabel = tx.costCenter && tx.costCenter.budget_plan
+      ? `${tx.costCenter.budget_plan.name} - ${tx.costCenter.name}`
+      : undefined;
+
+    return {
+      id: tx.id,
+      amount: Number(tx.amount),
+      date: (tx.date_valued ?? tx.date).toISOString(),
+      description: tx.description,
+      reference: tx.reference || undefined,
+      processed: !!tx.processed,
+      attachmentId: tx.attachmentId || undefined,
+      costCenterLabel,
+      costCenterId: tx.costCenterId || (tx.costCenter ? tx.costCenter.id : undefined),
+      budgetPlanId: tx.costCenter && tx.costCenter.budget_plan ? tx.costCenter.budget_plan.id : undefined,
+      receiptUrl: tx.attachmentId ? `/api/transactions/${tx.id}/receipt` : undefined,
+      bulkId: tx.transactionBulkId ? Number(tx.transactionBulkId) : undefined,
+    };
+  };
 
   const planned = transactionsAll.filter(t => !t.processed).map(mapTx);
   const past = transactionsAll.filter(t => t.processed).map(mapTx);

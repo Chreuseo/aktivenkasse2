@@ -22,37 +22,49 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const negativeOnly = toBool(url.searchParams.get('negative'));
-  const now = new Date();
 
   const txs = await prisma.transaction.findMany({
     where: {
       donations: { none: {} },
+      // Robust: explizit nur Transaktionen mit gesetzter Kostenstelle und Donation-Flag
+      costCenterId: { not: null },
       costCenter: { is_donation: true },
       // nur Transaktionen in der Vergangenheit
-      date_valued: { lt: now },
+      processed: true,
       account: {
         users: { some: {} },
-        balance: negativeOnly ? { lt: 0 } : { gt: 0 },
+        balance: negativeOnly ? { lt: 0 } : { gte: 0 },
       },
     },
     orderBy: { date_valued: 'desc' },
     include: {
       account: { include: { users: true } },
+      costCenter: { include: { budget_plan: true } },
     },
   });
 
-  const ui = txs.map((t: any) => {
-    const user = t.account.users[0];
-    return {
-      transactionId: t.id,
-      userId: user.id,
-      userName: `${user.first_name} ${user.last_name}`,
-      date: ((t.date_valued || t.date) as Date).toISOString(),
-      amount: Math.abs(Number(t.amount)),
-      balance: Number(t.account.balance),
-      description: t.description,
-    };
-  });
+  const ui = txs
+    .map((t: any) => {
+      const user = t.account?.users?.[0];
+      if (!user) return null;
+
+      const costCenterLabel = t.costCenter && t.costCenter.budget_plan
+        ? `${t.costCenter.budget_plan.name} - ${t.costCenter.name}`
+        : (t.costCenter?.name ?? undefined);
+
+      return {
+        transactionId: t.id,
+        userId: user.id,
+        userName: `${user.first_name} ${user.last_name}`,
+        date: ((t.date_valued || t.date) as Date).toISOString(),
+        amount: Math.abs(Number(t.amount)),
+        balance: Number(t.account.balance),
+        description: t.description,
+        costCenterId: t.costCenterId ?? (t.costCenter ? t.costCenter.id : undefined),
+        costCenterLabel,
+      };
+    })
+    .filter(Boolean);
 
   return NextResponse.json(ui);
 }
