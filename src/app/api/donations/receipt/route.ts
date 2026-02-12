@@ -4,15 +4,12 @@ import { ResourceType, AuthorizationType } from '@/app/types/authorization';
 import { checkPermission } from '@/services/authService';
 import { extractUserFromAuthHeader } from '@/lib/serverUtils';
 import { generateDonationReceiptPdf, type DonationReceiptRow } from '@/lib/pdf';
-import {arrayBuffer} from "node:stream/consumers";
+import { donationTypeDbToUi } from '@/lib/donationType';
 
 export const runtime = 'nodejs';
 
 function donationTypeToUi(t: any): 'financial' | 'material' | 'waiver' {
-  if (t === 'financial') return 'financial';
-  if (t === 'material') return 'material';
-  if (t === 'waiver') return 'waiver';
-  return 'financial';
+  return donationTypeDbToUi(t);
 }
 
 function requireEnv(name: string): string {

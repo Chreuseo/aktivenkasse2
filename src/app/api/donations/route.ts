@@ -3,13 +3,10 @@ import prisma from '@/lib/prisma';
 import { ResourceType, AuthorizationType } from '@/app/types/authorization';
 import { checkPermission } from '@/services/authService';
 import { extractUserFromAuthHeader } from '@/lib/serverUtils';
+import { donationTypeDbToUi } from '@/lib/donationType';
 
 function donationTypeToUi(t: any): 'financial' | 'material' | 'waiver' {
-  if (t === 'financial') return 'financial';
-  if (t === 'material') return 'material';
-  if (t === 'waiver') return 'waiver';
-  // fallback (DB enum drift)
-  return 'financial';
+  return donationTypeDbToUi(t);
 }
 
 export async function GET(req: Request) {
