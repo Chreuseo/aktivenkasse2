@@ -507,6 +507,17 @@ export default function AllAdvancesClient() {
                       )}
                     </div>
 
+                    <div className="advance-field advance-field--wide">
+                      <div className="advance-label">Begründung</div>
+                      <input
+                        type="text"
+                        value={row?.reason || ''}
+                        onChange={(e) => handleRowChange(it.id, 'reason', e.target.value)}
+                        disabled={loading || it.state !== 'open'}
+                        placeholder="Pflicht bei Ablehnung"
+                      />
+                    </div>
+
                     <div className="advance-field advance-actions">
                       <div className="advance-label">Aktion</div>
                       <div>
