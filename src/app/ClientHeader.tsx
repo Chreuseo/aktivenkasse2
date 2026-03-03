@@ -236,8 +236,7 @@ export default function ClientHeader() {
             case 'Standard':
             default:
                 return menu.filter(i =>
-                    (i.type === 'link' && i.label === 'Übersicht') ||
-                    (i.type === 'group' && ['Finanzen', 'Konten', 'Mein Bereich'].includes(i.label))
+                    (i.type === 'group' && ['Konten', 'Mein Bereich'].includes(i.label))
                 );
         }
     })();
