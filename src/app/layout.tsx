@@ -17,10 +17,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
     return (
         <html lang="de">
-        <body className="font-sans">
+        <body className="font-sans min-h-screen flex flex-col">
         <Providers>{/* SessionProvider umschließt die gesamte App */}
             <ClientHeader />
-            <main>{children}</main>
+            <main className="flex-1">{children}</main>
         </Providers>
         </body>
         </html>
