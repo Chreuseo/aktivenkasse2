@@ -83,6 +83,7 @@ export async function GET(req: Request) {
   }
 
   const rows: DonationReceiptRow[] = donations.map((d: any) => ({
+    id: d.id,
     date: (d.date as Date).toISOString(),
     description: d.description,
     type: donationTypeToUi(d.type),

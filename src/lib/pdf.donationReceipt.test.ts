@@ -16,7 +16,15 @@ async function main() {
     createdAt: new Date('2026-02-06T10:00:00.000Z'),
     from: new Date('2026-01-01T00:00:00.000Z'),
     to: new Date('2026-01-31T00:00:00.000Z'),
-    rows: [],
+    rows: [
+      {
+        id: 123,
+        date: new Date('2026-01-05T00:00:00.000Z').toISOString(),
+        description: 'Testspende',
+        type: 'financial',
+        amount: 42,
+      },
+    ],
   });
 
   if (!Buffer.isBuffer(buf) || buf.length < 100 || buf.subarray(0, 4).toString('utf8') !== '%PDF') {
