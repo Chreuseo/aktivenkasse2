@@ -8,7 +8,7 @@ import "../../../css/edit-form.css";
 
 export default function EditClearingAccountPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const [formData, setFormData] = useState({
         name: "",
         responsibleId: "",
@@ -22,24 +22,35 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
     const [addMemberId, setAddMemberId] = useState("");
 
     useEffect(() => {
+        if (status === "loading") return; // Session wird noch geladen
+        if (status === "unauthenticated") {
+            setMessage("❌ Bitte einloggen.");
+            return;
+        }
+
         async function loadData() {
             const token = extractToken(session);
+
             // 1) Clearing-Account zuerst laden (damit Mitglieder immer angezeigt werden)
             try {
-                const caJson = await fetchJson(`/api/clearing-accounts/${id}`, {
+                const resp = await fetchJson(`/api/clearing-accounts/${id}`, {
                     method: "GET",
                     headers: {
                         ...(token ? { Authorization: `Bearer ${token}` } : {}),
                         "Content-Type": "application/json",
                     },
                 });
+
+                const ca = (resp as any)?.clearingAccount ?? resp;
+                if (!ca) throw new Error("Unerwartete Serverantwort: clearingAccount fehlt");
+
                 setFormData({
-                    name: caJson.name || "",
-                    responsibleId: caJson.responsibleId ? String(caJson.responsibleId) : "",
-                    reimbursementEligible: !!caJson.reimbursementEligible,
-                    interest: !!caJson.interest,
+                    name: ca.name || "",
+                    responsibleId: ca.responsibleId ? String(ca.responsibleId) : "",
+                    reimbursementEligible: !!ca.reimbursementEligible,
+                    interest: !!ca.interest,
                 });
-                setMembers(Array.isArray(caJson.members) ? caJson.members : []);
+                setMembers(Array.isArray(ca.members) ? ca.members : []);
             } catch (err: any) {
                 setMessage("❌ Fehler beim Laden des Kontos: " + err.message);
                 return; // Ohne Konto keine Bearbeitung möglich
@@ -54,15 +65,15 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
                         "Content-Type": "application/json",
                     },
                 });
-                setUsers(usersJson);
+                setUsers(Array.isArray(usersJson) ? usersJson : []);
             } catch (err: any) {
                 // Keine harten Fehler; Anzeige der Mitglieder weiterhin möglich
-                setMessage(prev => prev ? prev + "\n" : "" + "⚠️ Nutzerliste konnte nicht geladen werden: " + err.message);
+                setMessage(prev => (prev ? prev + "\n" : "") + "⚠️ Nutzerliste konnte nicht geladen werden: " + err.message);
                 setUsers([]);
             }
         }
         loadData();
-    }, [session, id]);
+    }, [session, status, id]);
 
     const safeMembers = Array.isArray(members) ? members : [];
     const availableMembers = users.filter(u => !safeMembers.some(m => m.id === u.id));
@@ -86,13 +97,13 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
         if (!addMemberId) return;
         const user = users.find(u => String(u.id) === addMemberId);
         if (user) {
-            setMembers([...members, { id: user.id, name: `${user.first_name} ${user.last_name}`, mail: user.mail }]);
+            setMembers([...safeMembers, { id: user.id, name: `${user.first_name} ${user.last_name}`, mail: user.mail }]);
             setAddMemberId("");
         }
     };
 
     const handleRemoveMember = (id: number) => {
-        setMembers(members.filter(m => m.id !== id));
+        setMembers(safeMembers.filter(m => m.id !== id));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -112,7 +123,7 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
                     responsibleId: formData.responsibleId || null,
                     reimbursementEligible: formData.reimbursementEligible,
                     interest: formData.interest,
-                    memberIds: members.map(m => m.id),
+                    memberIds: safeMembers.map(m => m.id),
                 }),
             });
             setMessage("✅ Änderungen gespeichert!");
@@ -122,6 +133,9 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
             setLoading(false);
         }
     };
+
+    if (status === "loading") return <div className="edit-form-container">Lade Session ...</div>;
+    if (status === "unauthenticated") return <div className="edit-form-container">Bitte einloggen.</div>;
 
     return (
         <div className="edit-form-container">
@@ -136,18 +150,25 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
                     <select name="responsibleId" value={formData.responsibleId} onChange={handleChange} className="edit-form-select">
                         <option value="">-- Kein Verantwortlicher --</option>
                         {users.map(u => (
-                            <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.mail})</option>
+                            <option key={u.id} value={u.id}>
+                                {u.first_name} {u.last_name} ({u.mail})
+                            </option>
                         ))}
                     </select>
                 </label>
                 <label>
                     Erstattungsberechtigt
-                    <select name="reimbursementEligible" value={formData.reimbursementEligible ? "true" : "false"} onChange={e => setFormData({ ...formData, reimbursementEligible: e.target.value === "true" })} className="edit-form-select">
+                    <select
+                        name="reimbursementEligible"
+                        value={formData.reimbursementEligible ? "true" : "false"}
+                        onChange={e => setFormData({ ...formData, reimbursementEligible: e.target.value === "true" })}
+                        className="edit-form-select"
+                    >
                         <option value="true">Ja</option>
                         <option value="false">Nein</option>
                     </select>
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input type="checkbox" name="interest" checked={formData.interest} onChange={handleChange} />
                     <span>Zinsen erheben</span>
                 </label>
@@ -159,7 +180,9 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
                             {safeMembers.map(m => (
                                 <li key={m.id} className="edit-member-item">
                                     {m.name} ({m.mail})
-                                    <button type="button" className="edit-member-remove" onClick={() => handleRemoveMember(m.id)} title="Entfernen">✖</button>
+                                    <button type="button" className="edit-member-remove" onClick={() => handleRemoveMember(m.id)} title="Entfernen">
+                                        ✖
+                                    </button>
                                 </li>
                             ))}
                         </ul>
@@ -168,13 +191,19 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
                         <select value={addMemberId} onChange={e => setAddMemberId(e.target.value)} className="edit-form-select">
                             <option value="">Mitglied hinzufügen...</option>
                             {availableMembers.map(u => (
-                                <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.mail})</option>
+                                <option key={u.id} value={u.id}>
+                                    {u.first_name} {u.last_name} ({u.mail})
+                                </option>
                             ))}
                         </select>
-                        <button type="button" className="edit-member-add-btn" onClick={handleAddMember} disabled={!addMemberId}>Hinzufügen</button>
+                        <button type="button" className="edit-member-add-btn" onClick={handleAddMember} disabled={!addMemberId}>
+                            Hinzufügen
+                        </button>
                     </div>
                 </div>
-                <button className="button" type="submit" disabled={loading}>Speichern</button>
+                <button className="button" type="submit" disabled={loading}>
+                    Speichern
+                </button>
             </form>
             {message && <p className="edit-message">{message}</p>}
         </div>
