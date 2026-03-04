@@ -39,10 +39,10 @@ export default function ClearingAccountsPage() {
   }, [session]);
 
   return (
-    <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
-      <h2 style={{ marginBottom: "1.2rem" }}>Verrechnungskonten Übersicht</h2>
+    <div className="kc-page">
+      <h2 className="kc-page-title">Verrechnungskonten Übersicht</h2>
       {error && (
-        <div style={{ color: "#e11d48", marginBottom: "0.8rem" }}>❌ {error}</div>
+        <div className="kc-error u-mb-2">❌ {error}</div>
       )}
       <table className="kc-table">
         <thead>
@@ -51,7 +51,7 @@ export default function ClearingAccountsPage() {
             <th>Verantwortlicher</th>
             <th>Kontostand</th>
             <th>Erstattung</th>
-            <th style={{ minWidth: 150}}>Mitglieder</th>
+            <th className="kc-col--members">Mitglieder</th>
             <th>Details</th>
               <th>Bearbeiten</th>
           </tr>
@@ -59,12 +59,12 @@ export default function ClearingAccountsPage() {
         <tbody>
           {loading && (
             <tr>
-              <td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Laden…</td>
+              <td colSpan={7} className="kc-cell--center kc-cell--muted">Laden…</td>
             </tr>
           )}
           {!loading && accounts.length === 0 && (
             <tr>
-              <td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Verrechnungskonten vorhanden</td>
+              <td colSpan={7} className="kc-cell--center kc-cell--muted">Keine Verrechnungskonten vorhanden</td>
             </tr>
           )}
           {!loading && accounts.map((acc: ClearingAccount) => {
@@ -72,18 +72,18 @@ export default function ClearingAccountsPage() {
             return (
             <tr key={acc.id} className="kc-row">
               <td>{acc.name}</td>
-              <td>{acc.responsible || <span style={{ color: "var(--muted)" }}>-</span>}</td>
-              <td style={{ fontWeight: 600, color: "var(--primary)" }}>
+              <td>{acc.responsible || <span className="kc-muted">-</span>}</td>
+              <td className="kc-money">
                 {Number((acc as any)?.balance ?? 0).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
               </td>
               <td>{acc.reimbursementEligible ? "Ja" : "Nein"}</td>
               <td>{members.length > 0 ? (
-                <ul style={{ paddingLeft: "1.2rem", margin: 0 }}>
+                <ul className="kc-list kc-list--compact">
                   {members.map((m, idx) => (
                     <li key={idx}>{m?.name || "(ohne Namen)"}</li>
                   ))}
                 </ul>
-              ) : <span style={{ color: "var(--muted)" }}>-</span>}</td>
+              ) : <span className="kc-muted">-</span>}</td>
                 <td><Link href={`/clearing-accounts/${acc.id}`}><button className="button">Details</button></Link></td>
               <td><Link href={`/clearing-accounts/${acc.id}/edit`}><button className="button">Bearbeiten</button></Link></td>
             </tr>

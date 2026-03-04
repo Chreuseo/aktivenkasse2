@@ -7,7 +7,6 @@ import { useSession } from 'next-auth/react';
 import { extractToken } from '@/lib/utils';
 import { Transaction } from '@/app/types/transaction';
 import TransactionTable from '@/app/components/TransactionTable';
-import AllowancesTable from '@/app/components/AllowancesTable';
 
 export default function MyAccountPage() {
   const { data: session, status } = useSession();
@@ -58,24 +57,24 @@ export default function MyAccountPage() {
     return () => { cancelled = true; };
   }, [session, status]);
 
-  if (status === 'loading') return <div style={{ color: 'var(--muted)', margin: '2rem auto', maxWidth: 900 }}>Lade Sitzung ...</div>;
-  if (loading) return <div style={{ color: 'var(--muted)', margin: '2rem auto', maxWidth: 900 }}>Lade Daten ...</div>;
-  if (error) return <div style={{ color: 'var(--accent)', margin: '2rem auto', maxWidth: 900 }}>{error}</div>;
-  if (!data) return <div style={{ color: 'var(--muted)', margin: '2rem auto', maxWidth: 900 }}>Keine Daten gefunden</div>;
+  if (status === 'loading') return <div className="kc-page kc-status">Lade Sitzung ...</div>;
+  if (loading) return <div className="kc-page kc-status">Lade Daten ...</div>;
+  if (error) return <div className="kc-page kc-error">{error}</div>;
+  if (!data) return <div className="kc-page kc-status">Keine Daten gefunden</div>;
 
   const { user, planned, past, allowances } = data;
 
   return (
-    <div style={{ maxWidth: 900, margin: '2rem auto', padding: '1rem' }}>
-      <h2 style={{ marginBottom: '1.2rem' }}>Mein Konto</h2>
+    <div className="kc-page">
+      <h2 className="kc-page-title">Mein Konto</h2>
       <div className="kc-infobox">
-        <div style={{ fontSize: '1.2rem', fontWeight: 600 }}>{user.first_name} {user.last_name}</div>
-        <div style={{ color: 'var(--muted)', marginBottom: 4 }}>{user.mail}</div>
-        <div style={{ fontWeight: 500 }}>Kontostand: <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{Number(user.balance).toFixed(2)} €</span></div>
+        <div className="kc-infobox-title">{user.first_name} {user.last_name}</div>
+        <div className="kc-infobox-subtitle">{user.mail}</div>
+        <div className="kc-kv">Kontostand: <span className="kc-text-ok kc-fw-700">{Number(user.balance).toFixed(2)} €</span></div>
       </div>
 
       {/* Rückstellungen */}
-      <h3 style={{ marginBottom: '0.8rem' }}>Rückstellungen</h3>
+      <h3 className="kc-section-title">Rückstellungen</h3>
       {allowances.length > 0 ? (
         <table className="kc-table">
           <thead>
@@ -89,10 +88,10 @@ export default function MyAccountPage() {
           </thead>
           <tbody>
             {allowances.map((r: any) => (
-              <tr key={r.id}>
+              <tr key={r.id} className="kc-row">
                 <td>{new Date(r.date).toLocaleDateString()}</td>
                 <td>{r.description || '-'}</td>
-                <td>{Number(r.amount).toFixed(2)} €</td>
+                <td className="kc-fw-600">{Number(r.amount).toFixed(2)} €</td>
                 <td>{r.withheld ? Number(r.withheld).toFixed(2) + ' €' : '-'}</td>
                 <td>{r.returnDate ? new Date(r.returnDate).toLocaleDateString() : '-'}</td>
               </tr>
@@ -100,15 +99,15 @@ export default function MyAccountPage() {
           </tbody>
         </table>
       ) : (
-        <div style={{ color: 'var(--muted)' }}>Keine Daten</div>
+        <div className="kc-status">Keine Daten</div>
       )}
 
       {/* Geplante Transaktionen (unverarbeitet) */}
-      <h3 style={{ margin: '1rem 0 0.6rem' }}>Geplante Transaktionen</h3>
+      <h3 className="kc-section-title kc-section-title--spaced">Geplante Transaktionen</h3>
       <TransactionTable transactions={planned} />
 
       {/* Vergangene Transaktionen (verarbeitet) */}
-      <h3 style={{ margin: '1rem 0 0.6rem' }}>Vergangene Transaktionen</h3>
+      <h3 className="kc-section-title kc-section-title--spaced">Vergangene Transaktionen</h3>
       <TransactionTable transactions={past} />
     </div>
   );

@@ -1,0 +1,46 @@
+/* Datei: src/app/css/popovers.css
+   Zweck: kleine Popover/Dropdown-Komponente (z. B. Zinsrechnung Filter)
+*/
+
+.kc-popover {
+  position: relative;
+}
+
+.kc-popover__panel {
+  position: absolute;
+  z-index: 10;
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 10px;
+  min-width: 280px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  margin-top: 6px;
+}
+
+.kc-popover__title {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.kc-checkrow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.kc-popover__actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* "Light" Button Variante (nutzt existierende .button, überschreibt nur Farben) */
+.button.kc-button--light {
+  background: #f8fafc;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+}
+

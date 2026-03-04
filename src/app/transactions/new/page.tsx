@@ -270,10 +270,9 @@ export default function NewTransactionPage() {
                             Typ
                             <select
                                 name="account1Type"
-                                className="form-select form-select-max"
+                                className="form-select form-select-max kc-max-220"
                                 value={formData.account1Type}
                                 onChange={handleChange}
-                                style={{ maxWidth: "220px" }}
                             >
                                 {accountTypes.map((opt) => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -284,11 +283,10 @@ export default function NewTransactionPage() {
                             Auswahl
                             <select
                                 name="account1Id"
-                                className="form-select form-select-max"
+                                className="form-select form-select-max kc-max-220"
                                 value={formData.account1Id}
                                 onChange={handleChange}
                                 required
-                                style={{ maxWidth: "220px" }}
                             >
                                 <option value="">Bitte wählen</option>
                                 {getOptions(formData.account1Type, userOptions, bankOptions, clearingOptions).map((opt) => (
@@ -312,10 +310,9 @@ export default function NewTransactionPage() {
                             Typ
                             <select
                                 name="account2Type"
-                                className="form-select form-select-max"
+                                className="form-select form-select-max kc-max-220"
                                 value={formData.account2Type}
                                 onChange={handleAccount2TypeChange}
-                                style={{ maxWidth: "220px" }}
                             >
                                 <option value="">---</option>
                                 {accountTypes.map((opt) => (
@@ -327,12 +324,11 @@ export default function NewTransactionPage() {
                             Auswahl
                             <select
                                 name="account2Id"
-                                className="form-select form-select-max"
+                                className="form-select form-select-max kc-max-220"
                                 value={formData.account2Id}
                                 onChange={handleChange}
                                 required={!!formData.account2Type}
                                 disabled={formData.account2Type === ""}
-                                style={{ maxWidth: "220px" }}
                             >
                                 <option value="">---</option>
                                 {getOptions(formData.account2Type, userOptions, bankOptions, clearingOptions).map((opt) => (
@@ -371,7 +367,7 @@ export default function NewTransactionPage() {
                         onChange={handleChange}
                     />
                 </label>
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                <div className="kc-inline-controls">
                     {!formData.account2Type && (
                         <button
                             type="button"
@@ -381,7 +377,7 @@ export default function NewTransactionPage() {
                             {account1Negative ? "-" : "+"}
                         </button>
                     )}
-                    <label style={{ flex: 1 }}>
+                    <label className="kc-flex-1">
                         Betrag
                         <input
                             type="number"
@@ -399,12 +395,11 @@ export default function NewTransactionPage() {
                     Budgetplan {formData.account2Type && !isDonation ? "(optional)" : "(Pflicht)"}
                     <select
                         name="budgetPlanId"
-                        className="form-select form-select-max"
+                        className="form-select form-select-max kc-max-220"
                         value={budgetPlanId}
                         onChange={e => setBudgetPlanId(e.target.value)}
                         disabled={!!formData.account2Type && !isDonation}
                         required={!formData.account2Type || isDonation}
-                        style={{ maxWidth: "220px" }}
                     >
                         <option value="">Kein Budgetplan</option>
                         {budgetPlans.map(bp => (
@@ -416,12 +411,11 @@ export default function NewTransactionPage() {
                     Kostenstelle {formData.account2Type && !isDonation ? "(optional)" : "(Pflicht)"}
                     <select
                         name="costCenterId"
-                        className="form-select form-select-max"
+                        className="form-select form-select-max kc-max-220"
                         value={costCenterId}
                         onChange={e => setCostCenterId(e.target.value)}
                         disabled={!budgetPlanId}
                         required={!formData.account2Type || isDonation}
-                        style={{ maxWidth: "220px" }}
                     >
                         <option value="">Bitte wählen</option>
                         {costCenters.map(cc => (
@@ -429,7 +423,7 @@ export default function NewTransactionPage() {
                         ))}
                     </select>
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label className="kc-checkline">
                     <input
                         type="checkbox"
                         checked={isDonation}
@@ -439,7 +433,7 @@ export default function NewTransactionPage() {
                     Spende
                 </label>
                 {!canDonate && (
-                    <p className="hint" style={{ marginTop: '-0.5rem' }}>
+                    <p className="hint u-mt-0">
                         (Spende ist verfügbar bei Nutzer + Bankkonto, positivem Betrag und wenn beide Vorzeichen auf + stehen)
                     </p>
                 )}

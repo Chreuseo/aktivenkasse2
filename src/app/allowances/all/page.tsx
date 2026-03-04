@@ -49,12 +49,12 @@ export default function AllowancesOverviewPage() {
   }, [filter, session]);
 
   return (
-    <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem" }}>
-      <h2 style={{ marginBottom: "1rem" }}>Rückstellungen</h2>
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-        <label>
+    <div className="kc-page">
+      <h2 className="kc-page-title">Rückstellungen</h2>
+      <div className="kc-filterbar">
+        <label className="kc-formfield">
           Filter
-          <select value={filter} onChange={e => setFilter(e.target.value as any)} className="kc-select" style={{ marginLeft: "0.5rem" }}>
+          <select value={filter} onChange={e => setFilter(e.target.value as any)} className="kc-select kc-max-220">
             <option value="open">Offen</option>
             <option value="returned">Erstattet</option>
             <option value="all">Alle</option>
@@ -62,10 +62,10 @@ export default function AllowancesOverviewPage() {
         </label>
       </div>
 
-      {loading && <div style={{ color: "var(--muted)" }}>Lade…</div>}
-      {error && <div style={{ color: "var(--error)" }}>{error}</div>}
+      {loading && <div className="kc-status">Lade…</div>}
+      {error && <div className="kc-error">{error}</div>}
 
-      {!loading && rows.length === 0 && <div style={{ color: "var(--muted)" }}>Keine Daten</div>}
+      {!loading && rows.length === 0 && <div className="kc-status">Keine Daten</div>}
 
       {rows.length > 0 && (
         <table className="kc-table">

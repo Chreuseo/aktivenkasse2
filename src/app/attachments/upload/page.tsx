@@ -110,7 +110,7 @@ export default function AttachmentUploadPage() {
   const currentOptions = mode === 'single' ? txOptions : bulkOptions;
 
   return (
-    <div className="form-container" style={{ maxWidth: '620px' }}>
+    <div className="form-container kc-form-container--upload">
       <h1>Beleg nachträglich hochladen</h1>
       <form onSubmit={handleSubmit} className="form">
         <label>
@@ -119,7 +119,6 @@ export default function AttachmentUploadPage() {
             value={mode}
             onChange={e => { setMode(e.target.value as 'single' | 'bulk'); setTargetId(''); }}
             className="form-select form-select-max"
-            style={{ maxWidth: '220px' }}
           >
             <option value="single">Einzeltransaktion</option>
             <option value="bulk">Sammeltransaktion</option>
@@ -133,7 +132,6 @@ export default function AttachmentUploadPage() {
             className="form-select form-select-max"
             required
             disabled={listLoading || !token}
-            style={{ maxWidth: '100%' }}
           >
             <option value="">{listLoading ? 'Lade...' : 'Bitte wählen'}</option>
             {currentOptions.map(o => {
@@ -156,12 +154,12 @@ export default function AttachmentUploadPage() {
             className="form-file-upload"
           />
         </label>
-        <p style={{ fontSize: '0.85rem', color: '#666' }}>
+        <p className="kc-hint">
           Hinweis: Bei Sammeltransaktionen wird der Beleg auch bei allen zugehörigen Einzeltransaktionen hinterlegt.
         </p>
         <button type="submit" disabled={loading || listLoading}>{loading ? 'Lädt…' : 'Hochladen'}</button>
       </form>
-      {message && <p className="message" style={{ whiteSpace: 'pre-line' }}>{message}</p>}
+      {message && <p className="message kc-preline">{message}</p>}
     </div>
   );
 }

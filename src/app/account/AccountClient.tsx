@@ -18,19 +18,7 @@ export default function AccountClient({ accountUrl }: Props) {
         <div className="form">
           <label>
             Name{" "}
-            <span
-              style={{
-                marginLeft: "0.5rem",
-                fontWeight: 500,
-                fontSize: "0.75rem",
-                color: "#9ca3af",
-                border: "1px dashed #3a3a3f",
-                borderRadius: 4,
-                padding: "0 0.35rem",
-              }}
-            >
-              schreibgeschützt
-            </span>
+            <span className="kc-badge-readonly">schreibgeschützt</span>
             <input
               type="text"
               value={name}
@@ -42,19 +30,7 @@ export default function AccountClient({ accountUrl }: Props) {
 
           <label>
             E-Mail{" "}
-            <span
-              style={{
-                marginLeft: "0.5rem",
-                fontWeight: 500,
-                fontSize: "0.75rem",
-                color: "#9ca3af",
-                border: "1px dashed #3a3a3f",
-                borderRadius: 4,
-                padding: "0 0.35rem",
-              }}
-            >
-              schreibgeschützt
-            </span>
+            <span className="kc-badge-readonly">schreibgeschützt</span>
             <input
               type="email"
               value={email}
@@ -64,7 +40,7 @@ export default function AccountClient({ accountUrl }: Props) {
             />
           </label>
 
-          <p style={{ margin: 0 }}>
+          <p className="u-mb-0">
             Persönliche Daten (z. B. Name, E‑Mail) und Zugangsdaten werden in
             Keycloak verwaltet. Änderungen bitte direkt dort vornehmen.
           </p>

@@ -75,10 +75,10 @@ export default function DeactivatedUsersPage() {
   }
 
   return (
-    <div className="table-center" style={{ padding: '1rem' }}>
-      <h2 style={{ marginBottom: 16 }}>Deaktivierte Nutzer</h2>
-      {loading && <div style={{ color: 'var(--muted)', marginBottom: 12 }}>Lade Daten ...</div>}
-      {error && <div style={{ color: 'var(--accent)', marginBottom: 12 }}>{error}</div>}
+    <div className="table-center u-mt-3">
+      <h2 className="kc-page-title">Deaktivierte Nutzer</h2>
+      {loading && <div className="kc-status kc-status--spaced">Lade Daten ...</div>}
+      {error && <div className="kc-error kc-status--spaced">{error}</div>}
       <table className="kc-table" role="table">
         <thead>
           <tr>
@@ -109,7 +109,7 @@ export default function DeactivatedUsersPage() {
           ))}
           {users.length === 0 && !loading && (
             <tr>
-              <td colSpan={5} style={{ textAlign: 'center', color: 'var(--muted)' }}>
+              <td colSpan={5} className="kc-cell--center kc-cell--muted">
                 Keine deaktivierten Nutzer gefunden
               </td>
             </tr>
@@ -119,4 +119,3 @@ export default function DeactivatedUsersPage() {
     </div>
   );
 }
-

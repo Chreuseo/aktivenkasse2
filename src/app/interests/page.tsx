@@ -200,55 +200,55 @@ export default function InterestsPage() {
   }, [rows, selected, includePaid, includeUnpaid, includeBilled, includeUnbilled, load, authHeaders, costCenterId]);
 
   return (
-    <div className="wide-container" style={{ width: "100%", maxWidth: 1100 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Zinsrechnung</h1>
+    <div className="kc-page kc-page--wide">
+      <h1 className="kc-page-title">Zinsrechnung</h1>
 
       {/* Filter-Dropdown */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <div style={{ position: "relative" }}>
-          <button className="button" style={{ background: "#f8fafc", color: "#111827", border: "1px solid #e5e7eb" }} onClick={() => setListOpen((v) => !v)} aria-expanded={listOpen}>
+      <div className="kc-inline-controls kc-inline-controls--between">
+        <div className="kc-popover">
+          <button className="button kc-button--light" onClick={() => setListOpen((v) => !v)} aria-expanded={listOpen}>
             Filter
           </button>
           {listOpen && (
-            <div style={{ position: "absolute", zIndex: 10, background: "#ffffff", color: "#111827", border: "1px solid #e5e7eb", borderRadius: 6, padding: 10, minWidth: 280, boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }}>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>Paid</div>
-              <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div className="kc-popover__panel">
+              <div className="kc-popover__title">Paid</div>
+              <label className="kc-checkrow">
                 <input type="checkbox" checked={includePaid} onChange={(e) => setIncludePaid(e.target.checked)} />
                 <span>Bezahlt (paid)</span>
               </label>
-              <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label className="kc-checkrow">
                 <input type="checkbox" checked={includeUnpaid} onChange={(e) => setIncludeUnpaid(e.target.checked)} />
                 <span>Unbezahlt (unpaid)</span>
               </label>
-              <div style={{ height: 8 }} />
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>Billed</div>
-              <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div className="u-mb-2" />
+              <div className="kc-popover__title">Billed</div>
+              <label className="kc-checkrow">
                 <input type="checkbox" checked={includeBilled} onChange={(e) => setIncludeBilled(e.target.checked)} />
                 <span>Berechnet (billed)</span>
               </label>
-              <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label className="kc-checkrow">
                 <input type="checkbox" checked={includeUnbilled} onChange={(e) => setIncludeUnbilled(e.target.checked)} />
                 <span>Noch nicht berechnet (unbilled)</span>
               </label>
-              <div style={{ marginTop: 10, display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button className="button" style={{ background: "#f8fafc", color: "#111827", border: "1px solid #e5e7eb" }} onClick={() => { setListOpen(false); load(); }}>Anwenden</button>
+              <div className="kc-popover__actions">
+                <button className="button kc-button--light" onClick={() => { setListOpen(false); load(); }}>Anwenden</button>
               </div>
             </div>
           )}
         </div>
-        <div style={{ color: "#64748b" }}>
+        <div className="kc-muted">
           Zinssatz: <strong>{ratePercent.toLocaleString("de-DE")} % p.a.</strong> — Summe berechnete Zinsen: <strong>{formatCurrency(totalInterest)}</strong>
         </div>
       </div>
 
       {/* Auswahl Haushaltsplan/Kostenstelle */}
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-end", marginBottom: 12, flexWrap: "wrap" }}>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div className="kc-inline-controls">
+        <label className="kc-formfield">
           Budgetplan (Pflicht)
           <select
             value={budgetPlanId}
             onChange={(e) => setBudgetPlanId(e.target.value)}
-            style={{ minWidth: 220 }}
+            className="kc-select kc-select--fluid"
           >
             <option value="">Bitte wählen</option>
             {budgetPlans.map((bp) => (
@@ -256,13 +256,13 @@ export default function InterestsPage() {
             ))}
           </select>
         </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <label className="kc-formfield">
           Kostenstelle (Pflicht)
           <select
             value={costCenterId}
             onChange={(e) => setCostCenterId(e.target.value)}
             disabled={!budgetPlanId}
-            style={{ minWidth: 220 }}
+            className="kc-select kc-select--fluid"
           >
             <option value="">Bitte wählen</option>
             {costCenters.map((cc) => (
@@ -273,7 +273,7 @@ export default function InterestsPage() {
       </div>
 
       {/* Tabelle */}
-      <section className="table-center" style={{ width: "100%" }}>
+      <section className="table-center">
         <table className="kc-table">
           <thead>
             <tr>
@@ -291,10 +291,10 @@ export default function InterestsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={10} style={{ padding: 12 }}>Laden…</td></tr>
+              <tr><td colSpan={10} className="kc-table-note">Laden…</td></tr>
             ) : null}
             {!loading && rows.length === 0 ? (
-              <tr><td colSpan={10} style={{ padding: 12, color: "#94a3b8" }}>Keine Einträge für die aktuelle Auswahl.</td></tr>
+              <tr><td colSpan={10} className="kc-table-note kc-table-note--muted">Keine Einträge für die aktuelle Auswahl.</td></tr>
             ) : null}
             {rows.map((r) => (
               <tr key={r.id} className="kc-row">
@@ -316,12 +316,12 @@ export default function InterestsPage() {
         </table>
       </section>
 
-      <div style={{ marginTop: 12, display: "flex", gap: 8, alignItems: "center" }}>
+      <div className="kc-button-row kc-button-row--tight">
         <button className="button" onClick={bill} disabled={loading || (!rows.length) || !costCenterId}>
           Zinsen anlegen
         </button>
-        {status ? <span className="message" style={{ whiteSpace: "pre-line" }}>{status}</span> : null}
-        {error ? <span className="message" style={{ color: "#ef4444" }}>{error}</span> : null}
+        {status ? <span className="message kc-preline">{status}</span> : null}
+        {error ? <span className="message kc-message--error">{error}</span> : null}
       </div>
     </div>
   );

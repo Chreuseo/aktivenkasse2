@@ -47,9 +47,9 @@ export default function Page() {
   const totals = data.totals ?? { assets: '0', liabilities: '0', net: '0', allowances: '0', netBeforeAllowances: '0' };
 
   return (
-    <div className="wide-container" style={{ padding: '1rem' }}>
-      {loading && <div style={{ color: 'var(--muted)', marginBottom: 12 }}>Lade Daten ...</div>}
-      {error && <div style={{ color: 'var(--accent)', marginBottom: 12 }}>{error}</div>}
+    <div className="wide-container">
+      {loading && <div className="kc-status kc-status--spaced">Lade Daten ...</div>}
+      {error && <div className="kc-error kc-status--spaced">{error}</div>}
       <div className="overview-grid">
         {/* Kachel 1: Bankkonten */}
         <section className="kc-infobox">
@@ -60,26 +60,26 @@ export default function Page() {
                 <tr>
                   <th>Name</th>
                   <th>IBAN</th>
-                  <th style={{ textAlign: 'right' }}>Kontostand</th>
+                  <th className="kc-cell--num">Kontostand</th>
                 </tr>
               </thead>
               <tbody>
                 {bankAccounts.length === 0 ? (
                   <tr>
-                    <td colSpan={3} style={{ color: 'var(--muted)' }}>Keine Daten</td>
+                    <td colSpan={3} className="kc-cell--muted">Keine Daten</td>
                   </tr>
                 ) : (
                   bankAccounts.map((b) => (
                     <tr className="kc-row" key={b.id}>
                       <td>{b.name}</td>
                       <td>{b.iban}</td>
-                      <td style={{ textAlign: 'right' }}>{formatCurrency(b.balance)}</td>
+                      <td className="kc-cell--num">{formatCurrency(b.balance)}</td>
                     </tr>
                   ))
                 )}
                 <tr className="kc-sum-row">
                   <td colSpan={2}>Summe</td>
-                  <td style={{ textAlign: 'right' }}>{formatCurrency(bankTotal)}</td>
+                  <td className="kc-cell--num">{formatCurrency(bankTotal)}</td>
                 </tr>
               </tbody>
             </table>
@@ -95,20 +95,20 @@ export default function Page() {
                 <tr>
                   <th>Name</th>
                   <th>Erstattungsfähig</th>
-                  <th style={{ textAlign: 'right' }}>Saldo</th>
+                  <th className="kc-cell--num">Saldo</th>
                 </tr>
               </thead>
               <tbody>
                 {clearingAccounts.length === 0 ? (
                   <tr>
-                    <td colSpan={3} style={{ color: 'var(--muted)' }}>Keine Daten</td>
+                    <td colSpan={3} className="kc-cell--muted">Keine Daten</td>
                   </tr>
                 ) : (
                   clearingAccounts.map((c: any) => (
                     <tr className="kc-row" key={c.id}>
                       <td>{c.name}</td>
                       <td>{c.reimbursementEligible ? 'Ja' : 'Nein'}</td>
-                      <td style={{ textAlign: 'right' }}>{formatCurrency(c.balance)}</td>
+                      <td className="kc-cell--num">{formatCurrency(c.balance)}</td>
                     </tr>
                   ))
                 )}
@@ -156,26 +156,26 @@ export default function Page() {
               <thead>
                 <tr>
                   <th>Position</th>
-                  <th style={{ textAlign: 'right' }}>Betrag</th>
+                  <th className="kc-cell--num">Betrag</th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="kc-row">
                   <td>Aktiva (liquide Mittel + Forderungen)</td>
-                  <td style={{ textAlign: 'right' }}>{formatCurrency(totals.assets)}</td>
+                  <td className="kc-cell--num">{formatCurrency(totals.assets)}</td>
                 </tr>
                 <tr className="kc-row kc-entry-end">
                   <td>Passiva (Verbindlichkeiten)</td>
-                  <td style={{ textAlign: 'right' }}>{formatCurrency(totals.liabilities)}</td>
+                  <td className="kc-cell--num">{formatCurrency(totals.liabilities)}</td>
                 </tr>
                 {/* Neue Zeile: Rückstellungen (Summe der offenen Allowances) */}
                 <tr className="kc-row">
                   <td>Rückstellungen (offen)</td>
-                  <td style={{ textAlign: 'right' }}>{formatCurrency(totals.allowances ?? '0')}</td>
+                  <td className="kc-cell--num">{formatCurrency(totals.allowances ?? '0')}</td>
                 </tr>
                 <tr className="kc-sum-row">
                   <td>Nettovermögen / Finanzsaldo</td>
-                  <td style={{ textAlign: 'right' }}>{formatCurrency(totals.net)}</td>
+                  <td className="kc-cell--num">{formatCurrency(totals.net)}</td>
                 </tr>
               </tbody>
             </table>

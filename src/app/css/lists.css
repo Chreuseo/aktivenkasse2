@@ -1,0 +1,13 @@
+/* Datei: src/app/css/lists.css
+   Zweck: kleine, wiederverwendbare Listen-Styles (z. B. Listen in Tabellenzellen)
+*/
+
+.kc-list {
+  padding-left: 1.2rem;
+  margin: 0;
+}
+
+.kc-list--compact li {
+  margin: 0.1rem 0;
+}
+

@@ -75,7 +75,8 @@ export default function UsersOverview() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error || `Fehler ${res.status}`);
+        setActionError(data?.error || `Fehler ${res.status}`);
+        return;
       }
       setActionMsg(`Infomail an ${u.first_name} ${u.last_name} (${u.mail}) versendet (${data.success}/${data.total} erfolgreich).`);
     } catch (e: any) {
@@ -86,12 +87,12 @@ export default function UsersOverview() {
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
-      <h2 style={{ marginBottom: 16 }}>Nutzerübersicht</h2>
-      {loading && <div style={{ color: "var(--muted)", marginBottom: 12 }}>Lade Daten ...</div>}
-      {error && <div style={{ color: "var(--accent)", marginBottom: 12 }}>{error}</div>}
-      {actionMsg && <div className="message" style={{ marginBottom: 12, whiteSpace: 'pre-line' }}>{actionMsg}</div>}
-      {actionError && <div className="message" style={{ marginBottom: 12, color: '#ef4444' }}>{actionError}</div>}
+    <div className="kc-page">
+      <h2 className="kc-page-title">Nutzerübersicht</h2>
+      {loading && <div className="kc-status kc-status--spaced">Lade Daten ...</div>}
+      {error && <div className="kc-error kc-status--spaced">{error}</div>}
+      {actionMsg && <div className="message kc-preline u-mb-2">{actionMsg}</div>}
+      {actionError && <div className="message kc-message--error u-mb-2">{actionError}</div>}
       <table className="kc-table" role="table">
         <thead>
           <tr>
@@ -129,7 +130,7 @@ export default function UsersOverview() {
             </tr>
           ))}
           {users.length === 0 && !loading && (
-            <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Nutzer gefunden</td></tr>
+            <tr><td colSpan={7} className="kc-cell--center kc-cell--muted">Keine Nutzer gefunden</td></tr>
           )}
         </tbody>
       </table>

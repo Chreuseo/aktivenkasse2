@@ -17,3 +17,16 @@
   }
 }
 
+.kc-infobox--spaced {
+  margin-bottom: 1rem;
+}
+
+.kc-kv-grid {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  row-gap: 6px;
+}
+
+.kc-kv-key {
+  font-weight: 600;
+}

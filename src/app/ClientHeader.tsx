@@ -144,10 +144,6 @@ const menu: MenuItem[] = [
     },
 ];
 
-function isGroup(item: MenuItem | MenuGroupChild): item is MenuGroup {
-    return item.type === 'group';
-}
-
 export default function ClientHeader() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -260,7 +256,7 @@ export default function ClientHeader() {
     };
 
     return (
-        <header ref={headerRef} className="bg-gray-800 text-white sticky top-0 z-[100]">
+        <header ref={headerRef} className="bg-gray-800 text-white sticky top-0 z-100">
             <nav className="max-w-6xl mx-auto px-4 flex items-center justify-between h-16">
                 <div className="text-xl font-bold">{webTitle || ""}</div>
 
@@ -293,7 +289,7 @@ export default function ClientHeader() {
 
                                 {/* Ebene 2: Dropdown */}
                                 <ul
-                                    className={`absolute left-0 mt-2 w-64 bg-gray-700 rounded shadow-lg py-2 z-[110] ${topOpen ? 'block' : 'hidden'}`}
+                                    className={`absolute left-0 mt-2 w-64 bg-gray-700 rounded shadow-lg py-2 z-110 ${topOpen ? 'block' : 'hidden'}`}
                                     role="menu"
                                 >
                                     {item.children.map((child) => {
@@ -327,7 +323,7 @@ export default function ClientHeader() {
 
                                                 {/* Ebene 3: Flyout nach rechts */}
                                                 <ul
-                                                    className={`absolute top-0 left-full ml-1 w-72 bg-gray-700 rounded shadow-lg py-2 z-[120] ${subOpen ? 'block' : 'hidden'}`}
+                                                    className={`absolute top-0 left-full ml-1 w-72 bg-gray-700 rounded shadow-lg py-2 z-120 ${subOpen ? 'block' : 'hidden'}`}
                                                     role="menu"
                                                 >
                                                     {child.children.map((link) => (
@@ -389,8 +385,7 @@ export default function ClientHeader() {
 
             {/* Mobile Navigation (Accordion, 3 Ebenen) */}
             <div
-                className={`md:hidden bg-gray-800 text-white fixed left-0 right-0 top-16 z-[100] ${mobileMenuOpen ? 'block' : 'hidden'}`}
-                style={{ maxHeight: 'calc(100dvh - 4rem)', overflowY: 'auto' }}
+                className={`md:hidden bg-gray-800 text-white fixed left-0 right-0 top-16 z-100 kc-dropdown-scroll ${mobileMenuOpen ? 'block' : 'hidden'}`}
             >
                 <ul className="flex flex-col space-y-2 p-4">
                     {menuToRender.map((item) => {

@@ -232,7 +232,7 @@ export default function AllAdvancesClient() {
         id: it.id,
         description: row.description,
         reason: row.reason || undefined,
-        is_donation: !!row.isDonation,
+        is_donation: row.isDonation,
         donationType: row.isDonation ? row.donationType : null,
       };
       // amount override (try to parse)
@@ -315,13 +315,13 @@ export default function AllAdvancesClient() {
 
   return (
     <div className="table-center">
-      <h1>Auslagenübersicht</h1>
-      {error && <p style={{ color: "#f87171" }}>Fehler: {error}</p>}
+      <h1 className="kc-page-title">Auslagenübersicht</h1>
+      {error && <p className="kc-error">Fehler: {error}</p>}
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={{ fontWeight: 600, marginBottom: 6 }}>Status</label>
+      <div className="kc-filter-grid u-mb-3">
+        <div className="kc-filter-subgrid">
+          <div className="kc-label-col">
+            <label>Status</label>
             <select className="form-select" value={status} onChange={(e) => setStatus(e.target.value)}>
               {statuses.map(s => (
                 <option key={s.value} value={s.value}>{s.label}</option>
@@ -329,8 +329,8 @@ export default function AllAdvancesClient() {
             </select>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={{ fontWeight: 600, marginBottom: 6 }}>Verrechnungskonto</label>
+          <div className="kc-label-col">
+            <label>Verrechnungskonto</label>
             <select className="form-select form-select-max" value={clearingAccountId} onChange={(e) => setClearingAccountId(e.target.value)}>
               <option value="">— Alle —</option>
               <option value="none">— Verrechnungskonto —</option>
@@ -341,17 +341,17 @@ export default function AllAdvancesClient() {
           </div>
         </div>
 
-        <div style={{ alignSelf: "end" }}>
+        <div className="u-mt-2">
           <button className="button" onClick={() => void load()} disabled={loading}>Aktualisieren</button>
         </div>
       </div>
 
-      {loading && <p>Lade…</p>}
+      {loading && <p className="kc-status">Lade…</p>}
 
       {!loading && items && (
         <div className="advances-list" aria-label="Auslagen">
           {items.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#888", padding: "1rem 0" }}>Keine Auslagen gefunden.</div>
+            <div className="kc-cell--center kc-cell--muted u-mb-3">Keine Auslagen gefunden.</div>
           ) : (
             items.map((it) => {
               const row = rows[it.id];
@@ -399,15 +399,15 @@ export default function AllAdvancesClient() {
                         type="text"
                         value={row?.amount || ''}
                         onChange={(e) => handleRowChange(it.id, 'amount', e.target.value)}
-                        style={{ width: 140 }}
+                        className="kc-max-140"
                       />
                     </div>
 
                     <div className="advance-field">
                       <div className="advance-label">Spende</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div className="kc-checkline">
                         <input type="checkbox" checked={isDonation} disabled />
-                        {isDonation ? <span style={{ color: 'var(--muted)' }}>{donationLabel}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
+                        {isDonation ? <span className="kc-muted-dash">{donationLabel}</span> : <span className="kc-muted-dash">—</span>}
                       </div>
                     </div>
 
@@ -489,7 +489,7 @@ export default function AllAdvancesClient() {
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          <button className="button" type="button" style={{ padding: "0.2rem 0.8rem" }}>
+                          <button className="button kc-btn--compact" type="button">
                             Beleg herunterladen
                           </button>
                         </a>
@@ -522,7 +522,7 @@ export default function AllAdvancesClient() {
                       <div className="advance-label">Aktion</div>
                       <div>
                         <button className="button" title="Annehmen" onClick={() => void handleAccept(it)} disabled={loading || it.state !== 'open'}>✔</button>
-                        <button className="button" title="Ablehnen" onClick={() => void handleDecline(it)} disabled={loading || it.state !== 'open'} style={{ marginLeft: 6 }}>✖</button>
+                        <button className="button u-ml-2" title="Ablehnen" onClick={() => void handleDecline(it)} disabled={loading || it.state !== 'open'}>✖</button>
                       </div>
                     </div>
                   </div>

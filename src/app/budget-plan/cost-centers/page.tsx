@@ -239,24 +239,24 @@ function CostCentersPageInner() {
   };
 
   return (
-    <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
-      <h2 style={{ marginBottom: "1.2rem" }}>Kostenstellen verwalten</h2>
+    <div className="kc-page">
+      <h2 className="kc-page-title">Kostenstellen verwalten</h2>
       {plan && (
-        <div className="kc-infobox" style={{ marginBottom: "1.5rem" }}>
-          <div style={{ fontSize: "1.2rem", fontWeight: 600 }}>{plan.name}</div>
-          <div style={{ color: "var(--muted)", marginBottom: 4 }}>{plan.description}</div>
+        <div className="kc-infobox u-mb-3">
+          <div className="kc-infobox-title">{plan.name}</div>
+          <div className="kc-infobox-subtitle">{plan.description}</div>
           <div>Erstellt: {new Date(plan.createdAt).toLocaleDateString("de-DE")}</div>
           <div>Zuletzt geändert: {new Date(plan.updatedAt).toLocaleDateString("de-DE")}</div>
           <div>Status: {statusNames[plan.state] ?? plan.state}</div>
         </div>
       )}
-      {loading && <div style={{ color: "var(--muted)", marginBottom: 12 }}>Lade Daten ...</div>}
-      {error && <div style={{ color: "var(--accent)", marginBottom: 12 }}>{error}</div>}
+      {loading && <div className="kc-status kc-status--spaced">Lade Daten ...</div>}
+      {error && <div className="kc-error kc-status--spaced">{error}</div>}
       <table className="kc-table" role="table">
         <thead>
           <tr>
-            <th style={{ minWidth: "220px" }}>Name</th>
-            <th style={{ minWidth: "150px" }}>Zuwendungsbescheide</th>
+            <th className="kc-col--name-220">Name</th>
+            <th className="kc-col--donation-150">Zuwendungsbescheide</th>
             <th>Plan-Soll Erträge (€)</th>
             <th>Plan-Soll Aufwendungen (€)</th>
             <th>Plan-Saldo (€)</th>
@@ -270,7 +270,7 @@ function CostCentersPageInner() {
               <td>
                 <input type="text" className="kc-input" value={editRows[cc.id]?.name ?? cc.name} onChange={e => handleEdit(cc.id, "name", e.target.value)} disabled={isClosed} />
               </td>
-              <td style={{ textAlign: "center" }}>
+              <td className="kc-cell--center">
                 <input
                   type="checkbox"
                   checked={Boolean(editRows[cc.id]?.is_donation ?? cc.is_donation)}
@@ -287,7 +287,7 @@ function CostCentersPageInner() {
               <td>
                 {((editRows[cc.id]?.earnings_expected ?? cc.earnings_expected) - (editRows[cc.id]?.costs_expected ?? cc.costs_expected)).toFixed(2)} €
               </td>
-              <td style={{ display: "flex", gap: "0.3rem" }}>
+              <td className="kc-cell--buttons">
                 <button className="button" onClick={() => handleMoveUp(idx)} disabled={isClosed || idx === 0}>↑</button>
                 <button className="button" onClick={() => handleMoveDown(idx)} disabled={isClosed || idx === sortedCostCenters.length - 1}>↓</button>
               </td>
@@ -301,7 +301,7 @@ function CostCentersPageInner() {
               <td>
                 <input type="text" className="kc-input" value={row.name ?? ""} onChange={e => handleNewRowChange(idx, "name", e.target.value)} placeholder="Neue Kostenstelle" disabled={isClosed} />
               </td>
-              <td style={{ textAlign: "center" }}>
+              <td className="kc-cell--center">
                 <input
                   type="checkbox"
                   checked={Boolean(row.is_donation)}
@@ -318,7 +318,7 @@ function CostCentersPageInner() {
               <td>
                 {((row.earnings_expected ?? 0) - (row.costs_expected ?? 0)).toFixed(2)} €
               </td>
-              <td style={{ display: "flex", gap: "0.3rem" }}>
+              <td className="kc-cell--buttons">
                 <button className="button" disabled>↑</button>
                 <button className="button" disabled>↓</button>
               </td>
@@ -329,11 +329,11 @@ function CostCentersPageInner() {
           ))}
         </tbody>
       </table>
-      <div style={{ display: "flex", gap: "1rem", marginTop: "1.2rem" }}>
+      <div className="kc-button-row">
         <button className="button" onClick={handleAddNewRow} disabled={saving || isClosed}>Zeile hinzufügen</button>
         <button className="button" onClick={handleSave} disabled={saving || isClosed}>Speichern</button>
       </div>
-      <div style={{ marginTop: "1rem" }}>
+      <div className="u-mt-3">
         <Link href="/budget-plan">
           <button className="button">Zurück zur Übersicht</button>
         </Link>
@@ -344,7 +344,7 @@ function CostCentersPageInner() {
 
 export default function CostCentersPage() {
   return (
-    <Suspense fallback={<div style={{ color: "var(--muted)", marginBottom: 12 }}>Lade Seite ...</div>}>
+    <Suspense fallback={<div className="kc-status kc-status--spaced">Lade Seite ...</div>}>
       <CostCentersPageInner />
     </Suspense>
   );

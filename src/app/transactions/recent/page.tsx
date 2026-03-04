@@ -26,7 +26,11 @@ export default function RecentTransactionsPage() {
           cache: 'no-store',
         });
         const json = await res.json();
-        if (!res.ok) throw new Error(json?.error || `${res.status} ${res.statusText}`);
+        if (!res.ok) {
+          setError(json?.error || `${res.status} ${res.statusText}`);
+          setTransactions(null);
+          return;
+        }
         setTransactions(json as Transaction[]);
       } catch (e: any) {
         setError(e?.message || String(e));
@@ -40,7 +44,7 @@ export default function RecentTransactionsPage() {
 
   if (loading) {
     return (
-      <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem", color: 'var(--muted)' }}>
+      <div className="kc-page kc-status">
         Lade Daten ...
       </div>
     );
@@ -48,24 +52,24 @@ export default function RecentTransactionsPage() {
 
   if (error) {
     return (
-      <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem" }}>
-        <h2 style={{ marginBottom: "1rem" }}>Letzte 20 Buchungen (nach Erstellungsdatum)</h2>
-        <p>Fehler beim Laden: {error}</p>
+      <div className="kc-page">
+        <h2 className="kc-page-title">Letzte 20 Buchungen (nach Erstellungsdatum)</h2>
+        <p className="kc-error">Fehler beim Laden: {error}</p>
       </div>
     );
   }
 
   if (!transactions) {
     return (
-      <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem", color: 'var(--muted)' }}>
+      <div className="kc-page kc-status">
         Keine Daten
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem" }}>
-      <h2 style={{ marginBottom: "1rem" }}>Letzte 20 Buchungen (nach Erstellungsdatum)</h2>
+    <div className="kc-page">
+      <h2 className="kc-page-title">Letzte 20 Buchungen (nach Erstellungsdatum)</h2>
       <GeneralTransactionTable transactions={transactions} />
     </div>
   );

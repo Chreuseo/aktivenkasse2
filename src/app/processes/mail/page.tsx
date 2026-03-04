@@ -232,19 +232,12 @@ export default function MailProcessPage() {
   const showNegHint = op === "kleiner" && parseAmount() > 0;
 
   return (
-    <div className="wide-container" style={{ width: "100%", maxWidth: 900 }}>
+    <div className="kc-page">
       {/* Filterzeile */}
-      <section style={{ width: "100%", margin: "0 auto 1rem auto" }}>
-        <div
-          style={{
-            display: "flex",
-            gap: "0.75rem",
-            flexWrap: "wrap",
-            alignItems: "flex-end",
-          }}
-        >
-          <label style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontWeight: 600 }}>Typ</span>
+      <section className="kc-process-filter">
+        <div className="kc-filter-grid">
+          <label className="kc-label-col">
+            <span>Typ</span>
             <select
               className="kc-select kc-select--md"
               value={mode}
@@ -255,9 +248,9 @@ export default function MailProcessPage() {
             </select>
           </label>
 
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end", flexWrap: "wrap" }}>
-            <label style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontWeight: 600 }}>Kontostand</span>
+          <div className="kc-filter-subgrid">
+            <label className="kc-label-col">
+              <span>Kontostand</span>
               <select className="kc-select kc-select--md" value={op} onChange={(e) => setOp(e.target.value as CompareOp)}>
                 <option>kleiner</option>
                 <option>größer</option>
@@ -266,16 +259,15 @@ export default function MailProcessPage() {
               </select>
             </label>
 
-            <label style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontWeight: 600 }}>Betrag (€)</span>
+            <label className="kc-label-col">
+              <span>Betrag (€)</span>
               <input
-                className="form-select form-select-max"
+                className="form-select form-select-max kc-minw-140"
                 type="number"
                 step="0.01"
                 inputMode="decimal"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                style={{ minWidth: 140 }}
               />
             </label>
 
@@ -285,16 +277,16 @@ export default function MailProcessPage() {
           </div>
         </div>
         {showNegHint && (
-          <div className="message" style={{ marginTop: "0.5rem" }}>
+          <div className="message kc-message--spaced">
             Hinweis: Bei Auswahl „kleiner“ und positivem Betrag werden positive wie negative Kontostände berücksichtigt (Schuldenstände sind als Negativwert einzutragen).
           </div>
         )}
       </section>
 
       {/* Betreff + Bemerkung + Senden */}
-      <section style={{ width: "100%", maxWidth: 1200, margin: "0 auto 1rem auto" }}>
-        <label className="form" style={{ gap: "0.4rem" }}>
-          <span style={{ fontWeight: 600 }}>Betreff</span>
+      <section className="kc-process-section">
+        <label className="form kc-form--tight">
+          <span className="kc-fw-600">Betreff</span>
           <input
             className="form-select form-select-max"
             type="text"
@@ -303,8 +295,8 @@ export default function MailProcessPage() {
             placeholder="Zahlungsaufforderung / Kontoinformation"
           />
         </label>
-        <label className="form" style={{ gap: "0.4rem", marginTop: "0.6rem" }}>
-          <span style={{ fontWeight: 600 }}>Bemerkung (optional)</span>
+        <label className="form kc-form--tight u-mt-2">
+          <span className="kc-fw-600">Bemerkung (optional)</span>
           <textarea
             className="form-select"
             rows={3}
@@ -314,32 +306,30 @@ export default function MailProcessPage() {
           />
         </label>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "0.6rem" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <input
-              type="checkbox"
-              checked={setDues}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSetDues(e.target.checked)}
-            />
-            <span>Fälligkeiten setzen</span>
-          </label>
+        <div className="kc-checkline u-mt-2">
+          <input
+            type="checkbox"
+            checked={setDues}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSetDues(e.target.checked)}
+          />
+          <span>Fälligkeiten setzen</span>
         </div>
 
-        <div style={{ marginTop: "0.6rem" }}>
+        <div className="u-mt-2">
           <button className="button" disabled={!canSend} onClick={handleSend}>
             Senden
           </button>
         </div>
-        {statusMsg ? <div className="message" style={{ whiteSpace: "pre-line" }}>{statusMsg}</div> : null}
+        {statusMsg ? <div className="message kc-preline">{statusMsg}</div> : null}
         {error ? (
-          <div className="message" style={{ color: "#ef4444" }}>
+          <div className="message kc-message--error">
             {error}
           </div>
         ) : null}
       </section>
 
       {/* Tabelle */}
-      <section className="table-center" style={{ width: "100%" }}>
+      <section className="table-center">
         <table className="kc-table">
           <thead>
             <tr>
@@ -355,7 +345,7 @@ export default function MailProcessPage() {
           <tbody>
             {filteredOnce && rows.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ padding: "1rem", color: "#9aa4b2" }}>
+                <td colSpan={5} className="kc-table-note kc-table-note--muted">
                   Keine Einträge für den aktuellen Filter.
                 </td>
               </tr>

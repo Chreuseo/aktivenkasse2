@@ -426,10 +426,9 @@ export default function BulkTransactionPage() {
           Einzugsart
           <select
             name="bulkType"
-            className="form-select form-select-max"
+            className="form-select form-select-max kc-max-220"
             value={formData.bulkType}
             onChange={handleChange}
-            style={{ maxWidth: "220px" }}
           >
             {bulkTypes.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -440,10 +439,9 @@ export default function BulkTransactionPage() {
           Auswahltyp
           <select
             name="accountType"
-            className="form-select form-select-max"
+            className="form-select form-select-max kc-max-220"
             value={formData.accountType}
             onChange={handleChange}
-            style={{ maxWidth: "220px" }}
           >
             {accountTypes.filter(opt => {
               if (formData.bulkType === "einzahlung") return ["bank"].includes(opt.value);
@@ -460,11 +458,10 @@ export default function BulkTransactionPage() {
             Auswahl
             <select
               name="accountId"
-              className="form-select form-select-max"
+              className="form-select form-select-max kc-max-220"
               value={formData.accountId}
               onChange={handleChange}
               required
-              style={{ maxWidth: "220px" }}
             >
               <option value="">Bitte wählen</option>
               {getOptions(formData.accountType, userOptions, bankOptions, clearingOptions).map(opt => (
@@ -478,11 +475,10 @@ export default function BulkTransactionPage() {
               Auswahl (Haushaltsplan)
               <select
                 name="globalBudgetPlanId"
-                className="form-select form-select-max"
+                className="form-select form-select-max kc-max-220"
                 value={formData.globalBudgetPlanId}
                 onChange={handleChange}
                 required
-                style={{ maxWidth: "220px" }}
               >
                 <option value="">Bitte wählen</option>
                 {budgetPlans.map(bp => (
@@ -494,11 +490,11 @@ export default function BulkTransactionPage() {
               Kostenstelle
               <select
                 name="globalCostCenterId"
-                className="form-select form-select-max"
+                className="form-select form-select-max kc-max-220"
                 value={formData.globalCostCenterId}
                 onChange={handleChange}
                 required
-                style={{ maxWidth: "220px" }}
+                className="form-select form-select-max kc-max-220"
                 disabled={!formData.globalBudgetPlanId}
               >
                 <option value="">Bitte wählen</option>
@@ -543,33 +539,31 @@ export default function BulkTransactionPage() {
                 {tickListMode && (
                   <>
                     {tickItems.map((item, idx) => (
-                      <th key={item.id} style={{ minWidth: 140 }}>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <th key={item.id} className="kc-th--min-140">
+                        <div className="kc-head-controls">
                           <input
                             type="number"
-                            className="kc-input"
+                            className="kc-input kc-w-110"
                             value={item.price}
                             onChange={e => updateTickItemPrice(item.id, e.target.value)}
                             placeholder={`Einzelpreis ${idx + 1}`}
                             step="0.01"
                             inputMode="decimal"
                             required
-                            style={{ width: 110 }}
                           />
                           <button
                             type="button"
-                            className="form-btn form-btn-danger"
+                            className="form-btn form-btn-danger kc-px-8"
                             onClick={() => removeTickItem(item.id)}
                             disabled={tickItems.length === 1}
                             title="Spalte entfernen"
-                            style={{ padding: '0 8px' }}
                           >
                             −
                           </button>
                         </div>
                       </th>
                     ))}
-                    <th style={{ width: 60 }}>
+                    <th className="kc-th--w-60">
                       <button type="button" className="form-btn form-btn-secondary" onClick={addTickItem} title="Spalte hinzufügen">+</button>
                     </th>
                   </>
@@ -639,14 +633,13 @@ export default function BulkTransactionPage() {
                           <td key={item.id}>
                             <input
                               type="number"
-                              className="kc-input"
+                              className="kc-input kc-w-90 kc-cell--num"
                               value={qtyValue}
                               onChange={e => handleQtyChange(idx, item.id, e.target.value)}
                               min={0}
                               step={1}
                               inputMode="numeric"
                               placeholder="0"
-                              style={{ width: 90, textAlign: "right" }}
                             />
                           </td>
                         );
@@ -689,7 +682,7 @@ export default function BulkTransactionPage() {
                       ))}
                     </select>
                   </td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td className="kc-cell--num">
                     <button type="button" className="form-btn form-btn-danger" onClick={() => removeRowAt(idx)}>x</button>
                   </td>
                 </tr>
@@ -705,15 +698,14 @@ export default function BulkTransactionPage() {
         </div>
 
         {/* Zusatzbox zum Vorlagenladen */}
-        <div className="form-container" style={{ marginTop: '1rem', borderTop: '1px solid #ddd', paddingTop: '1rem' }}>
+        <div className="form-container kc-section kc-section--light">
           <h3>Vorlage laden</h3>
           <label>
             Status
             <select
-              className="form-select form-select-max"
+              className="form-select form-select-max kc-max-220"
               value={loadFilter.status}
               onChange={e => setLoadFilter(prev => ({ ...prev, status: e.target.value }))}
-              style={{ maxWidth: "220px" }}
             >
               <option value="">Alle</option>
               {statusOptions.map(s => (
@@ -724,10 +716,9 @@ export default function BulkTransactionPage() {
           <label>
             Hausvereinsmitglied
             <select
-              className="form-select form-select-max"
+              className="form-select form-select-max kc-max-220"
               value={loadFilter.hv}
               onChange={e => setLoadFilter(prev => ({ ...prev, hv: e.target.value as any }))}
-              style={{ maxWidth: "220px" }}
             >
               <option value="alle">Alle</option>
               <option value="ja">Ja</option>

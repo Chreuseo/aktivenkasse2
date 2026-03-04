@@ -43,9 +43,9 @@ export default function NewAdvancePage() {
   }, [session]);
 
   return (
-    <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
-      {loading && <div style={{ color: "var(--muted)", marginBottom: 12 }}>Lade Verrechnungskonten ...</div>}
-      {error && <div style={{ color: "var(--accent)", marginBottom: 12 }}>{error}</div>}
+    <div className="kc-page">
+      {loading && <div className="kc-status kc-status--spaced">Lade Verrechnungskonten ...</div>}
+      {error && <div className="kc-error kc-status--spaced">{error}</div>}
       <NewAdvanceForm accounts={accounts} />
     </div>
   );

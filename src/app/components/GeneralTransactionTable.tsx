@@ -27,10 +27,10 @@ export default function GeneralTransactionTable({ transactions }: GeneralTransac
       </thead>
       <tbody>
         {transactions.length === 0 && (
-          <tr><td colSpan={10} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Transaktionen vorhanden</td></tr>
+          <tr><td colSpan={10} className="kc-cell--center kc-cell--muted">Keine Transaktionen vorhanden</td></tr>
         )}
         {transactions.map((tx: Transaction) => (
-          <tr key={tx.id} className="kc-row" style={{ opacity: tx.processed === false ? 0.5 : 1 }}>
+          <tr key={tx.id} className={`kc-row${tx.processed === false ? " kc-row--dim" : ""}`}>
             <td>
               {tx.main ? (
                 <span>
@@ -38,11 +38,11 @@ export default function GeneralTransactionTable({ transactions }: GeneralTransac
                   {tx.main.type === "bank" && `Bankkonto: ${tx.main.name} (${tx.main.bank})`}
                   {tx.main.type === "clearing_account" && `Verrechnungskonto: ${tx.main.name}`}
                 </span>
-              ) : <span style={{ color: "var(--muted)" }}>-</span>}
+              ) : <span className="kc-muted-dash">-</span>}
             </td>
-            <td style={{ color: tx.amount < 0 ? "#e11d48" : "#059669", fontWeight: 600 }}>{tx.amount.toFixed(2)} €</td>
+            <td className={tx.amount < 0 ? "kc-amount-neg" : "kc-amount-pos"}>{tx.amount.toFixed(2)} €</td>
             <td>{new Date(tx.createdAt ?? tx.date).toLocaleDateString()}</td>
-            <td>{tx.dateValued ? new Date(tx.dateValued).toLocaleDateString() : <span style={{ color: "var(--muted)" }}>-</span>}</td>
+            <td>{tx.dateValued ? new Date(tx.dateValued).toLocaleDateString() : <span className="kc-muted-dash">-</span>}</td>
             <td>{tx.description}</td>
             <td>{tx.reference || "-"}</td>
             <td>
@@ -52,22 +52,22 @@ export default function GeneralTransactionTable({ transactions }: GeneralTransac
                   {tx.other.type === "bank" && `Bankkonto: ${tx.other.name} (${tx.other.bank})`}
                   {tx.other.type === "clearing_account" && `Verrechnungskonto: ${tx.other.name}`}
                 </span>
-              ) : <span style={{ color: "var(--muted)" }}>-</span>}
+              ) : <span className="kc-muted-dash">-</span>}
             </td>
-            <td>{tx.costCenterLabel ? tx.costCenterLabel : <span style={{ color: "var(--muted)" }}>-</span>}</td>
+            <td>{tx.costCenterLabel ? tx.costCenterLabel : <span className="kc-muted-dash">-</span>}</td>
             <td>
               {tx.receiptUrl ? (
                 <a href={`/api/transactions/${tx.id}/receipt`} target="_blank" rel="noopener noreferrer">
-                  <button className="button" style={{ padding: "0.2rem 0.8rem" }}>Beleg herunterladen</button>
+                  <button className="button kc-btn--compact">Beleg herunterladen</button>
                 </a>
-              ) : <span style={{ color: "var(--muted)" }}>Kein Beleg</span>}
+              ) : <span className="kc-muted-dash">Kein Beleg</span>}
             </td>
             <td>
               {tx.bulkId ? (
                 <a href={`/transactions/bulk/${tx.bulkId}`}>
-                  <button className="button" style={{ padding: "0.2rem 0.8rem" }}>Zur Sammelbuchung</button>
+                  <button className="button kc-btn--compact">Zur Sammelbuchung</button>
                 </a>
-              ) : <span style={{ color: "var(--muted)" }}>-</span>}
+              ) : <span className="kc-muted-dash">-</span>}
             </td>
           </tr>
         ))}

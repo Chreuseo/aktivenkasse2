@@ -1,0 +1,34 @@
+/* Datei: src/app/css/states.css
+   Zweck: wiederverwendbare Status-/Feedback-Darstellung (loading, error, empty)
+*/
+
+.kc-status {
+  color: var(--muted);
+}
+
+.kc-status--spaced {
+  margin-bottom: 12px;
+}
+
+.kc-error {
+  color: var(--accent);
+}
+
+/* Text, der Zeilenumbrüche aus dem Backend anzeigen soll */
+.kc-preline {
+  white-space: pre-line;
+}
+
+/* In Tabellen: einfache Zeile mit etwas Padding (z. B. Loading/Empty) */
+.kc-table-note {
+  padding: 12px;
+}
+
+.kc-table-note--muted {
+  color: var(--muted);
+}
+
+/* Message Varianten */
+.message.kc-message--error {
+  color: #ef4444;
+}

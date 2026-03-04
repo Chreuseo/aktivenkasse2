@@ -54,7 +54,10 @@ export default function NewAdvanceForm({ accounts }: Props) {
         body: fd,
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Unbekannter Fehler");
+      if (!res.ok) {
+        setMessage(`❌ Fehler: ${json?.error || "Unbekannter Fehler"}`);
+        return;
+      }
 
       setMessage(`✅ Auslage angelegt (ID ${json.id}).`);
       // Reset
@@ -145,7 +148,7 @@ export default function NewAdvanceForm({ accounts }: Props) {
         </label>
         <AttachmentHint file={file} />
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <label className="kc-checkline">
           <input
             type="checkbox"
             checked={isDonation}

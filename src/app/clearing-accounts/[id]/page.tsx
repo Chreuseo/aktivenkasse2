@@ -1,19 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { extractToken, fetchJson } from "@/lib/utils";
-import { ClearingAccount } from "@/app/types/clearingAccount";
 import { Transaction } from "@/app/types/transaction";
+import { ClearingAccount } from "@/app/types/clearingAccount";
 import "@/app/css/infobox.css";
 import "@/app/css/tables.css";
 import TransactionTable from "@/app/components/TransactionTable";
-import AllowancesTable from "@/app/components/AllowancesTable";
-
-interface ClearingAccountData extends ClearingAccount {
-  canEdit: boolean;
-  transactions: Transaction[];
-}
 
 export default function ClearingAccountOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { data: session } = useSession();
@@ -43,27 +37,27 @@ export default function ClearingAccountOverviewPage({ params }: { params: Promis
   const past = data?.past || [];
   const allowances = data?.allowances || [];
 
-  if (error) return <div className="kc-infobox" style={{ color: "#e11d48" }}>❌ {error}</div>;
-  if (!data) return <div className="kc-infobox">Lade Daten...</div>;
+  if (error) return <div className="kc-infobox kc-error">❌ {error}</div>;
+  if (!data) return <div className="kc-infobox kc-status">Lade Daten...</div>;
 
   return (
-    <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
-      <h2 style={{ marginBottom: "1.2rem" }}>Verrechnungskonto-Übersicht</h2>
+    <div className="kc-page">
+      <h2 className="kc-page-title">Verrechnungskonto-Übersicht</h2>
       <div className="kc-infobox">
-        <div style={{ fontSize: "1.2rem", fontWeight: 600 }}>{data.clearingAccount.name}</div>
-        <div style={{ color: "var(--muted)", marginBottom: 4 }}>
+        <div className="kc-infobox-title">{data.clearingAccount.name}</div>
+        <div className="kc-infobox-subtitle">
           Verantwortlicher: {data.clearingAccount.responsible ? `${data.clearingAccount.responsible} (${data.clearingAccount.responsibleMail})` : "Keiner"}
         </div>
-        <div style={{ fontWeight: 500 }}>
-          Kontostand: <span style={{ color: "var(--primary)", fontWeight: 700 }}>{data.clearingAccount.balance.toFixed(2)} €</span>
+        <div className="kc-kv">
+          Kontostand: <span className="kc-money">{data.clearingAccount.balance.toFixed(2)} €</span>
         </div>
         <div>
-          Erstattungsberechtigt: <span style={{ fontWeight: 600 }}>{data.clearingAccount.reimbursementEligible ? "Ja" : "Nein"}</span>
+          Erstattungsberechtigt: <span className="kc-fw-600">{data.clearingAccount.reimbursementEligible ? "Ja" : "Nein"}</span>
         </div>
       </div>
 
       {/* Rückstellungen */}
-      <h3 style={{ marginBottom: "0.8rem" }}>Rückstellungen</h3>
+      <h3 className="kc-section-title">Rückstellungen</h3>
       {allowances.length > 0 ? (
         <table className="kc-table">
           <thead>
@@ -88,15 +82,15 @@ export default function ClearingAccountOverviewPage({ params }: { params: Promis
           </tbody>
         </table>
       ) : (
-        <div style={{ color: "var(--muted)" }}>Keine Daten</div>
+        <div className="kc-muted">Keine Daten</div>
       )}
 
       {/* Geplante Transaktionen */}
-      <h3 style={{ marginBottom: "0.8rem", marginTop: "1rem" }}>Geplante Transaktionen</h3>
+      <h3 className="kc-section-title kc-section-title--spaced">Geplante Transaktionen</h3>
       <TransactionTable transactions={planned} />
 
       {/* Vergangene Transaktionen */}
-      <h3 style={{ marginBottom: "0.8rem", marginTop: "1rem" }}>Vergangene Transaktionen</h3>
+      <h3 className="kc-section-title kc-section-title--spaced">Vergangene Transaktionen</h3>
       <TransactionTable transactions={past} />
     </div>
   );

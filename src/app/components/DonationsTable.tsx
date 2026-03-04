@@ -44,7 +44,7 @@ export default function DonationsTable({
       <tbody>
         {donations.length === 0 && (
           <tr>
-            <td colSpan={colSpan} style={{ textAlign: 'center', color: 'var(--muted)' }}>
+            <td colSpan={colSpan} className="kc-cell--center kc-cell--muted">
               Keine Zuwendungsbescheide vorhanden
             </td>
           </tr>
@@ -55,7 +55,7 @@ export default function DonationsTable({
             <td>{new Date(d.date).toLocaleDateString()}</td>
             <td>{d.description}</td>
             <td>{typeLabel(d.type)}</td>
-            <td style={{ fontWeight: 700 }}>{Number(d.amount).toFixed(2)} €</td>
+            <td className="kc-fw-700">{Number(d.amount).toFixed(2)} €</td>
             <td>{d.downloadedAt ? new Date(d.downloadedAt).toLocaleDateString() : '-'}</td>
             {showProcessor && <td>{d.processorName || '-'}</td>}
           </tr>

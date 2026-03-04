@@ -10,10 +10,22 @@
     -webkit-overflow-scrolling: touch;
 }
 
+.form-container.kc-form-container--upload {
+    max-width: 620px;
+}
+
+.form-container.kc-form-container--export {
+    max-width: 820px;
+}
+
 .form {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+}
+
+.form.kc-form--tight {
+    gap: 0.4rem;
 }
 
 /* Checkbox als Toggle-Switch im formular */
@@ -324,4 +336,21 @@
 
 .form input[type="checkbox"]:disabled::after {
     box-shadow: none;
+}
+
+.kc-max-220 { max-width: 220px; }
+.kc-max-140 { max-width: 140px; }
+
+.kc-w-110 { width: 110px; }
+.kc-w-90 { width: 90px; }
+
+.kc-px-8 {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.kc-checkline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }

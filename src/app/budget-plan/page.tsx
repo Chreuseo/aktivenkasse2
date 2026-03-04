@@ -39,10 +39,10 @@ export default function BudgetPlanOverview() {
   }, [session]);
 
   return (
-    <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
-      <h2 style={{ marginBottom: 16 }}>Haushaltsübersicht</h2>
-      {loading && <div style={{ color: "var(--muted)", marginBottom: 12 }}>Lade Daten ...</div>}
-      {error && <div style={{ color: "var(--accent)", marginBottom: 12 }}>{error}</div>}
+    <div className="kc-page">
+      <h2 className="kc-page-title">Haushaltsübersicht</h2>
+      {loading && <div className="kc-status kc-status--spaced">Lade Daten ...</div>}
+      {error && <div className="kc-error kc-status--spaced">{error}</div>}
       <table className="kc-table" role="table">
         <thead>
           <tr>
@@ -91,7 +91,7 @@ export default function BudgetPlanOverview() {
             );
           })}
           {plans.length === 0 && !loading && (
-            <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Haushaltspläne gefunden</td></tr>
+            <tr><td colSpan={7} className="kc-cell--center kc-cell--muted">Keine Haushaltspläne gefunden</td></tr>
           )}
         </tbody>
       </table>

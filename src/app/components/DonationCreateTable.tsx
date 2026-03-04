@@ -34,7 +34,7 @@ export default function DonationCreateTable({
     <table className="kc-table">
       <thead>
         <tr>
-          <th style={{ width: 60 }}>
+          <th className="kc-col--w-60">
             <input
               ref={headerCbRef}
               type="checkbox"
@@ -53,7 +53,7 @@ export default function DonationCreateTable({
       <tbody>
         {rows.length === 0 && (
           <tr>
-            <td colSpan={6} style={{ textAlign: 'center', color: 'var(--muted)' }}>
+            <td colSpan={6} className="kc-cell--center kc-cell--muted">
               Keine passenden Transaktionen gefunden
             </td>
           </tr>
@@ -61,7 +61,7 @@ export default function DonationCreateTable({
 
         {rows.map((r) => {
           const isSelected = selected.has(r.transactionId);
-          const balColor = r.balance < 0 ? '#e11d48' : '#059669';
+          const balIsNeg = r.balance < 0;
           return (
             <tr key={r.transactionId} className="kc-row">
               <td>
@@ -71,15 +71,14 @@ export default function DonationCreateTable({
               <td>{new Date(r.date).toLocaleDateString()}</td>
               <td>
                 <input
-                  className="kc-input"
-                  style={{ width: '100%' }}
+                  className="kc-input kc-input--full"
                   type="text"
                   value={descriptions[r.transactionId] ?? r.description}
                   onChange={(e) => onChangeDescriptionAction(r.transactionId, e.target.value)}
                 />
               </td>
-              <td style={{ fontWeight: 600 }}>{r.amount.toFixed(2)} €</td>
-              <td style={{ color: balColor, fontWeight: 700 }}>{r.balance.toFixed(2)} €</td>
+              <td className="kc-fw-600">{r.amount.toFixed(2)} €</td>
+              <td className={balIsNeg ? "kc-amount-neg kc-fw-700" : "kc-amount-pos kc-fw-700"}>{r.balance.toFixed(2)} €</td>
             </tr>
           );
         })}

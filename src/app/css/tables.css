@@ -378,3 +378,102 @@
 .kc-table thead tr:last-child {
   border-bottom: 4px solid #fff;
 }
+
+/* =====================
+   Utilities für Tabellenzellen
+   ===================== */
+
+/* Zahlen-/Betragsspalten */
+.kc-cell--num { text-align: right; }
+
+/* Centered (z. B. "Keine Daten"/"Laden...") */
+.kc-cell--center { text-align: center; }
+
+/* Muted Zellinhalt */
+.kc-cell--muted { color: var(--muted); }
+
+/* Vertikaler Trenner wie bisher oft per inline borderRight */
+.kc-cell--sep { border-right: 2px solid #fff; }
+
+/* Häufige Spaltenbreiten */
+.kc-col--members { min-width: 150px; }
+.kc-col--name-220 { min-width: 220px; }
+.kc-col--donation-150 { min-width: 150px; }
+
+/* Zelle, die Buttons horizontal anordnet (z. B. Sortierung) */
+.kc-cell--buttons {
+  display: flex;
+  gap: 0.3rem;
+}
+
+/* Mail-Log/Detail: fixed Layout + normale Zeilenumbrüche */
+.kc-table--fixed {
+  width: 100%;
+  table-layout: fixed;
+  white-space: normal;
+}
+
+.kc-th--nowrap {
+  white-space: nowrap;
+}
+
+.kc-th--min-140 { min-width: 140px; }
+.kc-th--w-60 { width: 60px; }
+
+.kc-head-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.kc-td--break {
+  word-break: break-word;
+}
+
+.kc-prewrap-anywhere {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* einfache Text-Farb-Utilities für Statusindikatoren in Tabellen */
+.kc-text-ok { color: var(--primary); }
+.kc-text-error { color: #ef4444; }
+
+/* padded muted note, um inline color/padding in sepa-xml Tabelle zu entfernen */
+.kc-note {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.1);
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0.5rem 0;
+}
+
+/* Placeholder / Empty / Muted */
+.kc-muted-dash { color: var(--muted); }
+
+/* Betragsfarben */
+.kc-amount-pos { color: #059669; font-weight: 600; }
+.kc-amount-neg { color: #e11d48; font-weight: 600; }
+
+/* Row opacity helper */
+.kc-row--dim { opacity: 0.5; }
+
+/* compact button spacing inside table cells */
+.button.kc-btn--compact {
+  padding: 0.2rem 0.8rem;
+}
+
+/* right-aligned sum label */
+.kc-sum-label { text-align: right; font-weight: 600; }
+
+/* NOTE: kc-fw-600 / kc-fw-700 liegen zentral in typography.css */
+
+.kc-col--w-60 { width: 60px; }
+
+.kc-input--full {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}

@@ -138,15 +138,15 @@ export default function KeycloakImportPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: "1.5rem auto", padding: "1rem" }}>
-      <h2 style={{ marginBottom: 12 }}>Keycloak Import</h2>
-      <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>
+    <div className="kc-page kc-page--1200">
+      <h2 className="kc-page-title">Keycloak Import</h2>
+      <div className="kc-filterbar">
         <button className="button" onClick={load} disabled={loading}>Aktualisieren</button>
         <button className="button" onClick={toggleAll} disabled={loading}>Alle auswählen/abwählen</button>
         <button className="button" onClick={selectChanged} disabled={loading}>Änderungen auswählen</button>
         <button className="button" onClick={importSelected} disabled={loading}>Ausgewählte importieren</button>
       </div>
-      {msg && <div style={{ marginBottom: 12, fontWeight: 600, color: "var(--secondary-color, #facc15)" }}>{msg}</div>}
+      {msg && <div className="message u-mb-2">{msg}</div>}
       <table className="kc-table" role="table">
         <thead>
           <tr>
@@ -162,12 +162,12 @@ export default function KeycloakImportPage() {
           {rows.map(r => (
             <tr key={r.keycloak_id} className="kc-row">
               <td className="kc-checkbox">
-                <input type="checkbox" checked={!!selected[r.keycloak_id]} onChange={() => toggle(r.keycloak_id)} />
+                <input type="checkbox" checked={Boolean(selected[r.keycloak_id])} onChange={() => toggle(r.keycloak_id)} />
               </td>
               <td>
-                <div style={{ display: "flex", flexDirection: "column" }}>
+                <div className="kc-stack">
                   <strong>{r.username}</strong>
-                  <span style={{ fontSize: 12, color: "var(--muted, #9aa4b2)" }}>
+                  <span className="kc-text-sm kc-cell--muted">
                     {r.status === "changed" && r.diffs.mail ? (
                       <span className="kc-diff changed"><small>alt: {r.diffs.mail.from}</small>neu: {r.diffs.mail.to}</span>
                     ) : (

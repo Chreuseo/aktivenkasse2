@@ -32,7 +32,10 @@ export default function MineAdvancesClient() {
         },
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Unbekannter Fehler");
+      if (!res.ok) {
+        setError(json?.error || "Unbekannter Fehler");
+        return;
+      }
       setItems(json.items as AdvanceListItem[]);
     } catch (e: unknown) {
       setError(getErrorMessage(e));
@@ -60,7 +63,10 @@ export default function MineAdvancesClient() {
         body: JSON.stringify({ id, action: "cancel" }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Unbekannter Fehler");
+      if (!res.ok) {
+        setError(json?.error || "Unbekannter Fehler");
+        return;
+      }
       // Refresh list
       await load();
     } catch (e: unknown) {
@@ -82,9 +88,9 @@ export default function MineAdvancesClient() {
 
   return (
     <div className="table-center">
-      <h1>Meine Auslagen</h1>
-      {error && <p style={{ color: "#f87171" }}>Fehler: {error}</p>}
-      {loading && <p>Lade…</p>}
+      <h1 className="kc-page-title">Meine Auslagen</h1>
+      {error && <p className="kc-error">Fehler: {error}</p>}
+      {loading && <p className="kc-status">Lade…</p>}
       {!loading && items && (
         <table className="kc-table advances-table">
           <thead>
@@ -103,7 +109,7 @@ export default function MineAdvancesClient() {
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={9} style={{ textAlign: "center", color: "#888" }}>Keine Auslagen gefunden.</td>
+                <td colSpan={9} className="kc-cell--center kc-cell--muted">Keine Auslagen gefunden.</td>
               </tr>
             ) : (
               items.map((it) => (
@@ -116,7 +122,7 @@ export default function MineAdvancesClient() {
                     {it.receiptUrl ? (
                       <a className="button" href={it.receiptUrl} target="_blank" rel="noopener noreferrer">Beleg herunterladen</a>
                     ) : (
-                      <span style={{ color: "var(--muted)" }}>Kein Beleg</span>
+                      <span className="kc-muted-dash">Kein Beleg</span>
                     )}
                   </td>
                   <td>

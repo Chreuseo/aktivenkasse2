@@ -59,10 +59,19 @@ export default function MyDonationsPage() {
     setReceiptLoading(true);
     try {
       const token = extractToken(session as any);
-      if (!token) throw new Error('Keine Session/Token gefunden. Bitte neu einloggen.');
+      if (!token) {
+        setReceiptError('Keine Session/Token gefunden. Bitte neu einloggen.');
+        return;
+      }
 
-      if (!dateFrom || !dateTo) throw new Error('Bitte Zeitraum vollständig auswählen (von/bis).');
-      if (dateFrom > dateTo) throw new Error('Datum von darf nicht nach Datum bis liegen.');
+      if (!dateFrom || !dateTo) {
+        setReceiptError('Bitte Zeitraum vollständig auswählen (von/bis).');
+        return;
+      }
+      if (dateFrom > dateTo) {
+        setReceiptError('Datum von darf nicht nach Datum bis liegen.');
+        return;
+      }
 
       const qs = new URLSearchParams({ from: dateFrom, to: dateTo });
       const res = await fetch(`/api/donations/receipt?${qs.toString()}`, {
@@ -78,7 +87,8 @@ export default function MyDonationsPage() {
           const j = await res.json();
           msg = j?.error || msg;
         } catch {}
-        throw new Error(msg);
+        setReceiptError(msg);
+        return;
       }
 
       const blob = await res.blob();
@@ -115,40 +125,30 @@ export default function MyDonationsPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1200, margin: '2rem auto', padding: '1rem' }}>
-      <h2 style={{ marginBottom: '1rem' }}>Meine Zuwendungsbescheide</h2>
+    <div className="kc-page kc-page--1200">
+      <h2 className="kc-page-title">Meine Zuwendungsbescheide</h2>
 
-      <div
-        style={{
-          display: 'flex',
-          gap: '0.75rem',
-          alignItems: 'end',
-          flexWrap: 'wrap',
-          marginBottom: '1rem',
-          padding: '0.75rem',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          background: 'var(--card, transparent)',
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={{ fontSize: 12, color: 'var(--muted)' }}>Datum von</label>
-          <input className="kc-input" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+      <div className="kc-panel kc-panel--spaced">
+        <div className="kc-filterbar">
+          <label className="kc-label-col">
+            <span className="kc-fieldlabel">Datum von</span>
+            <input className="kc-input" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          </label>
+          <label className="kc-label-col">
+            <span className="kc-fieldlabel">Datum bis</span>
+            <input className="kc-input" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          </label>
+
+          <button className="button" onClick={downloadReceipt} disabled={receiptLoading}>
+            {receiptLoading ? 'Erstelle ...' : 'Spendenquittung erstellen'}
+          </button>
+
+          {receiptError && <div className="kc-error">Fehler: {receiptError}</div>}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={{ fontSize: 12, color: 'var(--muted)' }}>Datum bis</label>
-          <input className="kc-input" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-        </div>
-
-        <button className="kc-button" onClick={downloadReceipt} disabled={receiptLoading}>
-          {receiptLoading ? 'Erstelle ...' : 'Spendenquittung erstellen'}
-        </button>
-
-        {receiptError && <div style={{ color: 'var(--error)' }}>Fehler: {receiptError}</div>}
       </div>
 
-      {loading && <div style={{ color: 'var(--muted)' }}>Lade Daten ...</div>}
-      {error && <div>Fehler beim Laden: {error}</div>}
+      {loading && <div className="kc-status">Lade Daten ...</div>}
+      {error && <div className="kc-error">Fehler beim Laden: {error}</div>}
       {donations && <DonationsTable donations={donations} showUser={false} showProcessor={false} />}
     </div>
   );

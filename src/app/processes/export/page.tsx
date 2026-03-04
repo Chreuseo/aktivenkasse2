@@ -58,7 +58,11 @@ export default function ExportPage() {
           cache: 'no-store',
         });
         const json = await res.json();
-        if (!res.ok) throw new Error(json?.error || `${res.status} ${res.statusText}`);
+        if (!res.ok) {
+          if (cancelled) return;
+          setError(json?.error || `${res.status} ${res.statusText}`);
+          return;
+        }
         if (cancelled) return;
         if (type === 'user') {
           const users = json as UserItem[];
@@ -114,7 +118,8 @@ export default function ExportPage() {
       });
       if (!res.ok) {
         const maybeJson = await res.clone().json().catch(() => null);
-        throw new Error(maybeJson?.error || `${res.status} ${res.statusText}`);
+        setError(maybeJson?.error || `${res.status} ${res.statusText}`);
+        return;
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -139,8 +144,8 @@ export default function ExportPage() {
   }
 
   return (
-    <div className="form-container" style={{ maxWidth: 820 }}>
-      <h2 style={{ marginBottom: '1rem' }}>Export</h2>
+    <div className="form-container kc-form-container--export">
+      <h2 className="kc-page-title">Export</h2>
       <form className="form" onSubmit={onDownload}>
         <label>
           Was möchtest du exportieren?
@@ -203,7 +208,7 @@ export default function ExportPage() {
         </button>
 
         {message && <div className="message">{message}</div>}
-        {error && <div className="message" style={{ color: '#ef4444' }}>{error}</div>}
+        {error && <div className="message kc-message--error">{error}</div>}
       </form>
     </div>
   );

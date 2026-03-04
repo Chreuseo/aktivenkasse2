@@ -42,7 +42,10 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
                 });
 
                 const ca = (resp as any)?.clearingAccount ?? resp;
-                if (!ca) throw new Error("Unerwartete Serverantwort: clearingAccount fehlt");
+                if (!ca) {
+                    setMessage("❌ Unerwartete Serverantwort: clearingAccount fehlt");
+                    return;
+                }
 
                 setFormData({
                     name: ca.name || "",
@@ -168,7 +171,7 @@ export default function EditClearingAccountPage({ params }: { params: Promise<{ 
                         <option value="false">Nein</option>
                     </select>
                 </label>
-                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <label className="kc-checkline">
                     <input type="checkbox" name="interest" checked={formData.interest} onChange={handleChange} />
                     <span>Zinsen erheben</span>
                 </label>

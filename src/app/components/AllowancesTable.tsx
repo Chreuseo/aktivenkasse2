@@ -58,12 +58,12 @@ export default function AllowancesTable({ accountId, title = "Rückstellungen" }
   const totalWithheld = rows.reduce((sum, r) => sum + (isFinite(r.withheld) ? r.withheld : 0), 0);
 
   return (
-    <div style={{ marginTop: "1rem" }}>
-      <h3 style={{ marginBottom: "0.8rem" }}>{title}</h3>
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.8rem" }}>
-        <label>
+    <div className="u-mt-3">
+      <h3 className="kc-section-title">{title}</h3>
+      <div className="kc-filterbar">
+        <label className="kc-formfield">
           Filter
-          <select value={filter} onChange={e => setFilter(e.target.value as any)} className="kc-select" style={{ marginLeft: "0.5rem" }}>
+          <select value={filter} onChange={e => setFilter(e.target.value as any)} className="kc-select kc-max-220">
             <option value="open">Offen</option>
             <option value="returned">Erstattet</option>
             <option value="all">Alle</option>
@@ -71,8 +71,8 @@ export default function AllowancesTable({ accountId, title = "Rückstellungen" }
         </label>
       </div>
 
-      {loading && <div style={{ color: "var(--muted)" }}>Lade…</div>}
-      {error && <div style={{ color: "var(--error)" }}>{error}</div>}
+      {loading && <div className="kc-status">Lade…</div>}
+      {error && <div className="kc-error">{error}</div>}
 
       {rows.length > 0 ? (
         <table className="kc-table">
@@ -87,10 +87,10 @@ export default function AllowancesTable({ accountId, title = "Rückstellungen" }
           </thead>
           <tbody>
             {rows.map(r => (
-              <tr key={r.id}>
+              <tr key={r.id} className="kc-row">
                 <td>{new Date(r.date).toLocaleDateString()}</td>
                 <td>{r.description || "-"}</td>
-                <td>{r.amount.toFixed(2)} €</td>
+                <td className="kc-fw-600">{r.amount.toFixed(2)} €</td>
                 <td>{r.withheld ? r.withheld.toFixed(2) + " €" : "-"}</td>
                 <td>{r.returnDate ? new Date(r.returnDate).toLocaleDateString() : "-"}</td>
               </tr>
@@ -98,15 +98,15 @@ export default function AllowancesTable({ accountId, title = "Rückstellungen" }
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={2} style={{ textAlign: "right", fontWeight: 600 }}>Summe</td>
-              <td style={{ fontWeight: 700 }}>{totalAmount.toFixed(2)} €</td>
-              <td style={{ fontWeight: 700 }}>{totalWithheld.toFixed(2)} €</td>
+              <td colSpan={2} className="kc-sum-label">Summe</td>
+              <td className="kc-fw-700">{totalAmount.toFixed(2)} €</td>
+              <td className="kc-fw-700">{totalWithheld.toFixed(2)} €</td>
               <td></td>
             </tr>
           </tfoot>
         </table>
       ) : (
-        !loading && !error ? <div style={{ color: "var(--muted)" }}>Keine Daten</div> : null
+        !loading && !error ? <div className="kc-status">Keine Daten</div> : null
       )}
     </div>
   );

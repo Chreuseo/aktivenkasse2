@@ -102,10 +102,9 @@ export default function NewAllowancePage() {
           Typ
           <select
             name="type"
-            className="form-select form-select-max"
+            className="form-select form-select-max kc-max-220"
             value={formData.type}
             onChange={handleChange}
-            style={{ maxWidth: "220px" }}
           >
             {accountTypes.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -116,11 +115,10 @@ export default function NewAllowancePage() {
           Auswahl
           <select
             name="accountId"
-            className="form-select form-select-max"
+            className="form-select form-select-max kc-max-220"
             value={formData.accountId}
             onChange={handleChange}
             required
-            style={{ maxWidth: "220px" }}
           >
             <option value="">Bitte wählen</option>
             {getOptions(formData.type, userOptions, bankOptions, clearingOptions).map(opt => (

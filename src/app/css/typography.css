@@ -1,0 +1,57 @@
+/* Datei: src/app/css/typography.css
+   Zweck: konsistente Typografie/Abstände für Überschriften & Hilfetexte
+*/
+
+/* Page-Titel: lässt sich auf h1/h2/h3 anwenden */
+.kc-page-title {
+  margin-bottom: 1rem;
+}
+
+.kc-page-title--tight {
+  margin-bottom: 0.5rem;
+}
+
+.kc-muted { color: var(--muted); }
+
+/* Kleiner Hinweistext (z. B. in Formularen) */
+.kc-hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.kc-section-title {
+  margin: 0 0 0.8rem;
+}
+
+.kc-section-title--spaced {
+  margin: 1rem 0 0.6rem;
+}
+
+.kc-fw-600 { font-weight: 600; }
+.kc-fw-700 { font-weight: 700; }
+
+/* Kleine Infobox-Header-Pattern */
+.kc-infobox-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.kc-infobox-subtitle {
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.kc-kv {
+  margin-bottom: 4px;
+}
+
+.kc-money {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.kc-formfield {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

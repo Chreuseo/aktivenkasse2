@@ -117,8 +117,8 @@ export default function FutureTransactionsPage() {
 
   return (
     <div className="kc-page">
-      <h2>Zukünftige Transaktionen</h2>
-      <div className="kc-toolbar" style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', alignItems: 'flex-end' }}>
+      <h2 className="kc-page-title">Zukünftige Transaktionen</h2>
+      <div className="kc-filterbar">
         <label>
           Filtertyp
           <select
@@ -168,20 +168,20 @@ export default function FutureTransactionsPage() {
         </thead>
         <tbody>
           {transactions.length === 0 && (
-            <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--muted)' }}>Keine zukünftigen Transaktionen</td></tr>
+            <tr><td colSpan={6} className="kc-cell--center kc-cell--muted">Keine zukünftigen Transaktionen</td></tr>
           )}
           {transactions.map(tx => (
             // Keine Grau-Hinterlegung hier: alle sind zukünftige Transaktionen
-            <tr key={tx.id}>
+            <tr key={tx.id} className="kc-row">
               <td>{tx.main ? (
                 <span>
                   {tx.main.type === 'user' && `Nutzer: ${tx.main.name}`}
                   {tx.main.type === 'bank' && `Bankkonto: ${tx.main.name}`}
                   {tx.main.type === 'clearing_account' && `Verrechnungskonto: ${tx.main.name}`}
                 </span>
-              ) : <span style={{ color: 'var(--muted)' }}>-</span>}
+              ) : <span className="kc-muted-dash">-</span>}
               </td>
-              <td style={{ color: tx.amount < 0 ? '#e11d48' : '#059669', fontWeight: 600 }}>{tx.amount.toFixed(2)} €</td>
+              <td className={tx.amount < 0 ? "kc-amount-neg" : "kc-amount-pos"}>{tx.amount.toFixed(2)} €</td>
               <td>{new Date(tx.date).toLocaleDateString()}</td>
               <td>{tx.description}</td>
               <td>{tx.reference || '-'}</td>

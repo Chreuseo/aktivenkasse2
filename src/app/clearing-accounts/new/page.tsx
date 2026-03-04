@@ -104,7 +104,7 @@ export default function NewClearingAccountPage() {
                         <option value="false">Nein</option>
                     </select>
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label className="kc-checkline">
                     <input type="checkbox" name="interest" checked={formData.interest} onChange={handleChange} />
                     <span>Zinsen erheben</span>
                 </label>
