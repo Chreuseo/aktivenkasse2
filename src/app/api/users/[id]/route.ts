@@ -2,8 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { AuthorizationType, ResourceType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
+import type { Transaction } from "@/app/types/transaction";
 
 type IdRouteContext = { params: Promise<{ id: string }> };
+
+function inferOtherFromAccount(acc: any): Transaction["other"] {
+  if (!acc) return null;
+  if (acc.users && acc.users.length > 0) {
+    const u = acc.users[0];
+    return { type: "user", name: `${u.first_name} ${u.last_name}`, mail: u.mail };
+  }
+  if (acc.bankAccounts && acc.bankAccounts.length > 0) {
+    const b = acc.bankAccounts[0];
+    return { type: "bank", name: b.name, bank: b.bank, iban: b.iban };
+  }
+  if (acc.clearingAccounts && acc.clearingAccounts.length > 0) {
+    const c = acc.clearingAccounts[0];
+    return { type: "clearing_account", name: c.name };
+  }
+  return null;
+}
 
 export async function GET(req: NextRequest, ctx: IdRouteContext) {
   const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.read_all);
@@ -53,6 +71,8 @@ export async function GET(req: NextRequest, ctx: IdRouteContext) {
       ? `${tx.costCenter.budget_plan.name} - ${tx.costCenter.name}`
       : undefined;
 
+    const other = tx.counter_transaction ? inferOtherFromAccount(tx.counter_transaction.account) : null;
+
     return {
       id: tx.id,
       amount: Number(tx.amount),
@@ -60,6 +80,7 @@ export async function GET(req: NextRequest, ctx: IdRouteContext) {
       description: tx.description,
       reference: tx.reference || undefined,
       processed: !!tx.processed,
+      other,
       attachmentId: tx.attachmentId || undefined,
       costCenterLabel,
       costCenterId: tx.costCenterId || (tx.costCenter ? tx.costCenter.id : undefined),
