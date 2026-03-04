@@ -61,6 +61,27 @@ export async function GET(req: Request) {
     orderBy: { date: 'asc' },
   });
 
+  // Beim ersten PDF-Abruf: downloadedAt einmalig setzen (nur wenn noch NULL).
+  // Batch-Update ist idempotent und vermeidet N+1.
+  if (donations.length > 0) {
+    const ids = donations.map((d: any) => d.id);
+    const now = new Date();
+
+    const chunkSize = 500;
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      await prisma.donation.updateMany({
+        where: {
+          id: { in: chunk },
+          downloadedAt: null,
+        },
+        data: {
+          downloadedAt: now,
+        },
+      });
+    }
+  }
+
   const rows: DonationReceiptRow[] = donations.map((d: any) => ({
     date: (d.date as Date).toISOString(),
     description: d.description,

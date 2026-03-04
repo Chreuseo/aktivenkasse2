@@ -26,7 +26,7 @@ export default function DonationsTable({
   showUser: boolean;
   showProcessor: boolean;
 }) {
-  const colSpan = (showUser ? 1 : 0) + 1 + 1 + 1 + 1 + (showProcessor ? 1 : 0);
+  const colSpan = (showUser ? 1 : 0) + 1 + 1 + 1 + 1 + 1 + (showProcessor ? 1 : 0);
 
   return (
     <table className="kc-table">
@@ -37,6 +37,7 @@ export default function DonationsTable({
           <th>Beschreibung</th>
           <th>Art</th>
           <th>Betrag</th>
+          <th>Abgerufen</th>
           {showProcessor && <th>Ersteller</th>}
         </tr>
       </thead>
@@ -55,6 +56,7 @@ export default function DonationsTable({
             <td>{d.description}</td>
             <td>{typeLabel(d.type)}</td>
             <td style={{ fontWeight: 700 }}>{Number(d.amount).toFixed(2)} €</td>
+            <td>{d.downloadedAt ? new Date(d.downloadedAt).toLocaleDateString() : '-'}</td>
             {showProcessor && <td>{d.processorName || '-'}</td>}
           </tr>
         ))}

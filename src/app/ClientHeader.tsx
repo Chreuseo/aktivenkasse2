@@ -48,6 +48,15 @@ const menu: MenuItem[] = [
                     { label: 'Rückstellung erstatten', href: '/allowances/return' },
                 ],
             },
+            {
+                type: 'group',
+                label: 'Budget/Haushalt',
+                children: [
+                    { label: 'Übersicht', href: '/budget-plan' },
+                    { label: 'Neuer Plan', href: '/budget-plan/new' },
+                    { label: 'Haushaltsabschluss', href: '/budget-plan/finalization' },
+                ]
+            },
         ],
     },
     {

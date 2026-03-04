@@ -94,6 +94,19 @@ export default function MyDonationsPage() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+
+      // Liste nach erfolgreichem Download neu laden, damit "Abgerufen" aktualisiert wird.
+      try {
+        const data = await fetchJson('/api/donations?scope=mine', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: 'no-store',
+        });
+        setDonations(data as DonationRow[]);
+      } catch {
+        // UI-Refresh ist nice-to-have; Download war erfolgreich.
+      }
     } catch (e: any) {
       setReceiptError(e?.message || String(e));
     } finally {

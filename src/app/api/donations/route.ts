@@ -44,6 +44,9 @@ export async function GET(req: Request) {
     },
   });
 
+  // Hinweis: `downloadedAt` wird NICHT beim Listen-Abruf gesetzt.
+  // Es soll nur beim Erzeugen/Download der PDF-Spendenquittung (Receipt) befüllt werden.
+
   const ui = donations.map((d: any) => ({
     id: d.id,
     date: (d.date as Date).toISOString(),
@@ -53,6 +56,7 @@ export async function GET(req: Request) {
     transactionId: d.transactionId,
     userName: d.user ? `${d.user.first_name} ${d.user.last_name}` : undefined,
     processorName: d.processor ? `${d.processor.first_name} ${d.processor.last_name}` : undefined,
+    downloadedAt: d.downloadedAt ? (d.downloadedAt as Date).toISOString() : null,
   }));
 
   return NextResponse.json(ui);
