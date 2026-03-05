@@ -2,18 +2,17 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { BulkTransactionType } from '@prisma/client';
 import { isAllowedAttachment, isAllowedMainAccountForBulk, isAllowedRowTypeForBulk, parsePositiveAmount, roundToTwoDecimals } from '@/lib/validation';
-import { extractUserFromAuthHeader, resolveAccountId as resolveAccountIdUtil } from '@/lib/serverUtils';
+import { resolveAccountId as resolveAccountIdUtil } from '@/lib/serverUtils';
 import {AuthorizationType, ResourceType} from "@/app/types/authorization";
-import {checkPermission} from "@/services/authService";
+import {checkPermission, extractTokenAndUserId} from "@/services/authService";
 import { saveAttachmentFromFormFileData as saveAttachmentFromFormFile } from '@/lib/apiHelpers';
 import { createBulkWithMain, addBulkRowWithCounter, addBulkMainCostCenterRow, createMultipleTransactions, createPairedTransactions } from '@/services/transactionService';
 
 export async function POST(req: Request) {
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
-  const { userId } = extractUserFromAuthHeader(authHeader as string | undefined);
+  const { userId } = extractTokenAndUserId(req as any);
 
   if (!userId) {
-    return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 403 });
+    return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 401 });
   }
 
   const perm = await checkPermission( req, ResourceType.transactions, AuthorizationType.write_all );

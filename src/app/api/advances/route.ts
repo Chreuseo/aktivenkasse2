@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { extractUserFromAuthHeader } from '@/lib/serverUtils';
+import { extractTokenAndUserId } from '@/services/authService';
 import { saveAttachmentFromFormFileData as saveAttachmentFromFormFile, firstFieldFromFormData as firstFieldFromForm } from '@/lib/apiHelpers';
 import { sendPlainMail } from '@/services/mailService';
 
 export async function PATCH(req: Request) {
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
-  const { jwt } = extractUserFromAuthHeader(authHeader as string | undefined);
-  const sub = jwt?.sub || jwt?.userId || jwt?.id || null;
+  const { userId: sub } = extractTokenAndUserId(req as any);
   if (!sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const user = await prisma.user.findUnique({ where: { keycloak_id: String(sub) } });
@@ -40,9 +38,7 @@ export async function PATCH(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
-  const { jwt } = extractUserFromAuthHeader(authHeader as string | undefined);
-  const sub = jwt?.sub || jwt?.userId || jwt?.id || null;
+  const { userId: sub } = extractTokenAndUserId(req as any);
   if (!sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const user = await prisma.user.findUnique({ where: { keycloak_id: String(sub) } });

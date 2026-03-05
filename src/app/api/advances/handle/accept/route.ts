@@ -1,16 +1,14 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { extractUserFromAuthHeader } from '@/lib/serverUtils';
 import { parsePositiveAmount } from '@/lib/validation';
-import { checkPermission } from '@/services/authService';
+import { checkPermission, extractTokenAndUserId } from '@/services/authService';
 import { ResourceType, AuthorizationType } from '@/app/types/authorization';
 import {clearing_account_roles, getClearingAccountRole} from "@/lib/getUserAuthContext";
 import { sendPlainMail } from '@/services/mailService';
 import { createPairedTransactions, createTransactionWithBalance } from '@/services/transactionService';
 
 export async function POST(req: Request) {
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
-  const { userId } = extractUserFromAuthHeader(authHeader as string | undefined);
+  const { userId } = extractTokenAndUserId(req as any);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const sub = userId; // Keycloak-ID aus JWT
 

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { extractUserFromAuthHeader } from '@/lib/serverUtils';
-import { checkPermission } from '@/services/authService';
+import { extractTokenAndUserId, checkPermission } from '@/services/authService';
 import { ResourceType, AuthorizationType } from '@/app/types/authorization';
 
 export async function GET(req: Request) {
@@ -9,9 +8,7 @@ export async function GET(req: Request) {
   const statusParam = url.searchParams.get('status');
   const clearingParam = url.searchParams.get('clearing'); // erwartet 'none' für ohne Verrechnungskonto
 
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
-  const { jwt } = extractUserFromAuthHeader(authHeader as string | undefined);
-  const sub = jwt?.sub || jwt?.userId || jwt?.id || null;
+  const { userId: sub } = extractTokenAndUserId(req as any);
   if (!sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   // Prüfe globale Berechtigung: read_all auf advances

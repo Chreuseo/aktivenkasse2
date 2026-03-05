@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { extractUserFromAuthHeader } from '@/lib/serverUtils';
 import { saveAttachmentFromFormFileData as saveAttachmentFromFormFile } from '@/lib/apiHelpers';
+import { extractTokenAndUserId } from '@/services/authService';
 
 export async function POST(req: Request) {
-  // Authentifizierung prüfen (gleiches Muster wie bei anderen Routen)
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
-  const { jwt } = extractUserFromAuthHeader(authHeader as string | undefined);
-  const sub = jwt?.sub || jwt?.userId || jwt?.id || null;
-  if (!sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Authentifizierung prüfen (zentral über authService)
+  const { userId } = extractTokenAndUserId(req as any);
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   let formData: FormData;
   try {

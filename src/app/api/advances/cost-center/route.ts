@@ -1,8 +1,7 @@
 import {NextResponse} from 'next/server';
 import prisma from '@/lib/prisma';
-import {extractUserFromAuthHeader} from '@/lib/serverUtils';
 import {clearing_account_roles, getClearingAccountRole} from '@/lib/getUserAuthContext';
-import {checkPermission} from '@/services/authService';
+import {checkPermission, extractTokenAndUserId} from '@/services/authService';
 import {AuthorizationType, ResourceType} from '@/app/types/authorization';
 
 export async function GET(req: Request) {
@@ -14,9 +13,7 @@ export async function GET(req: Request) {
   const idNum = Number(idParam);
   if (isNaN(idNum) || idNum <= 0) return NextResponse.json({ error: 'Ungültige clearingAccountId' }, { status: 400 });
 
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
-  const { jwt } = extractUserFromAuthHeader(authHeader as string | undefined);
-  const sub = jwt?.sub || jwt?.userId || jwt?.id || null;
+  const { userId: sub } = extractTokenAndUserId(req as any);
   if (!sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const userRole = await getClearingAccountRole(idNum, String(sub));

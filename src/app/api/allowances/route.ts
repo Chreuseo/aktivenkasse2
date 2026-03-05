@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { AuthorizationType, ResourceType } from "@/app/types/authorization";
-import { checkPermission } from "@/services/authService";
-import { extractUserFromAuthHeader } from "@/lib/serverUtils";
+import { checkPermission, getAuthContext } from "@/services/authService";
 
 function adjustBalanceDecimal(current: any, delta: number) {
   const cur = Number(current);
@@ -47,9 +46,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || undefined;
-  const { userId } = extractUserFromAuthHeader(authHeader as string | undefined);
-  if (!userId) return NextResponse.json({ error: "Keine UserId im Token" }, { status: 403 });
+  const { userId } = await getAuthContext(req as any);
+  if (!userId) return NextResponse.json({ error: "Keine UserId im Token" }, { status: 401 });
 
   const perm = await checkPermission(req, ResourceType.transactions, AuthorizationType.write_all);
   if (!perm.allowed) return NextResponse.json({ error: perm.error || "Forbidden" }, { status: 403 });

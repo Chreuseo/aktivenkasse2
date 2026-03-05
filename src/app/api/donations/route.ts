@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { ResourceType, AuthorizationType } from '@/app/types/authorization';
-import { checkPermission } from '@/services/authService';
-import { extractUserFromAuthHeader } from '@/lib/serverUtils';
+import { checkPermission, getAuthContext } from '@/services/authService';
 import { donationTypeDbToUi } from '@/lib/donationType';
 
 function donationTypeToUi(t: any): 'financial' | 'material' | 'waiver' {
@@ -10,10 +9,9 @@ function donationTypeToUi(t: any): 'financial' | 'material' | 'waiver' {
 }
 
 export async function GET(req: Request) {
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
-  const { userId } = extractUserFromAuthHeader(authHeader as string | undefined);
+  const { userId } = await getAuthContext(req);
   if (!userId) {
-    return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 403 });
+    return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 401 });
   }
 
   const url = new URL(req.url);
