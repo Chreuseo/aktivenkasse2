@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import "@/app/css/tables.css";
 import { useSession } from "next-auth/react";
 import { extractToken, fetchJson } from "@/lib/utils";
 import { BankAccount } from "@/app/types/bankAccount";
+import { ClientTableHead } from "@/app/components/clientTable/ClientTableHead";
+import { useClientTable, type ColumnDef } from "@/app/components/clientTable/useClientTable";
 
 export default function BankAccountsOverview() {
   const { data: session } = useSession();
@@ -43,45 +45,66 @@ export default function BankAccountsOverview() {
     load();
   }, [session]);
 
+  const columns = useMemo<ColumnDef<BankAccount>[]>(
+    () => [
+      { id: 'name', header: 'Name', type: 'text', accessor: (a) => a.name },
+      { id: 'owner', header: 'Kontoinhaber', type: 'text', accessor: (a) => a.owner },
+      { id: 'bank', header: 'Bank', type: 'text', accessor: (a) => a.bank },
+      { id: 'iban', header: 'IBAN', type: 'text', accessor: (a) => a.iban },
+      {
+        id: 'balance',
+        header: 'Kontostand',
+        type: 'number',
+        accessor: (a) => Number((a as any).balance ?? 0),
+        cell: (a) => formatBalance((a as any).balance),
+      },
+      {
+        id: 'edit',
+        header: 'Bearbeiten',
+        accessor: (a) => a.id,
+        sortable: false,
+        filterable: false,
+        cell: (a) => (
+          <button className="button" onClick={() => window.location.href = `/bank-accounts/${a.id}/edit`}>
+            Bearbeiten
+          </button>
+        ),
+      },
+      {
+        id: 'details',
+        header: 'Details',
+        accessor: (a) => a.id,
+        sortable: false,
+        filterable: false,
+        cell: (a) => (
+          <button className="button" onClick={() => window.location.href = `/bank-accounts/${a.id}`}>
+            Details
+          </button>
+        ),
+      },
+    ],
+    []
+  );
+
+  const table = useClientTable(accounts, columns, { enableFilters: true });
+
   return (
     <div className="kc-page">
       <h2 className="kc-page-title">Bankkontenübersicht</h2>
       {loading && <div className="kc-status kc-status--spaced">Lade Daten ...</div>}
       {error && <div className="kc-error kc-status--spaced">{error}</div>}
       <table className="kc-table" role="table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Kontoinhaber</th>
-            <th>Bank</th>
-            <th>IBAN</th>
-            <th>Kontostand</th>
-            <th>Bearbeiten</th>
-            <th>Details</th>
-          </tr>
-        </thead>
+        <ClientTableHead table={table} />
         <tbody>
-          {accounts.map(acc => (
+          {table.filteredSortedRows.map(acc => (
             <tr key={acc.id} className="kc-row">
-              <td>{acc.name}</td>
-              <td>{acc.owner}</td>
-              <td>{acc.bank}</td>
-              <td>{acc.iban}</td>
-              <td>{formatBalance(acc.balance)}</td>
-              <td>
-                <button className="button" onClick={() => window.location.href = `/bank-accounts/${acc.id}/edit`}>
-                  Bearbeiten
-                </button>
-              </td>
-              <td>
-                <button className="button" onClick={() => window.location.href = `/bank-accounts/${acc.id}`}>
-                  Details
-                </button>
-              </td>
+              {table.columns.map((c) => (
+                <td key={c.id}>{c.cell ? c.cell(acc) : String(c.accessor(acc) ?? '-') || '-'}</td>
+              ))}
             </tr>
           ))}
-          {accounts.length === 0 && !loading && (
-            <tr><td colSpan={7} className="kc-cell--center kc-cell--muted">Keine Bankkonten gefunden</td></tr>
+          {table.filteredSortedRows.length === 0 && !loading && (
+            <tr><td colSpan={table.columns.length} className="kc-cell--center kc-cell--muted">Keine Bankkonten gefunden</td></tr>
           )}
         </tbody>
       </table>

@@ -1,8 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import '@/app/css/tables.css';
 import { DonationRow, DonationTypeUi } from '@/app/types/donation';
+import { ClientTableHead } from '@/app/components/clientTable/ClientTableHead';
+import { useClientTable, type ColumnDef } from '@/app/components/clientTable/useClientTable';
 
 function typeLabel(t: DonationTypeUi) {
   switch (t) {
@@ -26,38 +28,86 @@ export default function DonationsTable({
   showUser: boolean;
   showProcessor: boolean;
 }) {
-  const colSpan = (showUser ? 1 : 0) + 1 + 1 + 1 + 1 + 1 + (showProcessor ? 1 : 0);
+  const columns = useMemo<ColumnDef<DonationRow>[]>(() => {
+    const cols: ColumnDef<DonationRow>[] = [];
+    if (showUser) {
+      cols.push({
+        id: 'userName',
+        header: 'Nutzer',
+        type: 'text',
+        accessor: (d) => d.userName ?? '',
+        cell: (d) => d.userName || '-',
+      });
+    }
+
+    cols.push(
+      {
+        id: 'date',
+        header: 'Datum',
+        type: 'date',
+        accessor: (d) => d.date,
+        cell: (d) => new Date(d.date).toLocaleDateString(),
+      },
+      {
+        id: 'description',
+        header: 'Beschreibung',
+        type: 'text',
+        accessor: (d) => d.description,
+      },
+      {
+        id: 'type',
+        header: 'Art',
+        type: 'text',
+        accessor: (d) => typeLabel(d.type),
+        cell: (d) => typeLabel(d.type),
+      },
+      {
+        id: 'amount',
+        header: 'Betrag',
+        type: 'number',
+        accessor: (d) => Number(d.amount),
+        cell: (d) => <span className="kc-fw-700">{Number(d.amount).toFixed(2)} €</span>,
+      },
+      {
+        id: 'downloadedAt',
+        header: 'Abgerufen',
+        type: 'date',
+        accessor: (d) => d.downloadedAt ?? '',
+        cell: (d) => (d.downloadedAt ? new Date(d.downloadedAt).toLocaleDateString() : '-'),
+      }
+    );
+
+    if (showProcessor) {
+      cols.push({
+        id: 'processorName',
+        header: 'Ersteller',
+        type: 'text',
+        accessor: (d) => d.processorName ?? '',
+        cell: (d) => d.processorName || '-',
+      });
+    }
+
+    return cols;
+  }, [showUser, showProcessor]);
+
+  const table = useClientTable(donations, columns, { enableFilters: true });
 
   return (
     <table className="kc-table">
-      <thead>
-        <tr>
-          {showUser && <th>Nutzer</th>}
-          <th>Datum</th>
-          <th>Beschreibung</th>
-          <th>Art</th>
-          <th>Betrag</th>
-          <th>Abgerufen</th>
-          {showProcessor && <th>Ersteller</th>}
-        </tr>
-      </thead>
+      <ClientTableHead table={table} />
       <tbody>
-        {donations.length === 0 && (
+        {table.filteredSortedRows.length === 0 && (
           <tr>
-            <td colSpan={colSpan} className="kc-cell--center kc-cell--muted">
+            <td colSpan={table.columns.length} className="kc-cell--center kc-cell--muted">
               Keine Zuwendungsbescheide vorhanden
             </td>
           </tr>
         )}
-        {donations.map((d) => (
+        {table.filteredSortedRows.map((d) => (
           <tr key={d.id} className="kc-row">
-            {showUser && <td>{d.userName || '-'}</td>}
-            <td>{new Date(d.date).toLocaleDateString()}</td>
-            <td>{d.description}</td>
-            <td>{typeLabel(d.type)}</td>
-            <td className="kc-fw-700">{Number(d.amount).toFixed(2)} €</td>
-            <td>{d.downloadedAt ? new Date(d.downloadedAt).toLocaleDateString() : '-'}</td>
-            {showProcessor && <td>{d.processorName || '-'}</td>}
+            {table.columns.map((c) => (
+              <td key={c.id}>{c.cell ? c.cell(d) : String(c.accessor(d) ?? '-') || '-'}</td>
+            ))}
           </tr>
         ))}
       </tbody>

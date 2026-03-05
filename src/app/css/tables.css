@@ -1,4 +1,6 @@
 /* Datei: src/app/css/tables.css */
+@import "../components/clientTable/clientTable.css";
+
 :root {
   --bg: var(--background, #ffffff);
   --fg: var(--foreground, #171717);

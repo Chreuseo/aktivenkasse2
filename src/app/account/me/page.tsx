@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import '@/app/css/tables.css';
 import '@/app/css/infobox.css';
 import { useSession } from 'next-auth/react';
 import { extractToken } from '@/lib/utils';
 import { Transaction } from '@/app/types/transaction';
 import TransactionTable from '@/app/components/TransactionTable';
+import { ClientTableHead } from '@/app/components/clientTable/ClientTableHead';
+import { useClientTable, type ColumnDef } from '@/app/components/clientTable/useClientTable';
 
 export default function MyAccountPage() {
   const { data: session, status } = useSession();
@@ -57,12 +59,56 @@ export default function MyAccountPage() {
     return () => { cancelled = true; };
   }, [session, status]);
 
+  const allowanceColumns = useMemo<ColumnDef<any>[]>(
+    () => [
+      {
+        id: 'date',
+        header: 'Datum',
+        type: 'date',
+        accessor: (r) => r.date,
+        cell: (r) => new Date(r.date).toLocaleDateString(),
+      },
+      {
+        id: 'description',
+        header: 'Beschreibung',
+        type: 'text',
+        accessor: (r) => r.description ?? '',
+        cell: (r) => r.description || '-',
+      },
+      {
+        id: 'amount',
+        header: 'Betrag',
+        type: 'number',
+        accessor: (r) => Number(r.amount),
+        cell: (r) => <span className="kc-fw-600">{Number(r.amount).toFixed(2)} €</span>,
+      },
+      {
+        id: 'withheld',
+        header: 'Einbehalt',
+        type: 'number',
+        accessor: (r) => Number(r.withheld ?? 0),
+        cell: (r) => (r.withheld ? Number(r.withheld).toFixed(2) + ' €' : '-'),
+      },
+      {
+        id: 'returnDate',
+        header: 'Erstattung (Datum)',
+        type: 'date',
+        accessor: (r) => r.returnDate ?? '',
+        cell: (r) => (r.returnDate ? new Date(r.returnDate).toLocaleDateString() : '-'),
+      },
+    ],
+    []
+  );
+
+  // Wichtig: Hook muss immer aufgerufen werden (auch wenn wir gleich returnen)
+  const allowancesTable = useClientTable(data?.allowances ?? [], allowanceColumns, { enableFilters: true });
+
   if (status === 'loading') return <div className="kc-page kc-status">Lade Sitzung ...</div>;
   if (loading) return <div className="kc-page kc-status">Lade Daten ...</div>;
   if (error) return <div className="kc-page kc-error">{error}</div>;
   if (!data) return <div className="kc-page kc-status">Keine Daten gefunden</div>;
 
-  const { user, planned, past, allowances } = data;
+  const { user, planned, past } = data;
 
   return (
     <div className="kc-page">
@@ -75,25 +121,15 @@ export default function MyAccountPage() {
 
       {/* Rückstellungen */}
       <h3 className="kc-section-title">Rückstellungen</h3>
-      {allowances.length > 0 ? (
+      {allowancesTable.rows.length > 0 ? (
         <table className="kc-table">
-          <thead>
-            <tr>
-              <th>Datum</th>
-              <th>Beschreibung</th>
-              <th>Betrag</th>
-              <th>Einbehalt</th>
-              <th>Erstattung (Datum)</th>
-            </tr>
-          </thead>
+          <ClientTableHead table={allowancesTable} />
           <tbody>
-            {allowances.map((r: any) => (
+            {allowancesTable.filteredSortedRows.map((r: any) => (
               <tr key={r.id} className="kc-row">
-                <td>{new Date(r.date).toLocaleDateString()}</td>
-                <td>{r.description || '-'}</td>
-                <td className="kc-fw-600">{Number(r.amount).toFixed(2)} €</td>
-                <td>{r.withheld ? Number(r.withheld).toFixed(2) + ' €' : '-'}</td>
-                <td>{r.returnDate ? new Date(r.returnDate).toLocaleDateString() : '-'}</td>
+                {allowancesTable.columns.map((c) => (
+                  <td key={c.id}>{c.cell ? c.cell(r) : String(c.accessor(r) ?? '-') || '-'}</td>
+                ))}
               </tr>
             ))}
           </tbody>
