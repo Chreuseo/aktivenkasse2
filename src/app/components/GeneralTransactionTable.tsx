@@ -10,7 +10,7 @@ interface GeneralTransactionTableProps {
 
 export default function GeneralTransactionTable({ transactions }: GeneralTransactionTableProps) {
   return (
-    <table className="kc-table">
+    <table className="kc-page kc-table">
       <thead>
         <tr>
           <th>Hauptkonto</th>

@@ -47,7 +47,7 @@ export default function Page() {
   const totals = data.totals ?? { assets: '0', liabilities: '0', net: '0', allowances: '0', netBeforeAllowances: '0' };
 
   return (
-    <div className="wide-container">
+    <div className="kc-page">
       {loading && <div className="kc-status kc-status--spaced">Lade Daten ...</div>}
       {error && <div className="kc-error kc-status--spaced">{error}</div>}
       <div className="overview-grid">

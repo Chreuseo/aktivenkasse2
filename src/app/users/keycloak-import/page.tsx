@@ -138,7 +138,7 @@ export default function KeycloakImportPage() {
   }
 
   return (
-    <div className="kc-page kc-page--1200">
+    <div className="kc-page">
       <h2 className="kc-page-title">Keycloak Import</h2>
       <div className="kc-filterbar">
         <button className="button" onClick={load} disabled={loading}>Aktualisieren</button>

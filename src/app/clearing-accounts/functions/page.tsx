@@ -228,7 +228,7 @@ export default function ClearingAccountsFunctionsPage() {
   }
 
   return (
-    <div className="kc-page kc-page--wide">
+    <div className="kc-page">
       <div className="kc-topbar">
         <h2 className="kc-page-title">Verrechnungskonten Funktionen</h2>
         <Link href="/clearing-accounts"><button className="button">Zur Übersicht</button></Link>

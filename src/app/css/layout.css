@@ -7,19 +7,15 @@
 
 /* Page-Wrapper: standardisierte Seitenbreite, Zentrierung und Padding */
 .kc-page {
-  max-width: 1000px;
   margin: 2rem auto;
+  margin-top: 0.5rem;
   padding: 1rem;
 }
-
-/* Breiten-Varianten (wenn Seiten breiter sein müssen) */
-.kc-page--wide {
-  max-width: 1600px;
-}
-
-/* Breiten-Variante für Prozessseiten/Übersichten */
-.kc-page--1200 {
-  max-width: 1200px;
+@media (min-width: 1200px) {
+  .kc-page {
+    width: 90%;
+    max-width: 1600px;
+  }
 }
 
 /* Kleine, bewusst begrenzte Utility-Sammlung */
@@ -111,4 +107,11 @@
   border-top-color: #ddd;
   margin-top: 1rem;
   padding-top: 1rem;
+}
+
+h1, h2 {
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  position: relative;
 }

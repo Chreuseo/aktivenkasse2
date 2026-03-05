@@ -175,7 +175,7 @@ export default function BudgetPlanFinalizationPage() {
   const sumDeviation = sumActualResult - sumPlannedResult;
 
   return (
-    <div className="kc-page kc-page--wide">
+    <div className="kc-page">
       <h2 className="kc-page-title">Haushaltsabschluss</h2>
 
       <div className="form u-mb-3">

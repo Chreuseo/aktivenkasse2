@@ -118,7 +118,7 @@ export default function DonationCreateOverviewPage() {
   }
 
   return (
-    <div className="kc-page kc-page--wide">
+    <div className="kc-page">
       <h2 className="kc-page-title kc-page-title--tight">Zuwendungsbescheide erstellen</h2>
 
       <div className="kc-inline-controls u-mb-3">

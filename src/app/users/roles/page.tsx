@@ -264,7 +264,7 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="kc-page kc-page--wide">
+    <div className="kc-page">
       <h2 className="kc-page-title">Rollenverwaltung</h2>
       <div className="kc-filterbar">
         <button className="button" onClick={load} disabled={loading}>Aktualisieren</button>

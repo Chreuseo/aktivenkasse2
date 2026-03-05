@@ -102,7 +102,7 @@ export default function BudgetPlanDetailsPage() {
   const sumDeviation = sumActualResult - sumPlannedResult;
 
   return (
-    <div className="kc-page kc-page--wide">
+    <div className="kc-page">
       <h2 className="kc-page-title">Haushaltsplan Details</h2>
       {plan && (
         <div className="kc-infobox u-mb-3">
@@ -120,7 +120,6 @@ export default function BudgetPlanDetailsPage() {
           {recalculating ? "Berechne ..." : "Neu berechnen"}
         </button>
       </div>
-      <div className="wide-container">
         <table className="kc-table" role="table">
           <thead>
             <tr>
@@ -165,7 +164,6 @@ export default function BudgetPlanDetailsPage() {
             )}
           </tbody>
         </table>
-      </div>
       <div className="u-mt-3">
         <Link href="/budget-plan">
           <button className="button">Zurück zur Übersicht</button>

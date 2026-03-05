@@ -36,7 +36,7 @@ export default function DonationsOverviewPage() {
   }, [session]);
 
   return (
-    <div className="kc-page kc-page--1200">
+    <div className="kc-page">
       <h2 className="kc-page-title">Zuwendungsbescheide (alle)</h2>
 
       {loading && <div className="kc-status">Lade Daten ...</div>}

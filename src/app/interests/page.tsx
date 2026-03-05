@@ -200,7 +200,7 @@ export default function InterestsPage() {
   }, [rows, selected, includePaid, includeUnpaid, includeBilled, includeUnbilled, load, authHeaders, costCenterId]);
 
   return (
-    <div className="kc-page kc-page--wide">
+    <div className="kc-page">
       <h1 className="kc-page-title">Zinsrechnung</h1>
 
       {/* Filter-Dropdown */}

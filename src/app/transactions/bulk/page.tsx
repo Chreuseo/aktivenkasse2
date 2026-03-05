@@ -380,7 +380,7 @@ export default function BulkTransactionPage() {
   }, [tickListMode, tickItems]);
 
   return (
-    <div className="kc-page">
+    <div className="kc-page table-center">
       <h1>Sammeltransaktion anlegen</h1>
       <form onSubmit={e => { e.preventDefault(); handleSubmit(); }} className="form">
         <div className="form-container">
@@ -494,7 +494,6 @@ export default function BulkTransactionPage() {
                 value={formData.globalCostCenterId}
                 onChange={handleChange}
                 required
-                className="form-select form-select-max kc-max-220"
                 disabled={!formData.globalBudgetPlanId}
               >
                 <option value="">Bitte wählen</option>

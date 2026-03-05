@@ -314,7 +314,7 @@ export default function AllAdvancesClient() {
   };
 
   return (
-    <div className="table-center">
+    <div className="kc-page table-center">
       <h1 className="kc-page-title">Auslagenübersicht</h1>
       {error && <p className="kc-error">Fehler: {error}</p>}
 

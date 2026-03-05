@@ -125,7 +125,7 @@ export default function MyDonationsPage() {
   }
 
   return (
-    <div className="kc-page kc-page--1200">
+    <div className="kc-page">
       <h2 className="kc-page-title">Meine Zuwendungsbescheide</h2>
 
       <div className="kc-panel kc-panel--spaced">
