@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import "@/app/css/tables.css";
 import { useSession } from "next-auth/react";
 import { ClientTableHead } from "@/app/components/clientTable/ClientTableHead";
@@ -60,7 +60,7 @@ export default function UsersOverview() {
     load();
   }, [session]);
 
-  async function sendInfoMail(u: User) {
+  const sendInfoMail = useCallback(async (u: User) => {
     if (!u?.id) return;
     setActionMsg(null);
     setActionError(null);
@@ -86,7 +86,7 @@ export default function UsersOverview() {
     } finally {
       setSendingId(null);
     }
-  }
+  }, [session]);
 
   const columns = useMemo<ColumnDef<User>[]>(
     () => [
@@ -137,7 +137,7 @@ export default function UsersOverview() {
         ),
       },
     ],
-    [sendingId]
+    [sendingId, sendInfoMail]
   );
 
   const table = useClientTable(users, columns, { enableFilters: true });

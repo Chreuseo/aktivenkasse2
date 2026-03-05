@@ -29,3 +29,27 @@ export async function resolveAccountId(prisma: PrismaClient, type: string, id: s
     return null;
 }
 
+export function extractUserFromAuthHeader(authHeader: string | undefined): { userId: string | null; jwt: any } {
+  let userId: string | null = null;
+  let jwt: any = null;
+  if (authHeader) {
+    const match = authHeader.match(/^Bearer (.+)$/);
+    if (match) {
+      const token = match[1];
+      try {
+        const parts = token.split('.');
+        if (parts.length >= 2) {
+          const payloadB64Url = parts[1];
+          const payloadB64 = payloadB64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const padLen = (4 - (payloadB64.length % 4)) % 4;
+          const padded = payloadB64 + '='.repeat(padLen);
+          jwt = JSON.parse(Buffer.from(padded, 'base64').toString());
+          userId = jwt?.sub || jwt?.userId || jwt?.id || null;
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+  return { userId, jwt };
+}

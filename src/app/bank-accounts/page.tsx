@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import "@/app/css/tables.css";
 import { useSession } from "next-auth/react";
 import { extractToken, fetchJson } from "@/lib/utils";
@@ -15,11 +15,11 @@ export default function BankAccountsOverview() {
   const [loading, setLoading] = useState(false);
 
   // robuster Formatter für EUR
-  const currencyFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
-  const formatBalance = (value: unknown) => {
+  const currencyFmt = useMemo(() => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }), []);
+  const formatBalance = useCallback((value: unknown) => {
     const num = typeof value === "number" ? value : Number(value);
     return Number.isFinite(num) ? currencyFmt.format(num) : "—";
-  };
+  }, [currencyFmt]);
 
   useEffect(() => {
     async function load() {
@@ -83,7 +83,7 @@ export default function BankAccountsOverview() {
         ),
       },
     ],
-    []
+    [formatBalance]
   );
 
   const table = useClientTable(accounts, columns, { enableFilters: true });

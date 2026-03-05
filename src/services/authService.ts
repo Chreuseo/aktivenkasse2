@@ -132,3 +132,13 @@ export async function checkPermission(req: Request, resource: ResourceType, requ
   const result = await validateUserPermissions({ userId, resource, requiredPermission, jwt });
   return { allowed: result.allowed, error: (result as any).error };
 }
+
+export function getUserIdFromRequest(req: Request): string | null {
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  if (!authHeader) return null;
+  const match = authHeader.match(/^Bearer (.+)$/);
+  if (!match) return null;
+  const token = match[1];
+  const payload = decodeJwtPayload(token);
+  return payload?.sub || payload?.userId || payload?.id || null;
+}

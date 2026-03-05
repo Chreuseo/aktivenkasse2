@@ -50,7 +50,7 @@ export default function MineAdvancesClient() {
     if (session) void load();
   }, [session, load]);
 
-  const cancelAdvance = async (id: number) => {
+  const cancelAdvance = useCallback(async (id: number) => {
     if (!confirm("Auslage wirklich abbrechen?")) return;
     setWorkingId(id);
     setError(null);
@@ -76,7 +76,7 @@ export default function MineAdvancesClient() {
     } finally {
       setWorkingId(null);
     }
-  };
+  }, [session, load]);
 
   const fmtAmount = (v: string | number) => {
     const n = typeof v === "string" ? Number(v) : v;
@@ -171,7 +171,7 @@ export default function MineAdvancesClient() {
           ),
       },
     ],
-    [workingId]
+    [workingId, cancelAdvance]
   );
 
   const table = useClientTable(items ?? [], columns, { enableFilters: true });
