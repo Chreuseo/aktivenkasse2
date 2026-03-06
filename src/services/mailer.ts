@@ -202,6 +202,24 @@ function sanitizeSingleLine(input: string): string {
   return (input || "").replace(/[\r\n]+/g, " ").trim();
 }
 
+function escapeHtml(input: string): string {
+  return (input || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function sanitizeMultiLineToHtml(input: string): string {
+  // 1) normalize newlines
+  const normalized = (input || "").replace(/\r\n?/g, "\n");
+  // 2) escape HTML to prevent injection
+  const escaped = escapeHtml(normalized.trim());
+  // 3) preserve line breaks (including empty lines)
+  return escaped.replace(/\n/g, "<br/>");
+}
+
 function buildEpcGirocodeString(b: DbBankAccountForMail, opts?: { remittance?: string; amountEur?: number | null }): string {
   const name = sanitizeSingleLine(b.owner).slice(0, 70);
   const iban = sanitizeSingleLine(b.iban).replace(/\s+/g, "");
@@ -397,7 +415,7 @@ function buildBodyHtml(opts: {
     }
 
     if (remark && remark.trim()) {
-        parts.push(`<p>Bemerkung: <strong>${sanitizeSingleLine(remark)}</strong></p>`);
+        parts.push(`<p>Bemerkung: <strong>${sanitizeMultiLineToHtml(remark)}</strong></p>`);
     }
 
     const payHtml = buildPaymentInfoHtml(paymentAccounts);
