@@ -221,19 +221,20 @@ export default function BulkTransactionPage() {
     await loadCostCenters(planId);
   };
 
-  const changeQty = (rowIdx: number, itemId: string, delta: number) => {
-    setRows(prev => prev.map((r, i) => {
-      if (i !== rowIdx) return r;
-      const prevQty = Number((r as any).qtyByItemId?.[itemId] ?? 0);
-      const nextQty = Math.max(0, Math.trunc(prevQty + delta));
-      return {
-        ...r,
-        qtyByItemId: {
-          ...((r as any).qtyByItemId ?? {}),
-          [itemId]: nextQty,
-        },
-      };
-    }));
+  // Spezial: Typ in Zeile geändert.
+  // Wenn nicht Kostenstelle: Budgetplan/Kostenstelle leeren.
+  const handleRowTypeChange = (idx: number, type: string) => {
+    setRows((prev) =>
+      prev.map((r, i) => {
+        if (i !== idx) return r;
+        const next: any = { ...r, type };
+        if (type !== "cost_center") {
+          next.budgetPlanId = "";
+          next.costCenterId = "";
+        }
+        return next;
+      }),
+    );
   };
 
   const handleQtyChange = (rowIdx: number, itemId: string, value: string) => {
@@ -285,6 +286,7 @@ export default function BulkTransactionPage() {
   const rowAccountTypes = [
     { value: "user", label: "Nutzer" },
     { value: "clearing_account", label: "Verrechnungskonto" },
+    { value: "cost_center", label: "Kostenstelle" },
   ];
 
   const handleSubmit = async () => {
@@ -588,6 +590,7 @@ export default function BulkTransactionPage() {
                 <th hidden={!individualDates}>Datum einzeln</th>
                 <th>Typ</th>
                 <th>Auswahl</th>
+                <th>Kostenstelle</th>
                 <th>Betrag</th>
                 {tickListMode && (
                   <>
@@ -622,8 +625,6 @@ export default function BulkTransactionPage() {
                   </>
                 )}
                 <th>Beschreibung</th>
-                <th>Budgetplan</th>
-                <th>Kostenstelle</th>
                 <th></th>
               </tr>
             </thead>
@@ -643,7 +644,7 @@ export default function BulkTransactionPage() {
                     <select
                       className="kc-select"
                       value={row.type}
-                      onChange={e => handleRowChange(idx, "type", e.target.value)}
+                      onChange={e => handleRowTypeChange(idx, e.target.value)}
                       required
                     >
                       {rowAccountTypes.map(opt => (
@@ -652,14 +653,41 @@ export default function BulkTransactionPage() {
                     </select>
                   </td>
                   <td>
+                    {row.type === "cost_center" ? (
+                      <select
+                        className="kc-select"
+                        value={row.budgetPlanId || ""}
+                        onChange={e => handleRowBudgetPlanChange(idx, e.target.value)}
+                        disabled={formData.accountType === 'cost_center' || !!row.id}
+                      >
+                        <option value="">Haushalt wählen</option>
+                        {budgetPlans.map(bp => (
+                          <option key={bp.id} value={bp.id}>{bp.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <select
+                        className="kc-select"
+                        value={row.id}
+                        onChange={e => handleRowChange(idx, "id", e.target.value)}
+                      >
+                        <option value="">Bitte wählen</option>
+                        {getOptions(row.type, userOptions, [], clearingOptions).map(opt => (
+                          <option key={opt.id} value={opt.id}>{getAccountDisplayName(opt)}</option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
+                  <td>
                     <select
                       className="kc-select"
-                      value={row.id}
-                      onChange={e => handleRowChange(idx, "id", e.target.value)}
+                      value={row.costCenterId || ""}
+                      onChange={e => handleRowChange(idx, "costCenterId", e.target.value)}
+                      disabled={row.type !== "cost_center" || formData.accountType === 'cost_center' || !!row.id || !row.budgetPlanId}
                     >
                       <option value="">Bitte wählen</option>
-                      {getOptions(row.type, userOptions, [], clearingOptions).map(opt => (
-                        <option key={opt.id} value={opt.id}>{getAccountDisplayName(opt)}</option>
+                      {(row.budgetPlanId && costCentersByPlan[row.budgetPlanId] ? costCentersByPlan[row.budgetPlanId] : []).map(cc => (
+                        <option key={cc.id} value={cc.id}>{cc.name}</option>
                       ))}
                     </select>
                   </td>
@@ -686,7 +714,7 @@ export default function BulkTransactionPage() {
                           <td key={item.id}>
                             <input
                               type="number"
-                              className="kc-input kc-w-90 kc-cell--num"
+                              className="kc-input kc-w-110"
                               value={qtyValue}
                               onChange={e => handleQtyChange(idx, item.id, e.target.value)}
                               min={0}
@@ -708,32 +736,6 @@ export default function BulkTransactionPage() {
                       value={row.description}
                       onChange={e => handleRowChange(idx, "description", e.target.value)}
                     />
-                  </td>
-                  <td>
-                    <select
-                      className="kc-select"
-                      value={row.budgetPlanId || ""}
-                      onChange={e => handleRowBudgetPlanChange(idx, e.target.value)}
-                      disabled={formData.accountType === 'cost_center' || !!row.id}
-                    >
-                      <option value="">Kein Budgetplan</option>
-                      {budgetPlans.map(bp => (
-                        <option key={bp.id} value={bp.id}>{bp.name}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <select
-                      className="kc-select"
-                      value={row.costCenterId || ""}
-                      onChange={e => handleRowChange(idx, "costCenterId", e.target.value)}
-                      disabled={formData.accountType === 'cost_center' || !!row.id || !row.budgetPlanId}
-                    >
-                      <option value="">Bitte wählen</option>
-                      {(row.budgetPlanId && costCentersByPlan[row.budgetPlanId] ? costCentersByPlan[row.budgetPlanId] : []).map(cc => (
-                        <option key={cc.id} value={cc.id}>{cc.name}</option>
-                      ))}
-                    </select>
                   </td>
                   <td className="kc-cell--num">
                     <button type="button" className="form-btn form-btn-danger" onClick={() => removeRowAt(idx)}>x</button>

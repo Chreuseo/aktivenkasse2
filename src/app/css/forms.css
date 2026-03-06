@@ -341,7 +341,7 @@
 .kc-max-220 { max-width: 220px; }
 .kc-max-140 { max-width: 140px; }
 
-.kc-w-110 { width: 110px; }
+.kc-w-110 { width: 110px !important; }
 .kc-w-90 { width: 90px; }
 
 .kc-px-8 {
