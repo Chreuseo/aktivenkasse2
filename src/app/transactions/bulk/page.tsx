@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import "../../css/forms.css";
 import "../../css/tables.css";
 import { extractToken, fetchJson } from "@/lib/utils";
@@ -73,6 +73,41 @@ export default function BulkTransactionPage() {
   const [loading, setLoading] = useState(false);
   const [budgetPlans, setBudgetPlans] = useState<any[]>([]);
   const [costCentersByPlan, setCostCentersByPlan] = useState<Record<string, any[]>>({});
+
+  // Dedupe für parallele CostCenter-Ladevorgänge
+  const costCenterLoadInFlight = useRef<Record<string, Promise<any[]>>>({});
+
+  // Kostenstellen für einen Plan laden (lazy + Cache)
+  const loadCostCenters = async (planId: string) => {
+    if (!planId) return [] as any[];
+
+    // Cache hit
+    if (costCentersByPlan[planId]) return costCentersByPlan[planId];
+
+    // bereits laufenden Request wiederverwenden
+    const inFlight = costCenterLoadInFlight.current[planId];
+    if (inFlight) return inFlight;
+
+    const token = extractToken(session);
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const p = fetchJson(`/api/budget-plan/cost-centers?planId=${planId}`, { headers })
+      .then((list) => {
+        const arr = Array.isArray(list) ? list : [];
+        setCostCentersByPlan((prev) => ({ ...prev, [planId]: arr }));
+        return arr;
+      })
+      .catch(() => {
+        setCostCentersByPlan((prev) => ({ ...prev, [planId]: [] }));
+        return [];
+      })
+      .finally(() => {
+        delete costCenterLoadInFlight.current[planId];
+      });
+
+    costCenterLoadInFlight.current[planId] = p;
+    return p;
+  };
 
   // Zusatz: Filter-Lade-Box State
   const [statusOptions, setStatusOptions] = useState<string[]>([]);
@@ -164,7 +199,26 @@ export default function BulkTransactionPage() {
   };
   // Handler: Änderung von Zeilenfeldern inkl. Datum
   const handleRowChange = (idx: number, field: string, value: any) => {
-    setRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
+    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
+  };
+
+  // Spezial: Budgetplan in Zeile geändert => Kostenstellen nachladen + Auswahl zurücksetzen
+  const handleRowBudgetPlanChange = async (idx: number, planId: string) => {
+    // erst UI-State updaten, damit Dropdown sofort reagiert
+    setRows((prev) =>
+      prev.map((r, i) =>
+        i === idx
+          ? {
+              ...r,
+              budgetPlanId: planId,
+              costCenterId: "",
+            }
+          : r,
+      ),
+    );
+
+    if (!planId) return;
+    await loadCostCenters(planId);
   };
 
   const changeQty = (rowIdx: number, itemId: string, delta: number) => {
@@ -659,7 +713,7 @@ export default function BulkTransactionPage() {
                     <select
                       className="kc-select"
                       value={row.budgetPlanId || ""}
-                      onChange={e => handleRowChange(idx, "budgetPlanId", e.target.value)}
+                      onChange={e => handleRowBudgetPlanChange(idx, e.target.value)}
                       disabled={formData.accountType === 'cost_center' || !!row.id}
                     >
                       <option value="">Kein Budgetplan</option>
