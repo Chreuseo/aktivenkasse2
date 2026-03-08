@@ -118,6 +118,17 @@ export default function MineAdvancesClient() {
         cell: (it) => it.clearingAccount?.name || "—",
       },
       {
+        id: 'paymentRequest',
+        header: 'Auszahlungswunsch',
+        type: 'text',
+        accessor: (it) => it.paymentRequest ?? '',
+        cell: (it) => (
+          <span style={{ whiteSpace: 'pre-wrap' }}>
+            {it.paymentRequest ? it.paymentRequest : <span className="kc-muted-dash">—</span>}
+          </span>
+        ),
+      },
+      {
         id: 'receiptUrl',
         header: 'Beleg',
         accessor: (it) => (it.receiptUrl ? 'ja' : 'nein'),

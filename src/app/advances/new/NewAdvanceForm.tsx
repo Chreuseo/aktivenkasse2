@@ -16,6 +16,7 @@ export default function NewAdvanceForm({ accounts }: Props) {
   const [description, setDescription] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [clearingAccountId, setClearingAccountId] = useState<string>("");
+  const [paymentRequest, setPaymentRequest] = useState<string>("");
   const [isDonation, setIsDonation] = useState<boolean>(false);
   const [donationType, setDonationType] = useState<'material' | 'waive_fees'>('material');
   const [file, setFile] = useState<File | null>(null);
@@ -41,6 +42,7 @@ export default function NewAdvanceForm({ accounts }: Props) {
       fd.append("description", description);
       fd.append("amount", amt.toString());
       if (clearingAccountId) fd.append("clearingAccountId", clearingAccountId);
+      if (paymentRequest.trim()) fd.append("paymentRequest", paymentRequest.trim());
       fd.append("is_donation", isDonation ? 'true' : 'false');
       if (isDonation) fd.append('donationType', donationType);
       if (file) fd.append("beleg", file);
@@ -65,6 +67,7 @@ export default function NewAdvanceForm({ accounts }: Props) {
       setDateAdvance(new Date().toISOString().slice(0, 10));
       setAmount("");
       setClearingAccountId("");
+      setPaymentRequest("");
       setIsDonation(false);
       setDonationType('material');
       setFile(null);
@@ -133,6 +136,17 @@ export default function NewAdvanceForm({ accounts }: Props) {
               </option>
             ))}
           </select>
+        </label>
+
+        <label>
+          Auszahlungswunsch (optional, z.B. Kontoinformationen)
+          <textarea
+            name="paymentRequest"
+            value={paymentRequest}
+            onChange={(e) => setPaymentRequest(e.target.value)}
+            placeholder="z.B. IBAN/Bank, bevorzugte Auszahlung, Hinweise"
+            rows={3}
+          />
         </label>
 
         <label>

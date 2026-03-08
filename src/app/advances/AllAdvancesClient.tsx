@@ -129,6 +129,7 @@ export default function AllAdvancesClient() {
         canCancel: false,
         receiptUrl: a.receiptUrl || undefined,
         reason: a.reason || undefined,
+        paymentRequest: a.paymentRequest || undefined,
         is_donation: !!a.is_donation,
         donationType: a.donationType || null,
       }));
@@ -367,6 +368,13 @@ export default function AllAdvancesClient() {
                       <div>{new Date(it.date_advance).toLocaleDateString("de-DE")}</div>
                     </div>
 
+                    <div className="advance-field">
+                      <div className="advance-label">Status</div>
+                      <span className={`kc-badge ${it.state === "open" ? "new" : it.state === "cancelled" ? "changed" : "same"}`}>
+                        {advanceStateLabel(it.state)}
+                      </span>
+                    </div>
+
                     <div className="advance-field advance-field--wide">
                       <div className="advance-label">Beschreibung</div>
                       <input
@@ -374,13 +382,6 @@ export default function AllAdvancesClient() {
                         value={row?.description || ''}
                         onChange={(e) => handleRowChange(it.id, 'description', e.target.value)}
                       />
-                    </div>
-
-                    <div className="advance-field">
-                      <div className="advance-label">Status</div>
-                      <span className={`kc-badge ${it.state === "open" ? "new" : it.state === "cancelled" ? "changed" : "same"}`}>
-                        {advanceStateLabel(it.state)}
-                      </span>
                     </div>
 
                     <div className="advance-field">
@@ -507,7 +508,14 @@ export default function AllAdvancesClient() {
                       )}
                     </div>
 
-                    <div className="advance-field advance-field--wide">
+                    <div className="advance-field advance-field">
+                      <div className="advance-label">Auszahlungswunsch</div>
+                      <div className="kc-muted-dash" style={{ whiteSpace: 'pre-wrap' }}>
+                        {it.paymentRequest ? it.paymentRequest : '—'}
+                      </div>
+                    </div>
+
+                    <div className="advance-field advance-field">
                       <div className="advance-label">Begründung</div>
                       <input
                         type="text"

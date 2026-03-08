@@ -228,6 +228,7 @@ model Advances {
   decidedAt         DateTime?
   attachmentId      Int?
   attachment        Attachment?      @relation(fields: [attachmentId], references: [id])
+  paymentRequest    String?
 }
 
 model Attachment {

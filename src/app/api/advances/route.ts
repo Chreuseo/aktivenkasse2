@@ -55,6 +55,7 @@ export async function POST(req: Request) {
   const dateAdvanceRaw = firstFieldFromForm(formData, ['date_advance', 'auslagedatum']);
   const amountRaw = firstFieldFromForm(formData, ['amount']);
   const clearingAccountIdRaw = firstFieldFromForm(formData, ['clearingAccountId']) || '';
+  const paymentRequestRaw = firstFieldFromForm(formData, ['paymentRequest', 'payment_request']) || '';
   const isDonationRaw = firstFieldFromForm(formData, ['is_donation', 'isDonation']) || 'false';
   const donationTypeRaw = firstFieldFromForm(formData, ['donationType']) || undefined;
 
@@ -100,6 +101,7 @@ export async function POST(req: Request) {
     date_advance: dateAdvance,
     userId: user.id,
     clearingAccountId: clearingAccountIdNum,
+    paymentRequest: paymentRequestRaw.trim() ? paymentRequestRaw.trim() : undefined,
     attachmentId: attachmentId || undefined,
   };
 

@@ -56,6 +56,7 @@ export async function GET(req: Request) {
     user: a.user ? `${a.user.first_name} ${a.user.last_name}` : undefined,
     reviewer: a.reviewer ? { first_name: a.reviewer.first_name, last_name: a.reviewer.last_name } : null,
     reason: a.reason || undefined,
+    paymentRequest: a.paymentRequest || undefined,
     clearingAccountId: a.clearingAccountId || undefined,
     clearingAccountName: a.clearingAccount ? a.clearingAccount.name : undefined,
     attachmentId: a.attachmentId || undefined,

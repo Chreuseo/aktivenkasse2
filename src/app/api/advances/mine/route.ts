@@ -25,6 +25,7 @@ export async function GET(req: Request) {
             userId: true,
             // include reason for the UI column
             reason: true,
+            paymentRequest: true,
         },
     });
 
@@ -41,6 +42,7 @@ export async function GET(req: Request) {
         receiptUrl: a.attachmentId ? `/api/advances/${a.id}/receipt` : undefined,
         // pass through reason (may be null)
         reason: a.reason ?? undefined,
+        paymentRequest: a.paymentRequest ?? undefined,
     }));
 
     return NextResponse.json({ items });
