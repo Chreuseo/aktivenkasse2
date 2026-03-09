@@ -7,6 +7,7 @@ import "../css/tables.css";
 import "../css/forms.css";
 import type { AdvanceListItem, AdvanceState } from "@/app/types/advance";
 import { advanceStateLabel } from "@/app/types/advance";
+import AttachmentHint from "@/app/components/AttachmentHint";
 
 function getErrorMessage(e: unknown): string {
   if (e instanceof Error) return e.message;
@@ -128,6 +129,7 @@ export default function AllAdvancesClient() {
         canCancel: false,
         receiptUrl: a.receiptUrl || undefined,
         reason: a.reason || undefined,
+        paymentRequest: a.paymentRequest || undefined,
         is_donation: !!a.is_donation,
         donationType: a.donationType || null,
       }));
@@ -231,7 +233,7 @@ export default function AllAdvancesClient() {
         id: it.id,
         description: row.description,
         reason: row.reason || undefined,
-        is_donation: !!row.isDonation,
+        is_donation: row.isDonation,
         donationType: row.isDonation ? row.donationType : null,
       };
       // amount override (try to parse)
@@ -313,14 +315,14 @@ export default function AllAdvancesClient() {
   };
 
   return (
-    <div className="table-center">
-      <h1>Auslagenübersicht</h1>
-      {error && <p style={{ color: "#f87171" }}>Fehler: {error}</p>}
+    <div className="kc-page table-center">
+      <h1 className="kc-page-title">Auslagenübersicht</h1>
+      {error && <p className="kc-error">Fehler: {error}</p>}
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={{ fontWeight: 600, marginBottom: 6 }}>Status</label>
+      <div className="kc-filter-grid u-mb-3">
+        <div className="kc-filter-subgrid">
+          <div className="kc-label-col">
+            <label>Status</label>
             <select className="form-select" value={status} onChange={(e) => setStatus(e.target.value)}>
               {statuses.map(s => (
                 <option key={s.value} value={s.value}>{s.label}</option>
@@ -328,8 +330,8 @@ export default function AllAdvancesClient() {
             </select>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={{ fontWeight: 600, marginBottom: 6 }}>Verrechnungskonto</label>
+          <div className="kc-label-col">
+            <label>Verrechnungskonto</label>
             <select className="form-select form-select-max" value={clearingAccountId} onChange={(e) => setClearingAccountId(e.target.value)}>
               <option value="">— Alle —</option>
               <option value="none">— Verrechnungskonto —</option>
@@ -340,161 +342,206 @@ export default function AllAdvancesClient() {
           </div>
         </div>
 
-        <div style={{ alignSelf: "end" }}>
+        <div className="u-mt-2">
           <button className="button" onClick={() => void load()} disabled={loading}>Aktualisieren</button>
         </div>
       </div>
 
-      {loading && <p>Lade…</p>}
+      {loading && <p className="kc-status">Lade…</p>}
 
       {!loading && items && (
-        <table className="kc-table advances-table">
-          <thead>
-            <tr>
-              <th>Datum</th>
-              <th>Beschreibung</th>
-              <th>Status</th>
-              <th>Bearbeiter</th>
-            </tr>
-            <tr>
-              <th>Einreicher</th>
-              <th>Betrag</th>
-              <th>Spende</th>
-              <th>Art</th>
-            </tr>
-            <tr>
-              <th>Verrechnungskonto</th>
-              <th>Budgetplan</th>
-              <th>Kostenstelle</th>
-              <th>Aktion</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={4} style={{ textAlign: "center", color: "#888" }}>Keine Auslagen gefunden.</td>
-              </tr>
-            ) : (
-              items.map((it) => {
-                const row = rows[it.id];
-                const isDonation = !!((it as any).is_donation);
-                const dt = ((it as any).donationType === 'waive_fees' ? 'waive_fees' : 'material');
-                const donationLabel = dt === 'waive_fees' ? 'Verzichtsspende' : 'Sachspende';
+        <div className="advances-list" aria-label="Auslagen">
+          {items.length === 0 ? (
+            <div className="kc-cell--center kc-cell--muted u-mb-3">Keine Auslagen gefunden.</div>
+          ) : (
+            items.map((it) => {
+              const row = rows[it.id];
+              const isDonation = !!((it as any).is_donation);
+              const dt = ((it as any).donationType === 'waive_fees' ? 'waive_fees' : 'material');
+              const donationLabel = dt === 'waive_fees' ? 'Verzichtsspende' : 'Sachspende';
 
-                return (
-                  <React.Fragment key={it.id}>
-                    {/* Zeile 1 */}
-                    <tr key={`${it.id}-r1`} className="kc-row">
-                      <td>{new Date(it.date_advance).toLocaleDateString("de-DE")}</td>
-                      <td>
-                        <input type="text" value={row?.description || ''} onChange={(e) => handleRowChange(it.id, 'description', e.target.value)} />
-                      </td>
-                      <td>
-                        <span className={`kc-badge ${it.state === "open" ? "new" : it.state === "cancelled" ? "changed" : "same"}`}>
-                          {advanceStateLabel(it.state)}
-                        </span>
-                      </td>
-                      <td>{it.reviewer ? `${it.reviewer.first_name} ${it.reviewer.last_name}` : "—"}</td>
-                    </tr>
+              return (
+                <div key={it.id} className="advance-card">
+                  <div className="advance-grid">
+                    <div className="advance-field">
+                      <div className="advance-label">Datum</div>
+                      <div>{new Date(it.date_advance).toLocaleDateString("de-DE")}</div>
+                    </div>
 
-                    {/* Zeile 2 */}
-                    <tr key={`${it.id}-r2`} className="kc-row">
-                      <td>{it.user || "—"}</td>
-                      <td>
-                        <input
-                          type="text"
-                          value={row?.amount || ''}
-                          onChange={(e) => handleRowChange(it.id, 'amount', e.target.value)}
-                          style={{ width: 120 }}
-                        />
-                      </td>
-                      <td>
+                    <div className="advance-field">
+                      <div className="advance-label">Status</div>
+                      <span className={`kc-badge ${it.state === "open" ? "new" : it.state === "cancelled" ? "changed" : "same"}`}>
+                        {advanceStateLabel(it.state)}
+                      </span>
+                    </div>
+
+                    <div className="advance-field advance-field--wide">
+                      <div className="advance-label">Beschreibung</div>
+                      <input
+                        type="text"
+                        value={row?.description || ''}
+                        onChange={(e) => handleRowChange(it.id, 'description', e.target.value)}
+                      />
+                    </div>
+
+                    <div className="advance-field">
+                      <div className="advance-label">Bearbeiter</div>
+                      <div>{it.reviewer ? `${it.reviewer.first_name} ${it.reviewer.last_name}` : "—"}</div>
+                    </div>
+
+                    <div className="advance-field">
+                      <div className="advance-label">Einreicher</div>
+                      <div>{it.user || "—"}</div>
+                    </div>
+
+                    <div className="advance-field">
+                      <div className="advance-label">Betrag</div>
+                      <input
+                        type="text"
+                        value={row?.amount || ''}
+                        onChange={(e) => handleRowChange(it.id, 'amount', e.target.value)}
+                        className="kc-max-140"
+                      />
+                    </div>
+
+                    <div className="advance-field">
+                      <div className="advance-label">Spende</div>
+                      <div className="kc-checkline">
                         <input type="checkbox" checked={isDonation} disabled />
-                      </td>
-                      <td>
-                        {/* read-only Anzeige ohne React-Warnung */}
-                        <select defaultValue={dt} disabled={!isDonation} aria-label="Spendenart">
-                          <option value="material">Sachspende</option>
-                          <option value="waive_fees">Verzichtsspende</option>
-                        </select>
-                        {!isDonation && <span style={{ marginLeft: 8, color: 'var(--muted)' }}>—</span>}
-                      </td>
-                    </tr>
+                        {isDonation ? <span className="kc-muted-dash">{donationLabel}</span> : <span className="kc-muted-dash">—</span>}
+                      </div>
+                    </div>
 
-                    {/* Zeile 3 */}
-                    <tr key={`${it.id}-r3`} className="kc-row kc-entry-end">
-                      <td>
-                        <select
-                          value={row?.clearingAccountId || ''}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            handleRowChange(it.id, 'clearingAccountId', v);
-                            if (v) {
-                              handleRowChange(it.id, 'budgetPlanId', '');
-                              handleRowChange(it.id, 'costCenterId', '');
-                            }
-                          }}
-                          disabled={isDonation}
-                          title={isDonation ? 'Bei Spende sind Verrechnungskonto/Kostenstelle nicht erlaubt' : undefined}
+                    <div className="advance-field">
+                      <div className="advance-label">Art</div>
+                      <select defaultValue={dt} disabled={!isDonation} aria-label="Spendenart">
+                        <option value="material">Sachspende</option>
+                        <option value="waive_fees">Verzichtsspende</option>
+                      </select>
+                    </div>
+
+                    <div className="advance-field">
+                      <div className="advance-label">Verrechnungskonto</div>
+                      <select
+                        value={row?.clearingAccountId || ''}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          handleRowChange(it.id, 'clearingAccountId', v);
+                          if (v) {
+                            handleRowChange(it.id, 'budgetPlanId', '');
+                            handleRowChange(it.id, 'costCenterId', '');
+                          }
+                        }}
+                        disabled={isDonation}
+                        title={isDonation ? 'Bei Spende sind Verrechnungskonto/Kostenstelle nicht erlaubt' : undefined}
+                      >
+                        <option value="">— Verrechnungskonto —</option>
+                        {clearingOptions.map(c => (
+                          <option key={c.id} value={String(c.id)}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="advance-field">
+                      <div className="advance-label">Budgetplan</div>
+                      <select
+                        value={row?.budgetPlanId || ''}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          handleRowChange(it.id, 'budgetPlanId', v);
+                          if (v) {
+                            handleRowChange(it.id, 'clearingAccountId', '');
+                            void fetchCostCentersForRow(it.id, v);
+                          } else {
+                            handleRowChange(it.id, 'costCenterId', '');
+                            handleRowChange(it.id, 'costCenters', []);
+                          }
+                        }}
+                        disabled={isDonation || !!(row?.clearingAccountId)}
+                        title={isDonation ? 'Bei Spende sind Verrechnungskonto/Kostenstelle nicht erlaubt' : undefined}
+                      >
+                        <option value="">— Haushaltsplan —</option>
+                        {budgetPlans.map(bp => (
+                          <option key={bp.id} value={String(bp.id)}>{bp.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="advance-field">
+                      <div className="advance-label">Kostenstelle</div>
+                      <select
+                        value={row?.costCenterId || ''}
+                        onChange={(e) => handleRowChange(it.id, 'costCenterId', e.target.value)}
+                        disabled={isDonation || !row?.budgetPlanId}
+                        title={isDonation ? 'Bei Spende sind Verrechnungskonto/Kostenstelle nicht erlaubt' : undefined}
+                      >
+                        <option value="">— Kostenstelle —</option>
+                        {row?.costCenters?.map(cc => (
+                          <option key={cc.id} value={String(cc.id)}>{cc.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="advance-field">
+                      <div className="advance-label">Beleg</div>
+                      {it.receiptUrl ? (
+                        <a
+                          href={it.receiptUrl.startsWith('/') ? it.receiptUrl : `/api/advances/${it.id}/receipt`}
+                          target="_blank"
+                          rel="noopener noreferrer"
                         >
-                          <option value="">— Verrechnungskonto —</option>
-                          {clearingOptions.map(c => (
-                            <option key={c.id} value={String(c.id)}>{c.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <select
-                          value={row?.budgetPlanId || ''}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            handleRowChange(it.id, 'budgetPlanId', v);
-                            if (v) {
-                              handleRowChange(it.id, 'clearingAccountId', '');
-                              void fetchCostCentersForRow(it.id, v);
-                            } else {
-                              handleRowChange(it.id, 'costCenterId', '');
-                              handleRowChange(it.id, 'costCenters', []);
-                            }
-                          }}
-                          disabled={isDonation || !!(row?.clearingAccountId)}
-                          title={isDonation ? 'Bei Spende sind Verrechnungskonto/Kostenstelle nicht erlaubt' : undefined}
-                        >
-                          <option value="">— Haushaltsplan —</option>
-                          {budgetPlans.map(bp => (
-                            <option key={bp.id} value={String(bp.id)}>{bp.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <select
-                          value={row?.costCenterId || ''}
-                          onChange={(e) => handleRowChange(it.id, 'costCenterId', e.target.value)}
-                          disabled={isDonation || !row?.budgetPlanId}
-                          title={isDonation ? 'Bei Spende sind Verrechnungskonto/Kostenstelle nicht erlaubt' : undefined}
-                        >
-                          <option value="">— Kostenstelle —</option>
-                          {row?.costCenters?.map(cc => (
-                            <option key={cc.id} value={String(cc.id)}>{cc.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <button className="button" title="Annehmen" onClick={() => void handleAccept(it)} disabled={loading || it.state !== 'open'} hidden={loading || it.state !== 'open'}>✔</button>
-                        <button className="button" title="Ablehnen" onClick={() => void handleDecline(it)} disabled={loading || it.state !== 'open'} hidden={loading || it.state !== 'open'} style={{ marginLeft: 6 }}>✖</button>
-                        {isDonation && (
-                          <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
-                            Spende: {donationLabel}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  </React.Fragment>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                          <button className="button kc-btn--compact" type="button">
+                            Beleg herunterladen
+                          </button>
+                        </a>
+                      ) : (
+                        <div>
+                          <input
+                            type="file"
+                            className="form-file-upload"
+                            onChange={(e) => handleRowChange(it.id, 'file', e.target.files?.[0] || null)}
+                            accept="image/*,application/pdf"
+                            disabled={loading}
+                          />
+                          <AttachmentHint file={row?.file} />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="advance-field advance-field">
+                      <div className="advance-label">Auszahlungswunsch</div>
+                      <div className="kc-muted-dash" style={{ whiteSpace: 'pre-wrap' }}>
+                        {it.paymentRequest ? it.paymentRequest : '—'}
+                      </div>
+                    </div>
+
+                    <div className="advance-field advance-field">
+                      <div className="advance-label">Begründung</div>
+                      <input
+                        type="text"
+                        value={row?.reason || ''}
+                        onChange={(e) => handleRowChange(it.id, 'reason', e.target.value)}
+                        disabled={loading || it.state !== 'open'}
+                        placeholder="Pflicht bei Ablehnung"
+                      />
+                    </div>
+
+                    <div className="advance-field advance-actions">
+                      <div className="advance-label">Aktion</div>
+                      <div>
+                        <button className="button" title="Annehmen" onClick={() => void handleAccept(it)} disabled={loading || it.state !== 'open'}>✔</button>
+                        <button className="button u-ml-2" title="Ablehnen" onClick={() => void handleDecline(it)} disabled={loading || it.state !== 'open'}>✖</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* dicke Trennlinie zwischen Einträgen */}
+                  <div className="advance-divider" />
+                </div>
+              );
+            })
+          )}
+        </div>
       )}
     </div>
   );

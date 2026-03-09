@@ -36,11 +36,11 @@ export default function DonationsOverviewPage() {
   }, [session]);
 
   return (
-    <div style={{ maxWidth: 1200, margin: '2rem auto', padding: '1rem' }}>
-      <h2 style={{ marginBottom: '1rem' }}>Zuwendungsbescheide (alle)</h2>
+    <div className="kc-page">
+      <h2 className="kc-page-title">Zuwendungsbescheide (alle)</h2>
 
-      {loading && <div style={{ color: 'var(--muted)' }}>Lade Daten ...</div>}
-      {error && <div>Fehler beim Laden: {error}</div>}
+      {loading && <div className="kc-status">Lade Daten ...</div>}
+      {error && <div className="kc-error">Fehler beim Laden: {error}</div>}
       {donations && <DonationsTable donations={donations} showUser={true} showProcessor={true} />}
     </div>
   );

@@ -1,22 +1,17 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { ResourceType, AuthorizationType } from '@/app/types/authorization';
-import { checkPermission } from '@/services/authService';
-import { extractUserFromAuthHeader } from '@/lib/serverUtils';
+import { checkPermission, getAuthContext } from '@/services/authService';
+import { donationTypeDbToUi } from '@/lib/donationType';
 
 function donationTypeToUi(t: any): 'financial' | 'material' | 'waiver' {
-  if (t === 'financial') return 'financial';
-  if (t === 'material') return 'material';
-  if (t === 'waiver') return 'waiver';
-  // fallback (DB enum drift)
-  return 'financial';
+  return donationTypeDbToUi(t);
 }
 
 export async function GET(req: Request) {
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
-  const { userId } = extractUserFromAuthHeader(authHeader as string | undefined);
+  const { userId } = await getAuthContext(req);
   if (!userId) {
-    return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 403 });
+    return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 401 });
   }
 
   const url = new URL(req.url);
@@ -47,6 +42,9 @@ export async function GET(req: Request) {
     },
   });
 
+  // Hinweis: `downloadedAt` wird NICHT beim Listen-Abruf gesetzt.
+  // Es soll nur beim Erzeugen/Download der PDF-Spendenquittung (Receipt) befüllt werden.
+
   const ui = donations.map((d: any) => ({
     id: d.id,
     date: (d.date as Date).toISOString(),
@@ -56,6 +54,7 @@ export async function GET(req: Request) {
     transactionId: d.transactionId,
     userName: d.user ? `${d.user.first_name} ${d.user.last_name}` : undefined,
     processorName: d.processor ? `${d.processor.first_name} ${d.processor.last_name}` : undefined,
+    downloadedAt: d.downloadedAt ? (d.downloadedAt as Date).toISOString() : null,
   }));
 
   return NextResponse.json(ui);

@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import "@/app/css/tables.css";
 import { useSession } from "next-auth/react";
+import { ClientTableHead } from "@/app/components/clientTable/ClientTableHead";
+import { useClientTable, type ColumnDef } from "@/app/components/clientTable/useClientTable";
 
 // Utility für Token-Extraktion
 function extractToken(session: any): string {
@@ -58,7 +60,7 @@ export default function UsersOverview() {
     load();
   }, [session]);
 
-  async function sendInfoMail(u: User) {
+  const sendInfoMail = useCallback(async (u: User) => {
     if (!u?.id) return;
     setActionMsg(null);
     setActionError(null);
@@ -75,7 +77,8 @@ export default function UsersOverview() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error || `Fehler ${res.status}`);
+        setActionError(data?.error || `Fehler ${res.status}`);
+        return;
       }
       setActionMsg(`Infomail an ${u.first_name} ${u.last_name} (${u.mail}) versendet (${data.success}/${data.total} erfolgreich).`);
     } catch (e: any) {
@@ -83,53 +86,81 @@ export default function UsersOverview() {
     } finally {
       setSendingId(null);
     }
-  }
+  }, [session]);
+
+  const columns = useMemo<ColumnDef<User>[]>(
+    () => [
+      { id: 'first_name', header: 'Vorname', type: 'text', accessor: (u) => u.first_name },
+      { id: 'last_name', header: 'Nachname', type: 'text', accessor: (u) => u.last_name },
+      { id: 'mail', header: 'Mailadresse', type: 'text', accessor: (u) => u.mail },
+      {
+        id: 'balance',
+        header: 'Kontostand',
+        type: 'number',
+        accessor: (u) => (typeof u.balance === 'string' ? Number(u.balance) : Number(u.balance)),
+        cell: (u) => (typeof u.balance === "string" ? u.balance : Number(u.balance).toLocaleString("de-DE", { style: "currency", currency: "EUR" })),
+      },
+      {
+        id: 'infoMail',
+        header: 'Infomail',
+        accessor: (u) => u.id,
+        sortable: false,
+        filterable: false,
+        cell: (u) => (
+          <button className="button" onClick={() => sendInfoMail(u)} disabled={sendingId === u.id}>
+            {sendingId === u.id ? 'Senden…' : 'Infomail'}
+          </button>
+        ),
+      },
+      {
+        id: 'details',
+        header: 'Details',
+        accessor: (u) => u.id,
+        sortable: false,
+        filterable: false,
+        cell: (u) => (
+          <button className="button" onClick={() => window.location.href = `/users/${u.id}`}>
+            Details
+          </button>
+        ),
+      },
+      {
+        id: 'edit',
+        header: 'Bearbeiten',
+        accessor: (u) => u.id,
+        sortable: false,
+        filterable: false,
+        cell: (u) => (
+          <button className="button" onClick={() => window.location.href = `/users/${u.id}/edit`}>
+            Bearbeiten
+          </button>
+        ),
+      },
+    ],
+    [sendingId, sendInfoMail]
+  );
+
+  const table = useClientTable(users, columns, { enableFilters: true });
 
   return (
-    <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
-      <h2 style={{ marginBottom: 16 }}>Nutzerübersicht</h2>
-      {loading && <div style={{ color: "var(--muted)", marginBottom: 12 }}>Lade Daten ...</div>}
-      {error && <div style={{ color: "var(--accent)", marginBottom: 12 }}>{error}</div>}
-      {actionMsg && <div className="message" style={{ marginBottom: 12, whiteSpace: 'pre-line' }}>{actionMsg}</div>}
-      {actionError && <div className="message" style={{ marginBottom: 12, color: '#ef4444' }}>{actionError}</div>}
+    <div className="kc-page">
+      <h2 className="kc-page-title">Nutzerübersicht</h2>
+      {loading && <div className="kc-status kc-status--spaced">Lade Daten ...</div>}
+      {error && <div className="kc-error kc-status--spaced">{error}</div>}
+      {actionMsg && <div className="message kc-preline u-mb-2">{actionMsg}</div>}
+      {actionError && <div className="message kc-message--error u-mb-2">{actionError}</div>}
       <table className="kc-table" role="table">
-        <thead>
-          <tr>
-            <th>Vorname</th>
-            <th>Nachname</th>
-            <th>Mailadresse</th>
-            <th>Kontostand</th>
-            <th>Infomail</th>
-            <th>Details</th>
-            <th>Bearbeiten</th>
-          </tr>
-        </thead>
+        <ClientTableHead table={table} />
         <tbody>
-          {users.map(u => (
+          {table.filteredSortedRows.map(u => (
             <tr key={u.id} className="kc-row">
-              <td>{u.first_name}</td>
-              <td>{u.last_name}</td>
-              <td>{u.mail}</td>
-              <td>{typeof u.balance === "string" ? u.balance : Number(u.balance).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</td>
-              <td>
-                <button className="button" onClick={() => sendInfoMail(u)} disabled={sendingId === u.id}>
-                  {sendingId === u.id ? 'Senden…' : 'Infomail'}
-                </button>
-              </td>
-              <td>
-                <button className="button" onClick={() => window.location.href = `/users/${u.id}`}>
-                  Details
-                </button>
-              </td>
-              <td>
-                <button className="button" onClick={() => window.location.href = `/users/${u.id}/edit`}>
-                  Bearbeiten
-                </button>
-              </td>
+              {table.columns.map((c) => (
+                <td key={c.id}>{c.cell ? c.cell(u) : String(c.accessor(u) ?? '-') || '-'}</td>
+              ))}
             </tr>
           ))}
-          {users.length === 0 && !loading && (
-            <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Nutzer gefunden</td></tr>
+          {table.filteredSortedRows.length === 0 && !loading && (
+            <tr><td colSpan={table.columns.length} className="kc-cell--center kc-cell--muted">Keine Nutzer gefunden</td></tr>
           )}
         </tbody>
       </table>

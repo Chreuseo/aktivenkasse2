@@ -1,0 +1,14 @@
+/* Datei: src/app/css/cards.css
+   Zweck: einfache Card/Panel-Container (z. B. Einbehalt-Block)
+*/
+
+.kc-panel {
+  border: 1px solid var(--border);
+  padding: 1rem;
+  border-radius: 6px;
+}
+
+.kc-panel--spaced {
+  margin-top: 0.5rem;
+}
+

@@ -66,13 +66,13 @@ export default function BulkTransactionDetailPage() {
     return () => { cancelled = true; };
   }, [status, session, id]);
 
-  if (status === 'loading') return <div style={{ color: 'var(--muted)', margin: '2rem auto', maxWidth: 1000 }}>Lade Sitzung ...</div>;
-  if (loading) return <div style={{ color: 'var(--muted)', margin: '2rem auto', maxWidth: 1000 }}>Lade Daten ...</div>;
-  if (error) return <div style={{ color: 'var(--accent)', margin: '2rem auto', maxWidth: 1000 }}>{error}</div>;
-  if (!data) return <div style={{ color: 'var(--muted)', margin: '2rem auto', maxWidth: 1000 }}>Keine Daten</div>;
+  if (status === 'loading') return <div className="kc-page kc-status">Lade Sitzung ...</div>;
+  if (loading) return <div className="kc-page kc-status">Lade Daten ...</div>;
+  if (error) return <div className="kc-page kc-error">{error}</div>;
+  if (!data) return <div className="kc-page kc-status">Keine Daten</div>;
 
   const renderParty = (p: Party) => {
-    if (!p) return <span style={{ color: 'var(--muted)' }}>-</span>;
+    if (!p) return <span className="kc-muted-dash">-</span>;
     if (p.type === 'user') return <span>Nutzer: {p.name}</span>;
     if (p.type === 'bank') return <span>Bankkonto: {p.name}{p.bank ? ` (${p.bank})` : ''}</span>;
     if (p.type === 'clearing_account') return <span>Verrechnungskonto: {p.name}</span>;
@@ -80,33 +80,33 @@ export default function BulkTransactionDetailPage() {
   };
 
   return (
-    <div style={{ maxWidth: 1000, margin: '2rem auto', padding: '1rem' }}>
-      <h2 style={{ marginBottom: '1.2rem' }}>Sammelüberweisung</h2>
+    <div className="kc-page">
+      <h2 className="kc-page-title">Sammelüberweisung</h2>
 
-      <div className="kc-infobox" style={{ marginBottom: '1rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', rowGap: 6 }}>
-          <div style={{ fontWeight: 600 }}>Datum:</div>
+      <div className="kc-infobox kc-infobox--spaced">
+        <div className="kc-kv-grid">
+          <div className="kc-kv-key">Datum:</div>
           <div>{new Date(data.date).toLocaleString()}</div>
-          <div style={{ fontWeight: 600 }}>Art:</div>
+          <div className="kc-kv-key">Art:</div>
           <div>{data.type}</div>
-          <div style={{ fontWeight: 600 }}>Konto:</div>
+          <div className="kc-kv-key">Konto:</div>
           <div>{renderParty(data.account)}</div>
-          <div style={{ fontWeight: 600 }}>Beschreibung:</div>
+          <div className="kc-kv-key">Beschreibung:</div>
           <div>{data.description}</div>
-          <div style={{ fontWeight: 600 }}>Referenz:</div>
-          <div>{data.reference || <span style={{ color: 'var(--muted)' }}>-</span>}</div>
-          <div style={{ fontWeight: 600 }}>Beleg:</div>
+          <div className="kc-kv-key">Referenz:</div>
+          <div>{data.reference || <span className="kc-muted-dash">-</span>}</div>
+          <div className="kc-kv-key">Beleg:</div>
           <div>
             {data.attachmentUrl ? (
               <a href={data.attachmentUrl} target="_blank" rel="noopener noreferrer">
-                <button className="button" style={{ padding: '0.2rem 0.8rem' }}>Beleg herunterladen</button>
+                <button className="button kc-btn--compact">Beleg herunterladen</button>
               </a>
-            ) : <span style={{ color: 'var(--muted)' }}>Kein Beleg</span>}
+            ) : <span className="kc-muted-dash">Kein Beleg</span>}
           </div>
         </div>
       </div>
 
-      <h3 style={{ marginBottom: '0.6rem' }}>Einzelbuchungen</h3>
+      <h3 className="kc-section-title">Einzelbuchungen</h3>
       <table className="kc-table">
         <thead>
           <tr>
@@ -118,14 +118,14 @@ export default function BulkTransactionDetailPage() {
         </thead>
         <tbody>
           {data.rows.length === 0 && (
-            <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--muted)' }}>Keine Einzelbuchungen vorhanden</td></tr>
+            <tr><td colSpan={4} className="kc-cell--center kc-cell--muted">Keine Einzelbuchungen vorhanden</td></tr>
           )}
           {data.rows.map((r) => (
             <tr key={r.id} className="kc-row">
               <td>{renderParty(r.account)}</td>
-              <td style={{ color: r.amount < 0 ? '#e11d48' : '#059669', fontWeight: 600 }}>{r.amount.toFixed(2)} €</td>
+              <td className={r.amount < 0 ? 'kc-amount-neg' : 'kc-amount-pos'}>{r.amount.toFixed(2)} €</td>
               <td>{r.description}</td>
-              <td>{r.costCenterLabel || <span style={{ color: 'var(--muted)' }}>-</span>}</td>
+              <td>{r.costCenterLabel || <span className="kc-muted-dash">-</span>}</td>
             </tr>
           ))}
         </tbody>

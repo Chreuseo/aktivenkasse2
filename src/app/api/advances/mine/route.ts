@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { extractUserFromAuthHeader } from '@/lib/serverUtils';
+import { extractTokenAndUserId } from '@/services/authService';
 
 export async function GET(req: Request) {
-    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
-    const { jwt } = extractUserFromAuthHeader(authHeader as string | undefined);
-    const sub = jwt?.sub || jwt?.userId || jwt?.id || null;
+    const { userId: sub } = extractTokenAndUserId(req as any);
     if (!sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const user = await prisma.user.findUnique({ where: { keycloak_id: String(sub) } });
@@ -27,6 +25,7 @@ export async function GET(req: Request) {
             userId: true,
             // include reason for the UI column
             reason: true,
+            paymentRequest: true,
         },
     });
 
@@ -43,6 +42,7 @@ export async function GET(req: Request) {
         receiptUrl: a.attachmentId ? `/api/advances/${a.id}/receipt` : undefined,
         // pass through reason (may be null)
         reason: a.reason ?? undefined,
+        paymentRequest: a.paymentRequest ?? undefined,
     }));
 
     return NextResponse.json({ items });

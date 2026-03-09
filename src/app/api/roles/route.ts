@@ -5,6 +5,14 @@ import { checkPermission } from "@/services/authService";
 import { resolveEnv, normalizeBaseUrl, getKeycloakToken } from "@/lib/keycloakUtils";
 import { hasKeycloakRolePrefix, ensureKeycloakRolePrefixed } from "@/lib/keycloakRolePrefix";
 
+function getRequiredKeycloakRolePrefix(): string {
+  const prefix = process.env.KEYCLOAK_ROLE_PREFIX;
+  if (typeof prefix !== "string" || prefix.trim().length === 0) {
+    throw new Error("Missing env KEYCLOAK_ROLE_PREFIX (required, no fallback)");
+  }
+  return prefix.trim();
+}
+
 async function fetchKeycloakRoles(token: string) {
   const baseRaw = resolveEnv(
     "KEYCLOAK_BASE_URL",
@@ -22,9 +30,10 @@ async function fetchKeycloakRoles(token: string) {
     throw new Error(`Keycloak roles fetch failed: ${res.status} ${txt}`);
   }
   const roles = await res.json();
+  const rolePrefix = getRequiredKeycloakRolePrefix();
   return Array.isArray(roles)
     ? roles
-        .filter((r: any) => typeof r.name === "string" && hasKeycloakRolePrefix(r.name))
+        .filter((r: any) => typeof r.name === "string" && r.name.startsWith(rolePrefix))
         .map((r: any) => ({ id: r.id, name: r.name }))
     : [];
 }
@@ -40,7 +49,8 @@ async function createKeycloakRole(token: string, name: string) {
   const realm = resolveEnv("KEYCLOAK_REALM", "KEYCLOAK_REALM_NAME", "NEXT_PUBLIC_KEYCLOAK_REALM");
   if (!baseRaw || !realm) throw new Error("Missing KEYCLOAK_BASE_URL or KEYCLOAK_REALM");
   const base = normalizeBaseUrl(baseRaw);
-  const roleName = ensureKeycloakRolePrefixed(name);
+  const rolePrefix = getRequiredKeycloakRolePrefix();
+  const roleName = name.startsWith(rolePrefix) ? name : `${rolePrefix}${name}`;
   const createRes = await fetch(`${base}/admin/realms/${realm}/roles`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },

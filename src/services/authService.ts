@@ -67,6 +67,22 @@ export async function validateUserPermissions({ userId, resource, requiredPermis
   return { allowed: false, role: null, source: "none" } as any;
 }
 
+function decodeJwtPayload(token: string): any {
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  const payloadB64Url = parts[1];
+  // base64url -> base64
+  const payloadB64 = payloadB64Url.replace(/-/g, "+").replace(/_/g, "/");
+  // Padding ergänzen
+  const padLen = (4 - (payloadB64.length % 4)) % 4;
+  const padded = payloadB64 + "=".repeat(padLen);
+  try {
+    return JSON.parse(Buffer.from(padded, "base64").toString());
+  } catch {
+    return null;
+  }
+}
+
 export function extractTokenAndUserId(req: any): { token: string | null, userId: string | null, jwt: any } {
   let auth: string | undefined;
   if (req.headers && typeof req.headers.get === "function") {
@@ -81,29 +97,17 @@ export function extractTokenAndUserId(req: any): { token: string | null, userId:
     const match = auth.match(/^Bearer (.+)$/);
     if (match) {
       token = match[1];
-      try {
-        jwt = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString());
+      jwt = decodeJwtPayload(token);
+      if (jwt) {
         userId = jwt.sub || jwt.userId || jwt.id || null;
-      } catch {}
+      }
     }
   }
   return { token, userId, jwt };
 }
 
-export function getUserIdFromRequest(req: Request): string | null {
-  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
-  if (!authHeader) return null;
-  const token = authHeader.replace("Bearer ", "");
-  try {
-    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString());
-    return payload.sub || null;
-  } catch {
-    return null;
-  }
-}
-
-export async function checkPermission(req: Request, resource: ResourceType, requiredPermission: AuthorizationType): Promise<{ allowed: boolean, error?: string }> {
-  let { token, userId, jwt } = extractTokenAndUserId(req);
+export async function getAuthContext(req: Request): Promise<{ token: string | null; userId: string | null; jwt: any }> {
+  let { token, userId, jwt } = extractTokenAndUserId(req as any);
 
   if (!token || !userId) {
     try {
@@ -111,15 +115,30 @@ export async function checkPermission(req: Request, resource: ResourceType, requ
       if (nextAuthToken) {
         jwt = nextAuthToken;
         token = nextAuthToken.accessToken || nextAuthToken.token || null;
-        // NextAuth speichert die Keycloak sub i. d. R. unter token.user.sub
         userId = nextAuthToken.sub || nextAuthToken.userId || nextAuthToken.id || nextAuthToken.user?.sub || null;
       }
     } catch {}
   }
+
+  return { token, userId, jwt };
+}
+
+export async function checkPermission(req: Request, resource: ResourceType, requiredPermission: AuthorizationType): Promise<{ allowed: boolean, error?: string }> {
+  let { token, userId, jwt } = await getAuthContext(req);
 
   if (!token) return { allowed: false, error: "Kein Token" };
   if (!userId) return { allowed: false, error: "Keine UserId im Token" };
 
   const result = await validateUserPermissions({ userId, resource, requiredPermission, jwt });
   return { allowed: result.allowed, error: (result as any).error };
+}
+
+export function getUserIdFromRequest(req: Request): string | null {
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  if (!authHeader) return null;
+  const match = authHeader.match(/^Bearer (.+)$/);
+  if (!match) return null;
+  const token = match[1];
+  const payload = decodeJwtPayload(token);
+  return payload?.sub || payload?.userId || payload?.id || null;
 }

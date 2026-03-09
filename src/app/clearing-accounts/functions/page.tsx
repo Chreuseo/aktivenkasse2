@@ -228,107 +228,102 @@ export default function ClearingAccountsFunctionsPage() {
   }
 
   return (
-    <div className="wide-container">
-      <div style={{ width: "100%", maxWidth: 1600 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "1rem 0" }}>
-          <h2>Verrechnungskonten Funktionen</h2>
-          <Link href="/clearing-accounts"><button className="button">Zur Übersicht</button></Link>
-        </div>
-        <table className="kc-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Verantwortlicher</th>
-              <th>Kontostand</th>
-              <th>Erstattungsberechtigt</th>
-              <th>Über</th>
-              <th>Kostenstelle</th>
-              <th>Nullsetzen</th>
-              <th>Betrag p.P.</th>
-              <th>Einziehen</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loadingAll && (
-              <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--muted)" }}>Laden…</td></tr>
-            )}
-            {!loadingAll && accounts.length === 0 && (
-              <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--muted)" }}>Keine Verrechnungskonten vorhanden</td></tr>
-            )}
-            {accounts.map((acc) => {
-              const row = (rows[acc.id] || { via: "", budgetPlanId: "", costCenterId: "", amount: "", loading: false, message: "", costCenters: [] }) as RowState;
-              const hasMembers = (acc.members?.length || 0) > 0;
-              const amountNum = Number(row.amount);
-              const label = isFinite(amountNum) && amountNum < 0 ? "Einziehen" : "Auszahlen";
-              const viaMembersSelected = row.via === "members";
-              const viaBudgetSelected = !!row.budgetPlanId && row.via !== "members";
-              return (
-                <tr key={acc.id} className="kc-row">
-                  <td>{acc.name}</td>
-                  <td>{acc.responsible || <span style={{ color: "var(--muted)" }}>-</span>}</td>
-                  <td style={{ fontWeight: 600, color: "var(--primary)" }}>{(acc.balance || 0).toFixed(2)} €</td>
-                  <td>{acc.reimbursementEligible ? "Ja" : "Nein"}</td>
-                  <td>
-                    <select
-                      className="form-select"
-                      value={row.via}
-                      onChange={(e) => onChangeVia(acc.id, e.target.value, hasMembers)}
-                      style={{ minWidth: 180 }}
-                    >
-                      <option value="">Bitte wählen</option>
-                      {hasMembers && <option value="members">Mitglieder</option>}
-                      {plans.map((p) => (
-                        <option key={p.id} value={String(p.id)}>{p.name}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <select
-                      className="form-select"
-                      disabled={!viaBudgetSelected}
-                      value={row.costCenterId}
-                      onChange={(e) => onChangeCostCenter(acc.id, e.target.value)}
-                      style={{ minWidth: 200 }}
-                    >
-                      <option value="">{viaBudgetSelected ? "Bitte wählen" : "—"}</option>
-                      {row.costCenters.map((cc) => (
-                        <option key={cc.id} value={String(cc.id)}>{cc.name}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <button className="button" type="button" onClick={() => setZeroAmount(acc.id, acc)} disabled={!row.via || row.loading}>Nullsetzen</button>
-                  </td>
-                  <td>
-                    <input
-                      type="number"
-                      value={row.amount}
-                      onChange={(e) => onChangeAmount(acc.id, e.target.value)}
-                      className="kc-input"
-                      placeholder={viaMembersSelected ? "Betrag p.P." : "Betrag"}
-                      style={{ maxWidth: 140 }}
-                      step="0.01"
-                    />
-                  </td>
-                  <td>
-                    <button
-                      className="button"
-                      disabled={row.loading || !row.via || !row.amount}
-                      onClick={() => submitRow(acc.id, acc)}
-                      title={label}
-                    >
-                      {label}
-                    </button>
-                    {row.message && (
-                      <div style={{ marginTop: 6, fontSize: 12, color: "var(--muted)" }}>{row.message}</div>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+    <div className="kc-page">
+      <div className="kc-topbar">
+        <h2 className="kc-page-title">Verrechnungskonten Funktionen</h2>
+        <Link href="/clearing-accounts"><button className="button">Zur Übersicht</button></Link>
       </div>
+      <table className="kc-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Verantwortlicher</th>
+            <th>Kontostand</th>
+            <th>Erstattungsberechtigt</th>
+            <th>Über</th>
+            <th>Kostenstelle</th>
+            <th>Nullsetzen</th>
+            <th>Betrag p.P.</th>
+            <th>Einziehen</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loadingAll && (
+            <tr><td colSpan={9} className="kc-cell--center kc-cell--muted">Laden…</td></tr>
+          )}
+          {!loadingAll && accounts.length === 0 && (
+            <tr><td colSpan={9} className="kc-cell--center kc-cell--muted">Keine Verrechnungskonten vorhanden</td></tr>
+          )}
+          {accounts.map((acc) => {
+            const row = (rows[acc.id] || { via: "", budgetPlanId: "", costCenterId: "", amount: "", loading: false, message: "", costCenters: [] }) as RowState;
+            const hasMembers = (acc.members?.length || 0) > 0;
+            const amountNum = Number(row.amount);
+            const label = isFinite(amountNum) && amountNum < 0 ? "Einziehen" : "Auszahlen";
+            const viaMembersSelected = row.via === "members";
+            const viaBudgetSelected = !!row.budgetPlanId && row.via !== "members";
+            return (
+              <tr key={acc.id} className="kc-row">
+                <td>{acc.name}</td>
+                <td>{acc.responsible || <span className="kc-muted-dash">-</span>}</td>
+                <td className="kc-fw-600 kc-text-ok">{(acc.balance || 0).toFixed(2)} €</td>
+                <td>{acc.reimbursementEligible ? "Ja" : "Nein"}</td>
+                <td>
+                  <select
+                    className="form-select kc-minw-180"
+                    value={row.via}
+                    onChange={(e) => onChangeVia(acc.id, e.target.value, hasMembers)}
+                  >
+                    <option value="">Bitte wählen</option>
+                    {hasMembers && <option value="members">Mitglieder</option>}
+                    {plans.map((p) => (
+                      <option key={p.id} value={String(p.id)}>{p.name}</option>
+                    ))}
+                  </select>
+                </td>
+                <td>
+                  <select
+                    className="form-select kc-minw-200"
+                    disabled={!viaBudgetSelected}
+                    value={row.costCenterId}
+                    onChange={(e) => onChangeCostCenter(acc.id, e.target.value)}
+                  >
+                    <option value="">{viaBudgetSelected ? "Bitte wählen" : "—"}</option>
+                    {row.costCenters.map((cc) => (
+                      <option key={cc.id} value={String(cc.id)}>{cc.name}</option>
+                    ))}
+                  </select>
+                </td>
+                <td>
+                  <button className="button" type="button" onClick={() => setZeroAmount(acc.id, acc)} disabled={!row.via || row.loading}>Nullsetzen</button>
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    value={row.amount}
+                    onChange={(e) => onChangeAmount(acc.id, e.target.value)}
+                    className="kc-input kc-max-140"
+                    placeholder={viaMembersSelected ? "Betrag p.P." : "Betrag"}
+                    step="0.01"
+                  />
+                </td>
+                <td>
+                  <button
+                    className="button"
+                    disabled={row.loading || !row.via || !row.amount}
+                    onClick={() => submitRow(acc.id, acc)}
+                    title={label}
+                  >
+                    {label}
+                  </button>
+                  {row.message && (
+                    <div className="kc-hint u-mt-1">{row.message}</div>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

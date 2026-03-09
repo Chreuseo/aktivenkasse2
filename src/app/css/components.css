@@ -1,0 +1,35 @@
+/* Datei: src/app/css/components.css
+   Zweck: kleine, wiederverwendbare Komponentenklassen (Header, Menüs, etc.)
+*/
+
+/* Scrollbarer Dropdown-Container (ersetzt inline maxHeight/overflow) */
+.kc-dropdown-scroll {
+  max-height: calc(100dvh - 4rem);
+  overflow-y: auto;
+}
+
+.kc-warning {
+  border: 1px solid #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.kc-badge-readonly {
+  margin-left: 0.5rem;
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  border: 1px dashed #3a3a3f;
+  border-radius: 4px;
+  padding: 0 0.35rem;
+}
+
+.kc-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.kc-text-sm {
+  font-size: 12px;
+}

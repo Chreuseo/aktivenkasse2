@@ -47,6 +47,14 @@ function formatCurrency(value: number): string {
   }
 }
 
+function toISODate(d: Date): string {
+  try {
+    return d.toISOString().slice(0, 10);
+  } catch {
+    return String(d);
+  }
+}
+
 export async function POST(req: NextRequest) {
   const perm = await checkPermission(req as unknown as Request, ResourceType.mails, AuthorizationType.write_all);
   if (!perm.allowed) {
@@ -162,6 +170,9 @@ export async function POST(req: NextRequest) {
         mandateDate: new Date(u.sepa_mandate_date),
         amount: Math.round(Math.abs(balance) * 100) / 100,
         remittanceInformation: remittance,
+        // Für Mail: Kontostand-Vorschau basiert auf dem *alten* Kontostand aus der DB
+        oldBalance: Math.round(balance * 100) / 100,
+        newBalance: 0,
       };
     })
     .filter(Boolean) as Array<any>;
@@ -188,10 +199,62 @@ export async function POST(req: NextRequest) {
     debtors,
   });
 
+  // Optional: Lastschriftankündigung senden
+  let mailResult: { total: number; success: number; failed: number; errors: any[] } | null = null;
+  if (body?.sendInfoMail) {
+    try {
+      // Wir bauen die Mails pro User individuell (u.a. Verwendungszweck + Kontostand-Vorschau).
+      // Wichtig: wir verwenden bewusst den Kontostand aus "users" (vor dem Buchen), um nicht
+      // den durch eine soeben erzeugte Transaktion geänderten DB-Stand zu verwenden.
+      const items = users.filter((u) => debtors.some((d) => Number(d.userId) === u.id));
+      const subject = `Lastschriftankündigung (SEPA) – Einzug am ${toISODate(collectionDate)}`;
+
+      let success = 0;
+      const mailErrors: any[] = [];
+
+      for (const u of items as any[]) {
+        const d = debtors.find((x) => Number(x.userId) === u.id);
+        if (!d) continue;
+
+        const oldBal = Number(d.oldBalance);
+        const amount = Number(d.amount);
+        const newBal = Math.round((oldBal + amount) * 100) / 100;
+
+        const remarkLines: string[] = [];
+        remarkLines.push(`Es ist ein SEPA-Lastschrifteinzug für den ${toISODate(collectionDate)} angekündigt.`);
+        remarkLines.push(`Verwendungszweck: ${String(d.remittanceInformation)}`);
+        remarkLines.push(`Referenz: ${messageId}`);
+        remarkLines.push("");
+        remarkLines.push("Kontostand-Vorschau:");
+        remarkLines.push(`- Alter Kontostand: ${formatCurrency(oldBal)}`);
+        remarkLines.push(`- Einzug: ${formatCurrency(amount)}`);
+        remarkLines.push(`- Neuer Kontostand: ${formatCurrency(newBal)}`);
+
+        if (body?.remark && String(body.remark).trim()) {
+          // Bemerkung in neue Zeile, mit einer Leerzeile Abstand
+          remarkLines.push("");
+          remarkLines.push("");
+          remarkLines.push(String(body.remark).trim());
+        }
+
+        const remarkText = remarkLines.join("\n");
+
+        const input: MailBuildInput = { kind: "user", user: u as any };
+        const res = await sendMails([input], remarkText, initiatorName, initiatorEmail, subject);
+        success += res.success;
+        if (res.errors?.length) mailErrors.push(...res.errors);
+      }
+
+      mailResult = { total: items.length, success, failed: mailErrors.length, errors: mailErrors };
+    } catch (e: any) {
+      mailResult = { total: 0, success: 0, failed: 1, errors: [{ to: "*", error: e?.message || String(e) }] };
+    }
+  }
+
   // Optional: Transaktionen erzeugen (als einzelne Paare)
   let createdTransactionIds: number[] = [];
   if (body?.createTransactions) {
-    const description = `SEPA-Einzug ${collectionDate.toISOString().slice(0, 10)}`;
+    const description = `SEPA-Einzug ${toISODate(collectionDate)}`;
     const reference = messageId;
 
     createdTransactionIds = await prisma.$transaction(async (p) => {
@@ -215,34 +278,6 @@ export async function POST(req: NextRequest) {
       }
       return ids;
     });
-  }
-
-  // Optional: Lastschriftankündigung senden
-  let mailResult: { total: number; success: number; failed: number; errors: any[] } | null = null;
-  if (body?.sendInfoMail) {
-    try {
-      const items = await prisma.user.findMany({
-        where: { id: { in: debtors.map((d) => Number(d.userId)) } },
-        include: { account: true },
-      });
-      const inputs: MailBuildInput[] = items.map((u) => ({ kind: "user", user: u as any }));
-
-      const subject = `Lastschriftankündigung (SEPA) – Einzug am ${collectionDate.toISOString().slice(0, 10)}`;
-      const remarkLines: string[] = [];
-      remarkLines.push(`Es ist ein SEPA-Lastschrifteinzug für den ${collectionDate.toISOString().slice(0, 10)} angekündigt.`);
-      remarkLines.push(`Verwendungszweck: ${remittanceGlobal}`);
-      remarkLines.push(`Referenz: ${messageId}`);
-      if (body?.remark && String(body.remark).trim()) {
-        remarkLines.push("");
-        remarkLines.push(String(body.remark).trim());
-      }
-      const remarkText = remarkLines.join("\n");
-
-      const { success, errors } = await sendMails(inputs, remarkText, initiatorName, initiatorEmail, subject);
-      mailResult = { total: inputs.length, success, failed: errors.length, errors };
-    } catch (e: any) {
-      mailResult = { total: 0, success: 0, failed: 1, errors: [{ to: "*", error: e?.message || String(e) }] };
-    }
   }
 
   return NextResponse.json({

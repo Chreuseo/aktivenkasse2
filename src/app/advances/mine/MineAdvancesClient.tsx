@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { extractToken } from "@/lib/utils";
 import "../../css/tables.css";
 
 import type { AdvanceListItem, AdvanceState } from "@/app/types/advance";
 import { advanceStateLabel } from "@/app/types/advance";
+import { ClientTableHead } from "@/app/components/clientTable/ClientTableHead";
+import { useClientTable, type ColumnDef } from "@/app/components/clientTable/useClientTable";
 
 function getErrorMessage(e: unknown): string {
   if (e instanceof Error) return e.message;
@@ -32,7 +34,10 @@ export default function MineAdvancesClient() {
         },
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Unbekannter Fehler");
+      if (!res.ok) {
+        setError(json?.error || "Unbekannter Fehler");
+        return;
+      }
       setItems(json.items as AdvanceListItem[]);
     } catch (e: unknown) {
       setError(getErrorMessage(e));
@@ -45,7 +50,7 @@ export default function MineAdvancesClient() {
     if (session) void load();
   }, [session, load]);
 
-  const cancelAdvance = async (id: number) => {
+  const cancelAdvance = useCallback(async (id: number) => {
     if (!confirm("Auslage wirklich abbrechen?")) return;
     setWorkingId(id);
     setError(null);
@@ -60,7 +65,10 @@ export default function MineAdvancesClient() {
         body: JSON.stringify({ id, action: "cancel" }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Unbekannter Fehler");
+      if (!res.ok) {
+        setError(json?.error || "Unbekannter Fehler");
+        return;
+      }
       // Refresh list
       await load();
     } catch (e: unknown) {
@@ -68,7 +76,7 @@ export default function MineAdvancesClient() {
     } finally {
       setWorkingId(null);
     }
-  };
+  }, [session, load]);
 
   const fmtAmount = (v: string | number) => {
     const n = typeof v === "string" ? Number(v) : v;
@@ -80,61 +88,124 @@ export default function MineAdvancesClient() {
     }
   };
 
+  const columns = useMemo<ColumnDef<AdvanceListItem>[]>(
+    () => [
+      {
+        id: 'date_advance',
+        header: 'Datum',
+        type: 'date',
+        accessor: (it) => it.date_advance,
+        cell: (it) => new Date(it.date_advance).toLocaleDateString("de-DE"),
+      },
+      {
+        id: 'description',
+        header: 'Beschreibung',
+        type: 'text',
+        accessor: (it) => it.description,
+      },
+      {
+        id: 'amount',
+        header: 'Betrag',
+        type: 'number',
+        accessor: (it) => Number(it.amount),
+        cell: (it) => fmtAmount(it.amount),
+      },
+      {
+        id: 'clearingAccount',
+        header: 'Verrechnungskonto',
+        type: 'text',
+        accessor: (it) => it.clearingAccount?.name ?? '',
+        cell: (it) => it.clearingAccount?.name || "—",
+      },
+      {
+        id: 'paymentRequest',
+        header: 'Auszahlungswunsch',
+        type: 'text',
+        accessor: (it) => it.paymentRequest ?? '',
+        cell: (it) => (
+          <span style={{ whiteSpace: 'pre-wrap' }}>
+            {it.paymentRequest ? it.paymentRequest : <span className="kc-muted-dash">—</span>}
+          </span>
+        ),
+      },
+      {
+        id: 'receiptUrl',
+        header: 'Beleg',
+        accessor: (it) => (it.receiptUrl ? 'ja' : 'nein'),
+        sortable: false,
+        filterable: false,
+        cell: (it) =>
+          it.receiptUrl ? (
+            <a className="button" href={it.receiptUrl} target="_blank" rel="noopener noreferrer">Beleg herunterladen</a>
+          ) : (
+            <span className="kc-muted-dash">Kein Beleg</span>
+          ),
+      },
+      {
+        id: 'state',
+        header: 'Status',
+        type: 'text',
+        accessor: (it) => String(it.state ?? ''),
+        cell: (it) => (
+          <span className={`kc-badge ${it.state === "open" ? "new" : it.state === "cancelled" ? "changed" : "same"}`}>
+            {advanceStateLabel(it.state as AdvanceState)}
+          </span>
+        ),
+      },
+      {
+        id: 'reason',
+        header: 'Begründung',
+        type: 'text',
+        accessor: (it) => it.reason ?? '',
+        cell: (it) => it.reason ?? "—",
+      },
+      {
+        id: 'reviewer',
+        header: 'Bearbeiter',
+        type: 'text',
+        accessor: (it) => (it.reviewer ? `${it.reviewer.first_name} ${it.reviewer.last_name}` : ''),
+        cell: (it) => (it.reviewer ? `${it.reviewer.first_name} ${it.reviewer.last_name}` : "—"),
+      },
+      {
+        id: 'cancel',
+        header: 'Abbrechen',
+        accessor: (it) => it.id,
+        sortable: false,
+        filterable: false,
+        cell: (it) =>
+          it.canCancel ? (
+            <button className="button" onClick={() => cancelAdvance(it.id)} disabled={workingId === it.id}>
+              {workingId === it.id ? "…" : "Abbrechen"}
+            </button>
+          ) : (
+            "—"
+          ),
+      },
+    ],
+    [workingId, cancelAdvance]
+  );
+
+  const table = useClientTable(items ?? [], columns, { enableFilters: true });
+
   return (
-    <div className="table-center">
-      <h1>Meine Auslagen</h1>
-      {error && <p style={{ color: "#f87171" }}>Fehler: {error}</p>}
-      {loading && <p>Lade…</p>}
+    <div className="kc-page kc-table">
+      <h1 className="kc-page-title">Meine Auslagen</h1>
+      {error && <p className="kc-error">Fehler: {error}</p>}
+      {loading && <p className="kc-status">Lade…</p>}
       {!loading && items && (
         <table className="kc-table advances-table">
-          <thead>
-            <tr>
-              <th>Datum</th>
-              <th>Beschreibung</th>
-              <th>Betrag</th>
-              <th>Verrechnungskonto</th>
-              <th>Beleg</th>
-              <th>Status</th>
-              <th>Begründung</th>
-              <th>Bearbeiter</th>
-              <th>Abbrechen</th>
-            </tr>
-          </thead>
+          <ClientTableHead table={table} />
           <tbody>
-            {items.length === 0 ? (
+            {table.filteredSortedRows.length === 0 ? (
               <tr>
-                <td colSpan={9} style={{ textAlign: "center", color: "#888" }}>Keine Auslagen gefunden.</td>
+                <td colSpan={table.columns.length} className="kc-cell--center kc-cell--muted">Keine Auslagen gefunden.</td>
               </tr>
             ) : (
-              items.map((it) => (
+              table.filteredSortedRows.map((it) => (
                 <tr key={it.id} className="kc-row">
-                  <td>{new Date(it.date_advance).toLocaleDateString("de-DE")}</td>
-                  <td>{it.description}</td>
-                  <td>{fmtAmount(it.amount)}</td>
-                  <td>{it.clearingAccount?.name || "—"}</td>
-                  <td>
-                    {it.receiptUrl ? (
-                      <a className="button" href={it.receiptUrl} target="_blank" rel="noopener noreferrer">Beleg herunterladen</a>
-                    ) : (
-                      <span style={{ color: "var(--muted)" }}>Kein Beleg</span>
-                    )}
-                  </td>
-                  <td>
-                    <span className={`kc-badge ${it.state === "open" ? "new" : it.state === "cancelled" ? "changed" : "same"}`}>
-                      {advanceStateLabel(it.state as AdvanceState)}
-                    </span>
-                  </td>
-                  <td>{it.reason ?? "—"}</td>
-                  <td>{it.reviewer ? `${it.reviewer.first_name} ${it.reviewer.last_name}` : "—"}</td>
-                  <td>
-                    {it.canCancel ? (
-                      <button className="button" onClick={() => cancelAdvance(it.id)} disabled={workingId === it.id}>
-                        {workingId === it.id ? "…" : "Abbrechen"}
-                      </button>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
+                  {table.columns.map((c) => (
+                    <td key={c.id}>{c.cell ? c.cell(it) : String(c.accessor(it) ?? '-') || '-'}</td>
+                  ))}
                 </tr>
               ))
             )}

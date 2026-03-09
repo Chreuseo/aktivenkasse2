@@ -6,6 +6,13 @@ import { extractToken, fetchJson } from "@/lib/utils";
 import { BankAccount } from "@/app/types/bankAccount";
 import "../../../css/edit-form.css";
 
+const currencyFormatter = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
+
+function normalizeBalance(input: unknown): number {
+    const n = typeof input === "string" ? Number(input) : (input as number);
+    return Number.isFinite(n) ? n : 0;
+}
+
 export default function EditBankAccountPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const { data: session, status } = useSession();
@@ -22,6 +29,7 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
     const [formLoading, setFormLoading] = useState(true);
+
     useEffect(() => {
         if (status !== "authenticated") return;
         async function loadData() {
@@ -33,26 +41,35 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
                     setFormLoading(false);
                     return;
                 }
-                const accJson: BankAccount = await fetchJson(`/api/bank-accounts/${id}`, {
+
+                const resp = await fetchJson(`/api/bank-accounts/${id}`, {
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${token}`,
                         "Content-Type": "application/json",
                     },
                 });
+
+                // API liefert: { bankAccount, planned, past, allowances }
+                const bankAccount: BankAccount | undefined = (resp as any)?.bankAccount;
+                if (!bankAccount) {
+                    throw new Error("Unerwartete Serverantwort: bankAccount fehlt");
+                }
+
                 setFormData({
-                    name: accJson.name || "",
-                    owner: accJson.owner || "",
-                    bank: accJson.bank || "",
-                    iban: accJson.iban || "",
-                    bic: accJson.bic || "",
-                    balance: accJson.balance,
-                    payment_method: Boolean((accJson as any).payment_method),
-                    create_girocode: Boolean((accJson as any).create_girocode),
+                    name: bankAccount.name || "",
+                    owner: bankAccount.owner || "",
+                    bank: bankAccount.bank || "",
+                    iban: bankAccount.iban || "",
+                    bic: bankAccount.bic || "",
+                    balance: normalizeBalance((bankAccount as any).balance),
+                    payment_method: Boolean((bankAccount as any).payment_method),
+                    create_girocode: Boolean((bankAccount as any).create_girocode),
                 });
                 setFormLoading(false);
             } catch (err: any) {
                 setMessage("❌ Fehler beim Laden: " + err.message);
+                setFormLoading(false);
             }
         }
         loadData();
@@ -107,6 +124,8 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
     if (status === "unauthenticated") return <div className="edit-form-container">Bitte einloggen.</div>;
     if (formLoading) return <div className="edit-form-container">Lade Daten ...</div>;
 
+    const balanceText = currencyFormatter.format(normalizeBalance(formData.balance));
+
     return (
         <div className="edit-form-container">
             <h1>Bankkonto bearbeiten</h1>
@@ -141,9 +160,11 @@ export default function EditBankAccountPage({ params }: { params: Promise<{ id: 
                 </label>
                 <label>
                     Kontostand
-                    <input type="text" name="balance" value={formData.balance.toLocaleString("de-DE", { style: "currency", currency: "EUR" })} disabled />
+                    <input type="text" name="balance" value={balanceText} disabled />
                 </label>
-                <button className="button" type="submit" disabled={loading}>Speichern</button>
+                <button className="button" type="submit" disabled={loading}>
+                    Speichern
+                </button>
             </form>
             {message && <p className="edit-message">{message}</p>}
         </div>

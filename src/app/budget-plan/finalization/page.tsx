@@ -175,10 +175,10 @@ export default function BudgetPlanFinalizationPage() {
   const sumDeviation = sumActualResult - sumPlannedResult;
 
   return (
-    <div style={{ maxWidth: 1600, margin: "2rem auto", padding: "1rem" }}>
-      <h2 style={{ marginBottom: "1.2rem" }}>Haushaltsabschluss</h2>
+    <div className="kc-page">
+      <h2 className="kc-page-title">Haushaltsabschluss</h2>
 
-      <div className="form" style={{ marginBottom: "1rem" }}>
+      <div className="form u-mb-3">
         <label>
           Haushalt auswählen
           <select
@@ -196,24 +196,24 @@ export default function BudgetPlanFinalizationPage() {
         </label>
       </div>
 
-      {loading && <div style={{ color: "var(--muted)", marginBottom: 12 }}>Lade Daten ...</div>}
-      {error && <div style={{ color: "var(--accent)", marginBottom: 12 }}>{error}</div>}
+      {loading && <div className="kc-status kc-status--spaced">Lade Daten ...</div>}
+      {error && <div className="kc-error kc-status--spaced">{error}</div>}
 
       {plan && (
         <>
-          <div className="kc-infobox" style={{ marginBottom: "1.2rem" }}>
-            <div style={{ fontSize: "1.2rem", fontWeight: 600 }}>{plan.name}</div>
-            <div style={{ color: "var(--muted)", marginBottom: 4 }}>{plan.description}</div>
+          <div className="kc-infobox u-mb-3">
+            <div className="kc-infobox-title">{plan.name}</div>
+            <div className="kc-infobox-subtitle">{plan.description}</div>
             <div>Status: {statusNames[plan.state] ?? plan.state}</div>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
+          <div className="kc-actions">
             <button className="button" onClick={handleRecalculate} disabled={recalculating || loading || !costCenters.length}>
               {recalculating ? "Berechne ..." : "Neu berechnen"}
             </button>
           </div>
 
-          <div className="wide-container" style={{ paddingTop: 0 }}>
+          <div className="wide-container">
             <table className="kc-table" role="table">
               <thead>
                 <tr>
@@ -247,7 +247,7 @@ export default function BudgetPlanFinalizationPage() {
                 ))}
                 {sortedCostCenters.length === 0 && !loading && (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: "center", color: "var(--muted)" }}>
+                    <td colSpan={8} className="kc-cell--center kc-cell--muted">
                       Keine Kostenstellen gefunden
                     </td>
                   </tr>
@@ -269,24 +269,23 @@ export default function BudgetPlanFinalizationPage() {
           </div>
 
           {/* Sicherheitsabfrage */}
-          <div className="form" style={{ marginTop: "1.2rem", gap: ".6rem" }}>
+          <div className="form u-mt-3">
             <label>
               Sicherheitsabfrage: Wie viel ist {a} + {b}?
               <input
-                className="form-input"
+                className="form-input kc-max-220"
                 type="number"
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
                 placeholder="Ergebnis eingeben"
-                style={{ maxWidth: 200 }}
               />
             </label>
             {!challengeOk && answer !== "" && (
-              <div style={{ color: "var(--accent)" }}>Antwort ist nicht korrekt.</div>
+              <div className="kc-error">Antwort ist nicht korrekt.</div>
             )}
           </div>
 
-          <div style={{ display: "flex", gap: ".6rem", marginTop: "1rem" }}>
+          <div className="kc-button-row kc-button-row--tight">
             <button
               className="button"
               onClick={() => {
@@ -311,7 +310,7 @@ export default function BudgetPlanFinalizationPage() {
         </>
       )}
 
-      <div style={{ marginTop: "1.5rem" }}>
+      <div className="u-mt-3">
         <Link href="/budget-plan">
           <button className="button">Zurück zur Übersicht</button>
         </Link>

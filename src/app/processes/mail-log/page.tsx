@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import '@/app/css/tables.css';
+import { ClientTableHead } from '@/app/components/clientTable/ClientTableHead';
+import { useClientTable, type ColumnDef } from '@/app/components/clientTable/useClientTable';
 
 function extractToken(session: any): string {
   return (session?.token as string)
@@ -53,36 +55,64 @@ export default function MailLogPage() {
     load();
   }, [session]);
 
+  const columns = useMemo<ColumnDef<MailListItem>[]>(
+    () => [
+      {
+        id: 'sentAt',
+        header: 'Datum',
+        type: 'date',
+        accessor: (m) => m.sentAt,
+        cell: (m) => (m.sentAt ? new Date(m.sentAt).toLocaleString('de-DE') : ''),
+      },
+      {
+        id: 'subject',
+        header: 'Betreff',
+        type: 'text',
+        accessor: (m) => m.subject,
+      },
+      {
+        id: 'user',
+        header: 'Nutzer',
+        type: 'text',
+        accessor: (m) => (m.user ? `${m.user.first_name} ${m.user.last_name}` : ''),
+        cell: (m) => (m.user ? `${m.user.first_name} ${m.user.last_name}` : '—'),
+      },
+      {
+        id: 'open',
+        header: 'Öffnen',
+        accessor: (m) => m.id,
+        filterable: false,
+        sortable: false,
+        cell: (m) => (
+          <button className="button" onClick={() => (window.location.href = `/processes/mail-log/${m.id}`)}>
+            Öffnen
+          </button>
+        ),
+      },
+    ],
+    []
+  );
+
+  const table = useClientTable(items, columns, { enableFilters: true });
+
   return (
-    <div className="table-center" style={{ padding: '1rem' }}>
-      <h2 style={{ margin: '0 0 1rem 0' }}>Mail-Log</h2>
-      {loading && <div style={{ color: 'var(--muted)', marginBottom: 12 }}>Lade Daten ...</div>}
-      {error && <div style={{ color: 'var(--accent)', marginBottom: 12 }}>{error}</div>}
+    <div className="kc-page">
+      <h2 className="kc-page-title">Mail-Log</h2>
+      {loading && <div className="kc-status kc-status--spaced">Lade Daten ...</div>}
+      {error && <div className="kc-error kc-status--spaced">{error}</div>}
       <table className="kc-table" role="table">
-        <thead>
-          <tr>
-            <th>Datum</th>
-            <th>Betreff</th>
-            <th>Nutzer</th>
-            <th>Öffnen</th>
-          </tr>
-        </thead>
+        <ClientTableHead table={table} />
         <tbody>
-          {items.map((m) => (
+          {table.filteredSortedRows.map((m) => (
             <tr key={m.id} className="kc-row">
-              <td>{m.sentAt ? new Date(m.sentAt).toLocaleString('de-DE') : ''}</td>
-              <td>{m.subject}</td>
-              <td>{m.user ? `${m.user.first_name} ${m.user.last_name}` : '—'}</td>
-              <td>
-                <button className="button" onClick={() => (window.location.href = `/processes/mail-log/${m.id}`)}>
-                  Öffnen
-                </button>
-              </td>
+              {table.columns.map((c) => (
+                <td key={c.id}>{c.cell ? c.cell(m) : String(c.accessor(m) ?? '-') || '-'}</td>
+              ))}
             </tr>
           ))}
-          {items.length === 0 && !loading && (
+          {table.filteredSortedRows.length === 0 && !loading && (
             <tr>
-              <td colSpan={4} style={{ textAlign: 'center', color: 'var(--muted)' }}>
+              <td colSpan={table.columns.length} className="kc-cell--center kc-cell--muted">
                 Keine Mails gefunden
               </td>
             </tr>
@@ -92,4 +122,3 @@ export default function MailLogPage() {
     </div>
   );
 }
-

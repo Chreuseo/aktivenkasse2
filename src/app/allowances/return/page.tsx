@@ -125,11 +125,10 @@ export default function AllowanceReturnPage() {
         <label>
           Rückstellung
           <select
-            className="form-select form-select-max"
+            className="form-select form-select-max kc-max-420"
             value={selectedId}
             onChange={e => setSelectedId(e.target.value)}
             required
-            style={{ maxWidth: "420px" }}
           >
             <option value="">Bitte wählen</option>
             {allowances.map(a => (
@@ -140,13 +139,13 @@ export default function AllowanceReturnPage() {
           </select>
         </label>
 
-        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <label className="kc-checkline">
           <input type="checkbox" checked={withhold} onChange={e => setWithhold(e.target.checked)} />
           Einbehalt
         </label>
 
         {withhold && (
-          <div style={{ border: "1px solid var(--border)", padding: "1rem", borderRadius: 6, marginTop: "0.5rem" }}>
+          <div className="kc-panel kc-panel--spaced">
             <label>
               Betrag (Einbehalt)
               <input type="number" value={withholdAmount} onChange={e => setWithholdAmount(e.target.value)} required min="0" step="0.01" inputMode="decimal" />
@@ -158,11 +157,10 @@ export default function AllowanceReturnPage() {
             <label>
               Haushaltsplan
               <select
-                className="form-select form-select-max"
+                className="form-select form-select-max kc-max-220"
                 value={budgetPlanId}
                 onChange={e => setBudgetPlanId(e.target.value)}
                 required
-                style={{ maxWidth: "220px" }}
               >
                 <option value="">Bitte wählen</option>
                 {budgetPlans.map(bp => (
@@ -173,12 +171,11 @@ export default function AllowanceReturnPage() {
             <label>
               Kostenstelle
               <select
-                className="form-select form-select-max"
+                className="form-select form-select-max kc-max-220"
                 value={costCenterId}
                 onChange={e => setCostCenterId(e.target.value)}
                 required
                 disabled={!budgetPlanId}
-                style={{ maxWidth: "220px" }}
               >
                 <option value="">Bitte wählen</option>
                 {costCenters.map(cc => (
@@ -192,7 +189,7 @@ export default function AllowanceReturnPage() {
         <button type="submit" disabled={loading}>Erstatten</button>
       </form>
       {selected && (
-        <p className="message" style={{ marginTop: "0.5rem" }}>
+        <p className="message u-mt-2">
           Ausgewählt: {getAccountDisplayName(selected.account)}: {selected.description || "-"} ({selected.amount.toFixed(2)} €)
         </p>
       )}

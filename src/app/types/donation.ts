@@ -9,6 +9,7 @@ export interface DonationRow {
   transactionId?: number | null;
   userName?: string;
   processorName?: string;
+  downloadedAt?: string | null; // ISO (Zeitpunkt des ersten Abrufs)
 }
 
 export interface DonationCreateCandidate {

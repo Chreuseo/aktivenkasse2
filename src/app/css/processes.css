@@ -1,0 +1,70 @@
+/* Datei: src/app/css/processes.css
+   Zweck: Prozess-Seiten (Mail, etc.) – kleine, wiederverwendbare Layout-Helfer
+*/
+
+.kc-process-filter {
+  width: 100%;
+  margin: 0 auto 1rem auto;
+}
+
+.kc-process-section {
+  width: 100%;
+  margin: 0 auto 1rem auto;
+}
+
+.kc-filter-grid {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.kc-filter-subgrid {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.kc-label-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.kc-label-col > span {
+  font-weight: 600;
+}
+
+.kc-minw-140 { min-width: 140px; }
+.kc-minw-180 { min-width: 180px; }
+.kc-minw-200 { min-width: 200px; }
+.kc-minw-220 { min-width: 220px; }
+.kc-minw-280 { min-width: 280px; }
+
+.kc-max-140 { max-width: 140px; }
+
+.kc-message--spaced { margin-top: 0.5rem; }
+
+.kc-process-page--1100 {
+  max-width: 1100px;
+  margin: 2rem auto;
+  padding: 1rem;
+}
+
+.kc-process-title {
+  margin: 0 0 0.75rem 0;
+}
+
+.kc-inline-checks {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.kc-inline-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

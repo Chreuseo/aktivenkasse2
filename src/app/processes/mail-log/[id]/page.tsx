@@ -61,36 +61,36 @@ export default function MailLogDetailPage() {
   }, [session, id]);
 
   return (
-    <div className="table-center mail-detail" style={{ padding: '1rem', maxWidth: 900, overflowX: 'hidden' }}>
-      <h2 style={{ margin: '0 0 1rem 0' }}>Mail-Details</h2>
-      <div style={{ marginBottom: '1rem' }}>
+    <div className="kc-page">
+      <h2 className="kc-page-title">Mail-Details</h2>
+      <div className="u-mb-3">
         <button className="button" onClick={() => history.back()}>Zurück</button>
       </div>
-      {loading && <div style={{ color: 'var(--muted)', marginBottom: 12 }}>Lade Daten ...</div>}
-      {error && <div style={{ color: 'var(--accent)', marginBottom: 12 }}>{error}</div>}
+      {loading && <div className="kc-status kc-status--spaced">Lade Daten ...</div>}
+      {error && <div className="kc-error kc-status--spaced">{error}</div>}
       {item && (
-        <table className="kc-table" role="table" style={{ width: '100%', tableLayout: 'fixed', whiteSpace: 'normal' }}>
+        <table className="kc-table kc-table--fixed" role="table">
           <tbody>
             <tr>
-              <th style={{ width: '160px', whiteSpace: 'nowrap' }}>Datum</th>
-              <td style={{ wordBreak: 'break-word' }}>{item.sentAt ? new Date(item.sentAt).toLocaleString('de-DE') : ''}</td>
+              <th className="kc-th--w-160 kc-th--nowrap">Datum</th>
+              <td className="kc-td--break">{item.sentAt ? new Date(item.sentAt).toLocaleString('de-DE') : ''}</td>
             </tr>
             <tr>
-              <th style={{ whiteSpace: 'nowrap' }}>Betreff</th>
-              <td style={{ wordBreak: 'break-word' }}>{item.subject}</td>
+              <th className="kc-th--nowrap">Betreff</th>
+              <td className="kc-td--break">{item.subject}</td>
             </tr>
             <tr>
-              <th style={{ whiteSpace: 'nowrap' }}>Nutzer</th>
-              <td style={{ wordBreak: 'break-word' }}>{item.user ? `${item.user.first_name} ${item.user.last_name}` : '—'}</td>
+              <th className="kc-th--nowrap">Nutzer</th>
+              <td className="kc-td--break">{item.user ? `${item.user.first_name} ${item.user.last_name}` : '—'}</td>
             </tr>
             <tr>
-              <th style={{ whiteSpace: 'nowrap' }}>Empfänger</th>
-              <td style={{ wordBreak: 'break-word' }}>{item.addressedTo}</td>
+              <th className="kc-th--nowrap">Empfänger</th>
+              <td className="kc-td--break">{item.addressedTo}</td>
             </tr>
             <tr className="kc-entry-end">
-              <th style={{ whiteSpace: 'nowrap' }}>Body</th>
+              <th className="kc-th--nowrap">Body</th>
               <td>
-                <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                <div className="kc-prewrap-anywhere">
                   {item.body}
                 </div>
               </td>
@@ -99,7 +99,7 @@ export default function MailLogDetailPage() {
         </table>
       )}
       {!loading && !error && !item && (
-        <div style={{ color: 'var(--muted)' }}>Kein Eintrag gefunden</div>
+        <div className="kc-status">Kein Eintrag gefunden</div>
       )}
     </div>
   );

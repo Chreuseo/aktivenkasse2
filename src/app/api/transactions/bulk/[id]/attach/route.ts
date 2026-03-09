@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { extractUserFromAuthHeader } from '@/lib/serverUtils';
-import { checkPermission } from '@/services/authService';
+import { checkPermission, extractTokenAndUserId } from '@/services/authService';
 import { AuthorizationType, ResourceType } from '@/app/types/authorization';
 import { isAllowedAttachment } from '@/lib/validation';
 import { saveAttachmentFromFormFileData as saveAttachmentFromFormFile } from '@/lib/apiHelpers';
@@ -13,10 +12,9 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     return NextResponse.json({ error: 'Ungültige Sammeltransaktions-ID' }, { status: 400 });
   }
 
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
-  const { userId } = extractUserFromAuthHeader(authHeader as string | undefined);
+  const { userId } = extractTokenAndUserId(req as any);
   if (!userId) {
-    return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 403 });
+    return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 401 });
   }
 
   const perm = await checkPermission(req, ResourceType.transactions, AuthorizationType.write_all);

@@ -28,6 +28,7 @@ export type AdvanceListItem = {
   canCancel: boolean;
   receiptUrl?: string;
   reason?: string;
+  paymentRequest?: string;
   is_donation?: boolean;
   donationType?: 'financial' | 'material' | 'waive_fees' | null;
 };

@@ -5,12 +5,11 @@ type PrismaTx = any;
 
 export type DonationTypeUi = 'financial' | 'material' | 'waiver';
 
+import { donationTypeUiToDb } from '@/lib/donationType';
+
 function toDbType(t: DonationTypeUi): any {
   // Prisma Enum: DonationType = financial | material | waive_fees
-  if (t === 'financial') return 'financial';
-  if (t === 'material') return 'material';
-  if (t === 'waiver') return 'waive_fees';
-  return 'financial';
+  return donationTypeUiToDb(t);
 }
 
 export async function createDonationForTransaction(

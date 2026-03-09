@@ -1,18 +1,14 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { ResourceType, AuthorizationType } from '@/app/types/authorization';
-import { checkPermission } from '@/services/authService';
-import { extractUserFromAuthHeader } from '@/lib/serverUtils';
+import { checkPermission, getAuthContext } from '@/services/authService';
 import { generateDonationReceiptPdf, type DonationReceiptRow } from '@/lib/pdf';
-import {arrayBuffer} from "node:stream/consumers";
+import { donationTypeDbToUi } from '@/lib/donationType';
 
 export const runtime = 'nodejs';
 
 function donationTypeToUi(t: any): 'financial' | 'material' | 'waiver' {
-  if (t === 'financial') return 'financial';
-  if (t === 'material') return 'material';
-  if (t === 'waiver') return 'waiver';
-  return 'financial';
+  return donationTypeDbToUi(t);
 }
 
 function requireEnv(name: string): string {
@@ -29,9 +25,8 @@ function parseDateParam(v: string | null): Date | null {
 }
 
 export async function GET(req: Request) {
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
-  const { userId } = extractUserFromAuthHeader(authHeader as string | undefined);
-  if (!userId) return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 403 });
+  const { userId } = await getAuthContext(req);
+  if (!userId) return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 401 });
 
   const perm = await checkPermission(req, ResourceType.transactions, AuthorizationType.read_own);
   if (!perm.allowed) {
@@ -64,7 +59,29 @@ export async function GET(req: Request) {
     orderBy: { date: 'asc' },
   });
 
+  // Beim ersten PDF-Abruf: downloadedAt einmalig setzen (nur wenn noch NULL).
+  // Batch-Update ist idempotent und vermeidet N+1.
+  if (donations.length > 0) {
+    const ids = donations.map((d: any) => d.id);
+    const now = new Date();
+
+    const chunkSize = 500;
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      await prisma.donation.updateMany({
+        where: {
+          id: { in: chunk },
+          downloadedAt: null,
+        },
+        data: {
+          downloadedAt: now,
+        },
+      });
+    }
+  }
+
   const rows: DonationReceiptRow[] = donations.map((d: any) => ({
+    id: d.id,
     date: (d.date as Date).toISOString(),
     description: d.description,
     type: donationTypeToUi(d.type),

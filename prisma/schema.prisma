@@ -158,6 +158,7 @@ model Donation {
   processorId   Int
   processor     User         @relation("DonationProcessor", fields: [processorId], references: [id])
   advances      Advances[]
+  downloadedAt  DateTime?
 }
 
 model Transaction {
@@ -227,6 +228,7 @@ model Advances {
   decidedAt         DateTime?
   attachmentId      Int?
   attachment        Attachment?      @relation(fields: [attachmentId], references: [id])
+  paymentRequest    String?
 }
 
 model Attachment {

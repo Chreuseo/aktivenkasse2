@@ -2,8 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { AuthorizationType, ResourceType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
+import type { Transaction } from "@/app/types/transaction";
 
-export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+type IdRouteContext = { params: Promise<{ id: string }> };
+
+function inferOtherFromAccount(acc: any): Transaction["other"] {
+  if (!acc) return null;
+  if (acc.users && acc.users.length > 0) {
+    const u = acc.users[0];
+    return { type: "user", name: `${u.first_name} ${u.last_name}`, mail: u.mail };
+  }
+  if (acc.bankAccounts && acc.bankAccounts.length > 0) {
+    const b = acc.bankAccounts[0];
+    return { type: "bank", name: b.name, bank: b.bank, iban: b.iban };
+  }
+  if (acc.clearingAccounts && acc.clearingAccounts.length > 0) {
+    const c = acc.clearingAccounts[0];
+    return { type: "clearing_account", name: c.name };
+  }
+  return null;
+}
+
+export async function GET(req: NextRequest, ctx: IdRouteContext) {
   const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.read_all);
   if (!perm.allowed) return NextResponse.json({ error: perm.error || "Forbidden" }, { status: 403 });
 
@@ -26,6 +46,15 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       ? prisma.transaction.findMany({
           where: { accountId },
           orderBy: { date: "desc" },
+          include: {
+            counter_transaction: {
+              include: {
+                account: { include: { users: true, bankAccounts: true, clearingAccounts: true } },
+              },
+            },
+            costCenter: { include: { budget_plan: true } },
+            attachment: true,
+          } as any,
         })
       : Promise.resolve([]),
     accountId
@@ -37,16 +66,29 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       : Promise.resolve([]),
   ]);
 
-  const mapTx = (tx: any) => ({
-    id: tx.id,
-    amount: Number(tx.amount),
-    date: (tx.date_valued ?? tx.date).toISOString(),
-    description: tx.description,
-    reference: tx.reference || undefined,
-    processed: !!tx.processed,
-    attachmentId: tx.attachmentId || undefined,
-    receiptUrl: tx.attachmentId ? `/api/transactions/${tx.id}/receipt` : undefined,
-  });
+  const mapTx = (tx: any) => {
+    const costCenterLabel = tx.costCenter && tx.costCenter.budget_plan
+      ? `${tx.costCenter.budget_plan.name} - ${tx.costCenter.name}`
+      : undefined;
+
+    const other = tx.counter_transaction ? inferOtherFromAccount(tx.counter_transaction.account) : null;
+
+    return {
+      id: tx.id,
+      amount: Number(tx.amount),
+      date: (tx.date_valued ?? tx.date).toISOString(),
+      description: tx.description,
+      reference: tx.reference || undefined,
+      processed: !!tx.processed,
+      other,
+      attachmentId: tx.attachmentId || undefined,
+      costCenterLabel,
+      costCenterId: tx.costCenterId || (tx.costCenter ? tx.costCenter.id : undefined),
+      budgetPlanId: tx.costCenter && tx.costCenter.budget_plan ? tx.costCenter.budget_plan.id : undefined,
+      receiptUrl: tx.attachmentId ? `/api/transactions/${tx.id}/receipt` : undefined,
+      bulkId: tx.transactionBulkId ? Number(tx.transactionBulkId) : undefined,
+    };
+  };
 
   const planned = transactionsAll.filter(t => !t.processed).map(mapTx);
   const past = transactionsAll.filter(t => t.processed).map(mapTx);
@@ -95,7 +137,7 @@ function normalizeDateOrNull(v: any): Date | null {
   return Number.isFinite(d.getTime()) ? d : null;
 }
 
-export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: NextRequest, ctx: IdRouteContext) {
   const perm = await checkPermission(req, ResourceType.userAuth, AuthorizationType.write_all);
   if (!perm.allowed) return NextResponse.json({ error: perm.error || "Forbidden" }, { status: 403 });
 

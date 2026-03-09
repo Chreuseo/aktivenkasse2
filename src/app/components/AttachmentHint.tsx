@@ -18,7 +18,7 @@ export default function AttachmentHint({ file }: { file?: File | null }) {
   if (!file || isPdf) return null;
 
   return (
-    <div className="message" style={{ marginTop: "0.5rem" }}>
+    <div className="message u-mt-2">
       Belege vorzugsweise komprimiert als pdf (Adobe Scan:&nbsp;
         <a
         href="https://play.google.com/store/apps/details?id=com.adobe.scan.android&hl=de"

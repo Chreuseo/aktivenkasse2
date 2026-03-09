@@ -1,0 +1,15 @@
+/* Datei: src/app/css/forms-extra.css
+   Zweck: kleine Ergänzungen zu forms.css (Layout-Utilities innerhalb von Formularen)
+*/
+
+/* Checkbox-/Switch-Zeilen horizontal */
+.kc-checkline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* max-width Varianten für select/input ohne Inline-Styles */
+.kc-max-220 { max-width: 220px; }
+.kc-max-420 { max-width: 420px; }
+

@@ -586,6 +586,7 @@ function formatCurrency(n: number): string {
 }
 
 export type DonationReceiptRow = {
+  id: number;
   date: string; // ISO
   description: string;
   type: 'financial' | 'material' | 'waiver';
@@ -792,9 +793,10 @@ export async function generateDonationReceiptPdf(input: {
 
   // Tabelle
   const tableCols = [
-    { key: 'date', label: 'Datum', width: 80 },
-    { key: 'description', label: 'Beschreibung', width: 260 },
-    { key: 'type', label: 'Art', width: 110 },
+    { key: 'id', label: 'ID', width: 45 },
+    { key: 'date', label: 'Datum', width: 70 },
+    { key: 'description', label: 'Beschreibung', width: 225 },
+    { key: 'type', label: 'Art', width: 105 },
     { key: 'amount', label: 'Betrag', width: 85 },
   ] as const;
   const tableWidth = tableCols.reduce((s, c) => s + c.width, 0);
@@ -847,13 +849,16 @@ export async function generateDonationReceiptPdf(input: {
     page.setFontSize(rowFs);
   }
 
-  function drawRow(cells: { date: string; description: string; type: string; amount: string }, bold = false) {
+  function drawRow(
+    cells: { id: string; date: string; description: string; type: string; amount: string },
+    bold = false,
+  ) {
     const font = bold ? boldFont : normalFont;
     page.setFont(font);
     page.setFontSize(rowFs);
 
-    const wrappedDesc = wrapText(font, rowFs, cells.description, tableCols[1].width - cellPadX * 2);
-    const wrappedType = wrapText(font, rowFs, cells.type, tableCols[2].width - cellPadX * 2);
+    const wrappedDesc = wrapText(font, rowFs, cells.description, tableCols[2].width - cellPadX * 2);
+    const wrappedType = wrapText(font, rowFs, cells.type, tableCols[3].width - cellPadX * 2);
     const maxLines = Math.max(1, wrappedDesc.length, wrappedType.length);
 
     // extra Puffer oben/unten pro Zeile, damit Text nie auf Linien sitzt
@@ -867,26 +872,28 @@ export async function generateDonationReceiptPdf(input: {
       drawTableHeader();
     }
 
-    // datum, beschreibung, art (multiline), amount rechtsbündig
     let x = tableX;
     const textY = y - rowPadTop;
 
-    page.drawText(cells.date, { x: x + cellPadX, y: textY });
+    page.drawText(cells.id, { x: x + cellPadX, y: textY });
     x += tableCols[0].width;
+
+    page.drawText(cells.date, { x: x + cellPadX, y: textY });
+    x += tableCols[1].width;
 
     for (let i = 0; i < wrappedDesc.length; i++) {
       page.drawText(wrappedDesc[i], { x: x + cellPadX, y: textY - i * rowLineHeight });
     }
-    x += tableCols[1].width;
+    x += tableCols[2].width;
 
     for (let i = 0; i < wrappedType.length; i++) {
       page.drawText(wrappedType[i], { x: x + cellPadX, y: textY - i * rowLineHeight });
     }
-    x += tableCols[2].width;
+    x += tableCols[3].width;
 
     const amountText = cells.amount;
     const amountWidth = font.widthOfTextAtSize(amountText, rowFs);
-    page.drawText(amountText, { x: x + tableCols[3].width - cellPadX - amountWidth, y: textY });
+    page.drawText(amountText, { x: x + tableCols[4].width - cellPadX - amountWidth, y: textY });
 
     y -= required;
   }
@@ -898,6 +905,7 @@ export async function generateDonationReceiptPdf(input: {
     sum += Number(r.amount || 0);
     drawRow(
       {
+        id: String(r.id),
         date: formatDate(r.date),
         description: r.description,
         type: typeLabel(r.type),
@@ -915,7 +923,7 @@ export async function generateDonationReceiptPdf(input: {
     color: rgb(0.6, 0.6, 0.6),
   });
   y -= 6;
-  drawRow({ date: '', description: 'Summe', type: '', amount: formatCurrency(sum) }, true);
+  drawRow({ id: '', date: '', description: 'Summe', type: '', amount: formatCurrency(sum) }, true);
 
   y -= 8;
 

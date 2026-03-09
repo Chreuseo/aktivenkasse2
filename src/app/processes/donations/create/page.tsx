@@ -118,11 +118,11 @@ export default function DonationCreateOverviewPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1400, margin: '2rem auto', padding: '1rem' }}>
-      <h2 style={{ marginBottom: '0.5rem' }}>Zuwendungsbescheide erstellen</h2>
+    <div className="kc-page">
+      <h2 className="kc-page-title kc-page-title--tight">Zuwendungsbescheide erstellen</h2>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div className="kc-inline-controls u-mb-3">
+        <label className="kc-checkline">
           <input
             type="checkbox"
             checked={negativeOnly}
@@ -131,14 +131,14 @@ export default function DonationCreateOverviewPage() {
           negative Konten anzeigen
         </label>
 
-        <div style={{ color: 'var(--muted)' }}>
+        <div className="kc-status">
           {rows ? `${rows.length} Einträge` : ''}
         </div>
       </div>
 
-      {loading && <div style={{ color: 'var(--muted)' }}>Lade Daten ...</div>}
-      {error && <div style={{ marginBottom: '1rem' }}>Fehler: {error}</div>}
-      {message && <div style={{ marginBottom: '1rem' }}>{message}</div>}
+      {loading && <div className="kc-status">Lade Daten ...</div>}
+      {error && <div className="kc-error u-mb-3">Fehler: {error}</div>}
+      {message && <div className="message u-mb-3">{message}</div>}
 
       {rows && (
         <DonationCreateTable
@@ -152,23 +152,13 @@ export default function DonationCreateOverviewPage() {
       )}
 
       {negativeOnly && (
-        <div
-          className="message"
-          style={{
-            marginTop: '1rem',
-            marginBottom: '0.75rem',
-            border: '1px solid #f59e0b',
-            background: '#fffbeb',
-            color: '#92400e',
-            fontWeight: 600,
-          }}
-        >
+        <div className="kc-panel kc-panel--spaced kc-warning">
           Bitte Zahlungseingänge sorgfältig prüfen.
         </div>
       )}
 
-      <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ color: 'var(--muted)' }}>{selectedCount} ausgewählt</div>
+      <div className="kc-inline-controls kc-inline-controls--between u-mt-2">
+        <div className="kc-status">{selectedCount} ausgewählt</div>
         <button className="button" onClick={createDonations} disabled={submitting || loading || selectedCount === 0}>
           {submitting ? 'Erzeuge ...' : 'erzeugen'}
         </button>

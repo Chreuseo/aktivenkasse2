@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import "@/app/css/tables.css";
 import { extractToken, fetchJson } from "@/lib/utils";
+import { ClientTableHead } from "@/app/components/clientTable/ClientTableHead";
+import { useClientTable, type ColumnDef } from "@/app/components/clientTable/useClientTable";
 
 interface AllowanceRow {
   id: number;
@@ -54,16 +56,59 @@ export default function AllowancesTable({ accountId, title = "Rückstellungen" }
     load();
   }, [filter, session, accountId]);
 
-  const totalAmount = rows.reduce((sum, r) => sum + (isFinite(r.amount) ? r.amount : 0), 0);
-  const totalWithheld = rows.reduce((sum, r) => sum + (isFinite(r.withheld) ? r.withheld : 0), 0);
+  const columns = useMemo<ColumnDef<AllowanceRow>[]>(
+    () => [
+      {
+        id: 'date',
+        header: 'Datum',
+        type: 'date',
+        accessor: (r) => r.date,
+        cell: (r) => new Date(r.date).toLocaleDateString(),
+      },
+      {
+        id: 'description',
+        header: 'Beschreibung',
+        type: 'text',
+        accessor: (r) => r.description ?? '',
+        cell: (r) => r.description || "-",
+      },
+      {
+        id: 'amount',
+        header: 'Betrag',
+        type: 'number',
+        accessor: (r) => r.amount,
+        cell: (r) => <span className="kc-fw-600">{r.amount.toFixed(2)} €</span>,
+      },
+      {
+        id: 'withheld',
+        header: 'Einbehalt',
+        type: 'number',
+        accessor: (r) => r.withheld,
+        cell: (r) => (r.withheld ? r.withheld.toFixed(2) + " €" : "-"),
+      },
+      {
+        id: 'returnDate',
+        header: 'Erstattung (Datum)',
+        type: 'date',
+        accessor: (r) => r.returnDate ?? '',
+        cell: (r) => (r.returnDate ? new Date(r.returnDate).toLocaleDateString() : "-"),
+      },
+    ],
+    []
+  );
+
+  const table = useClientTable(rows, columns, { enableFilters: true });
+
+  const totalAmount = table.filteredSortedRows.reduce((sum, r) => sum + (isFinite(r.amount) ? r.amount : 0), 0);
+  const totalWithheld = table.filteredSortedRows.reduce((sum, r) => sum + (isFinite(r.withheld) ? r.withheld : 0), 0);
 
   return (
-    <div style={{ marginTop: "1rem" }}>
-      <h3 style={{ marginBottom: "0.8rem" }}>{title}</h3>
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.8rem" }}>
-        <label>
+    <div className="u-mt-3">
+      <h3 className="kc-section-title">{title}</h3>
+      <div className="kc-filterbar">
+        <label className="kc-formfield">
           Filter
-          <select value={filter} onChange={e => setFilter(e.target.value as any)} className="kc-select" style={{ marginLeft: "0.5rem" }}>
+          <select value={filter} onChange={e => setFilter(e.target.value as any)} className="kc-select kc-max-220">
             <option value="open">Offen</option>
             <option value="returned">Erstattet</option>
             <option value="all">Alle</option>
@@ -71,42 +116,32 @@ export default function AllowancesTable({ accountId, title = "Rückstellungen" }
         </label>
       </div>
 
-      {loading && <div style={{ color: "var(--muted)" }}>Lade…</div>}
-      {error && <div style={{ color: "var(--error)" }}>{error}</div>}
+      {loading && <div className="kc-status">Lade…</div>}
+      {error && <div className="kc-error">{error}</div>}
 
       {rows.length > 0 ? (
         <table className="kc-table">
-          <thead>
-            <tr>
-              <th>Datum</th>
-              <th>Beschreibung</th>
-              <th>Betrag</th>
-              <th>Einbehalt</th>
-              <th>Erstattung (Datum)</th>
-            </tr>
-          </thead>
+          <ClientTableHead table={table} />
           <tbody>
-            {rows.map(r => (
-              <tr key={r.id}>
-                <td>{new Date(r.date).toLocaleDateString()}</td>
-                <td>{r.description || "-"}</td>
-                <td>{r.amount.toFixed(2)} €</td>
-                <td>{r.withheld ? r.withheld.toFixed(2) + " €" : "-"}</td>
-                <td>{r.returnDate ? new Date(r.returnDate).toLocaleDateString() : "-"}</td>
+            {table.filteredSortedRows.map((r) => (
+              <tr key={r.id} className="kc-row">
+                {table.columns.map((c) => (
+                  <td key={c.id}>{c.cell ? c.cell(r) : String(c.accessor(r) ?? '-') || '-'}</td>
+                ))}
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={2} style={{ textAlign: "right", fontWeight: 600 }}>Summe</td>
-              <td style={{ fontWeight: 700 }}>{totalAmount.toFixed(2)} €</td>
-              <td style={{ fontWeight: 700 }}>{totalWithheld.toFixed(2)} €</td>
+              <td colSpan={2} className="kc-sum-label">Summe</td>
+              <td className="kc-fw-700">{totalAmount.toFixed(2)} €</td>
+              <td className="kc-fw-700">{totalWithheld.toFixed(2)} €</td>
               <td></td>
             </tr>
           </tfoot>
         </table>
       ) : (
-        !loading && !error ? <div style={{ color: "var(--muted)" }}>Keine Daten</div> : null
+        !loading && !error ? <div className="kc-status">Keine Daten</div> : null
       )}
     </div>
   );

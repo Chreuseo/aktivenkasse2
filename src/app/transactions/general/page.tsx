@@ -115,13 +115,13 @@ export default function GeneralTransactionsPage() {
   }, [transactions, selectedPlanId, selectedCostCenterId]);
 
   if (loading) {
-    return <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem", color: 'var(--muted)' }}>Lade Daten ...</div>;
+    return <div className="kc-page kc-status">Lade Daten ...</div>;
   }
 
   if (error) {
     return (
-      <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem" }}>
-        <h2 style={{ marginBottom: "1rem" }}>Alle Buchungen ohne Gegenkonto (Bankkonten nicht negiert)</h2>
+      <div className="kc-page">
+        <h2 className="kc-page-title">Alle Buchungen ohne Gegenkonto (Bankkonten nicht negiert)</h2>
         <p>Fehler beim Laden: {error}</p>
       </div>
     );
@@ -129,20 +129,20 @@ export default function GeneralTransactionsPage() {
 
   if (!transactions) {
     return (
-      <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem", color: 'var(--muted)' }}>
+      <div className="kc-page kc-status">
         Keine Daten
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 1000, margin: "2rem auto", padding: "1rem" }}>
-      <h2 style={{ marginBottom: "1rem" }}>Alle Buchungen ohne Gegenkonto (Bankkonten nicht negiert)</h2>
+    <div className="kc-page">
+      <h2 className="kc-page-title">Alle Buchungen ohne Gegenkonto (Bankkonten nicht negiert)</h2>
 
       {/* Filterleiste */}
-      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
+      <div className="kc-filterbar">
         <div>
-          <label htmlFor="planFilter" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Budgetplan</label>
+          <label htmlFor="planFilter" className="kc-fieldlabel">Budgetplan</label>
           <select
             id="planFilter"
             className="input"
@@ -151,7 +151,6 @@ export default function GeneralTransactionsPage() {
               const val = e.target.value;
               setSelectedPlanId(val ? Number(val) : null);
             }}
-            style={{ minWidth: 240 }}
           >
             <option value="">Alle</option>
             {plans.map(p => (
@@ -161,7 +160,7 @@ export default function GeneralTransactionsPage() {
         </div>
 
         <div>
-          <label htmlFor="ccFilter" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Kostenstelle</label>
+          <label htmlFor="ccFilter" className="kc-fieldlabel">Kostenstelle</label>
           <select
             id="ccFilter"
             className="input"
@@ -171,7 +170,6 @@ export default function GeneralTransactionsPage() {
               setSelectedCostCenterId(val ? Number(val) : null);
             }}
             disabled={!selectedPlanId || loadingCostCenters || costCenters.length === 0}
-            style={{ minWidth: 280 }}
           >
             <option value="">Alle</option>
             {costCenters.map(cc => (
@@ -180,8 +178,8 @@ export default function GeneralTransactionsPage() {
           </select>
         </div>
 
-        {loadingCostCenters && <span style={{ color: 'var(--muted)' }}>Kostenstellen werden geladen ...</span>}
-        {filterError && <span style={{ color: 'var(--accent)' }}>{filterError}</span>}
+        {loadingCostCenters && <span className="kc-status">Kostenstellen werden geladen ...</span>}
+        {filterError && <span className="kc-error">{filterError}</span>}
       </div>
 
       <GeneralTransactionTable transactions={filteredTransactions} />

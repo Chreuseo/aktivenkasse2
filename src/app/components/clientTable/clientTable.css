@@ -1,0 +1,82 @@
+.kc-th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Wrapper im TH, damit Toggle + Sort sauber nebeneinander stehen */
+.kc-th-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.kc-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+}
+
+.kc-th-sort {
+  min-width: 0;
+}
+
+.kc-th-sort__label {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kc-th-sort__icon {
+  opacity: 0.7;
+  font-size: 0.9em;
+  flex: none;
+}
+
+.kc-filter-row th {
+  padding-top: 0.35rem;
+}
+
+.kc-filter-cell {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Wichtig: Filter-Felder dürfen NICHT die Tabelle verbreitern */
+.kc-filter-row input,
+.kc-filter-row select {
+  min-width: 0 !important;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* In number/date-Zellen: Select soll nur so breit wie Inhalt sein */
+.kc-filter-cell > select {
+  width: auto;
+  flex: none;
+}
+
+.kc-filter-cell > input {
+  flex: 1 1 auto;
+}
+
+.kc-input--sm {
+  padding: 0.25rem 0.4rem;
+  font-size: 0.9rem;
+}
+
+.kc-select--sm {
+  padding: 0.25rem 0.35rem;
+  font-size: 0.9rem;
+}

@@ -224,11 +224,15 @@ export default function SepaXmlProcessPage() {
       const data: any = await res.json().catch(() => ({}));
       if (!res.ok) {
         const details = Array.isArray(data?.errors) && data.errors.length ? ` (${data.errors.length} Fehler in Auswahl)` : "";
-        throw new Error((data && data.error) ? String(data.error) + details : `Fehler ${res.status}`);
+        setError((data && data.error) ? String(data.error) + details : `Fehler ${res.status}`);
+        return;
       }
 
       const xml: string = String(data.xml || "");
-      if (!xml) throw new Error("Keine XML zurückgegeben");
+      if (!xml) {
+        setError("Keine XML zurückgegeben");
+        return;
+      }
 
       const filename = `sepa-${(data.messageId || "export").toString()}.xml`;
       const blob = new Blob([xml], { type: "application/xml;charset=utf-8" });
@@ -268,13 +272,13 @@ export default function SepaXmlProcessPage() {
   const bankAccountOptions = bankAccounts || [];
 
   return (
-    <div className="wide-container" style={{ width: "100%", maxWidth: 1100 }}>
-      <section style={{ width: "100%", margin: "0 auto 1rem auto" }}>
-        <h2 style={{ margin: "0 0 0.75rem 0" }}>SEPA-XML (Einzug)</h2>
+    <div className="kc-process-page--1100">
+      <section className="kc-process-section">
+        <h2 className="kc-process-title">SEPA-XML (Einzug)</h2>
 
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "flex-end" }}>
-          <label style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontWeight: 600 }}>Kontostand</span>
+        <div className="kc-filter-grid">
+          <label className="kc-label-col">
+            <span>Kontostand</span>
             <select className="kc-select kc-select--md" value={op} onChange={(e) => setOp(e.target.value as CompareOp)}>
               <option>kleiner</option>
               <option>größer</option>
@@ -283,16 +287,15 @@ export default function SepaXmlProcessPage() {
             </select>
           </label>
 
-          <label style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontWeight: 600 }}>Betrag (€)</span>
+          <label className="kc-label-col">
+            <span>Betrag (€)</span>
             <input
-              className="form-select form-select-max"
+              className="form-select form-select-max kc-minw-140"
               type="number"
               step="0.01"
               inputMode="decimal"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              style={{ minWidth: 140 }}
             />
           </label>
 
@@ -302,16 +305,16 @@ export default function SepaXmlProcessPage() {
         </div>
 
         {showNegHint && (
-          <div className="message" style={{ marginTop: "0.5rem" }}>
+          <div className="message kc-message--spaced">
             Hinweis: Für Einzug ist i.d.R. „kleiner als 0“ sinnvoll (nur negative Kontostände).
           </div>
         )}
       </section>
 
-      <section style={{ width: "100%", margin: "0 auto 1rem auto" }}>
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "flex-end" }}>
-          <label className="form" style={{ gap: "0.4rem", minWidth: 280, flex: 1 }}>
-            <span style={{ fontWeight: 600 }}>Verwendungszweck (global, Pflicht)</span>
+      <section className="kc-process-section">
+        <div className="kc-filter-grid">
+          <label className="form kc-form--tight kc-minw-280 kc-flex-1">
+            <span className="kc-fw-600">Verwendungszweck (global, Pflicht)</span>
             <input
               className="form-select form-select-max"
               type="text"
@@ -321,13 +324,13 @@ export default function SepaXmlProcessPage() {
             />
           </label>
 
-          <label style={{ display: "flex", flexDirection: "column", minWidth: 220 }}>
-            <span style={{ fontWeight: 600 }}>Einzugsdatum</span>
+          <label className="kc-label-col kc-minw-220">
+            <span>Einzugsdatum</span>
             <input className="form-select" type="date" value={collectionDate} onChange={(e) => setCollectionDate(e.target.value)} />
           </label>
 
-          <label style={{ display: "flex", flexDirection: "column", minWidth: 280 }}>
-            <span style={{ fontWeight: 600 }}>Einzug über Bankkonto</span>
+          <label className="kc-label-col kc-minw-280">
+            <span>Einzug über Bankkonto</span>
             <select className="kc-select kc-select--md" value={bankAccountId} onChange={(e) => setBankAccountId(e.target.value)}>
               <option value="">Bitte wählen…</option>
               {bankAccountOptions.map((b) => (
@@ -339,8 +342,8 @@ export default function SepaXmlProcessPage() {
           </label>
         </div>
 
-        <label className="form" style={{ gap: "0.4rem", marginTop: "0.6rem" }}>
-          <span style={{ fontWeight: 600 }}>Bemerkung (optional)</span>
+        <label className="form kc-form--tight u-mt-2">
+          <span className="kc-fw-600">Bemerkung (optional)</span>
           <textarea
             className="form-select"
             rows={3}
@@ -350,13 +353,13 @@ export default function SepaXmlProcessPage() {
           />
         </label>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: "0.6rem", flexWrap: "wrap" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div className="kc-inline-checks">
+          <label className="kc-inline-check">
             <input type="checkbox" checked={sendInfoMail} onChange={(e) => setSendInfoMail(e.target.checked)} />
             <span>Info-Mail senden</span>
           </label>
 
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <label className="kc-inline-check">
             <input type="checkbox" checked={createTransactions} onChange={(e) => setCreateTransactions(e.target.checked)} />
             <span>Transaktionen erzeugen</span>
           </label>
@@ -366,11 +369,11 @@ export default function SepaXmlProcessPage() {
           </button>
         </div>
 
-        {statusMsg ? <div className="message" style={{ whiteSpace: "pre-line" }}>{statusMsg}</div> : null}
-        {error ? <div className="message" style={{ color: "#ef4444" }}>{error}</div> : null}
+        {statusMsg ? <div className="message kc-preline">{statusMsg}</div> : null}
+        {error ? <div className="message kc-message--error">{error}</div> : null}
       </section>
 
-      <section className="table-center" style={{ width: "100%" }}>
+      <section className="table-center">
         <table className="kc-table">
           <thead>
             <tr>
@@ -387,7 +390,7 @@ export default function SepaXmlProcessPage() {
           <tbody>
             {filteredOnce && rows.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ padding: "1rem", color: "#9aa4b2" }}>
+                <td colSpan={6} className="kc-table-note kc-table-note--muted">
                   Keine Einträge für den aktuellen Filter.
                 </td>
               </tr>
@@ -405,7 +408,7 @@ export default function SepaXmlProcessPage() {
                 <td>{r.name}</td>
                 <td>{r.mail}</td>
                 <td>{formatCurrency(Number(r.balance) || 0)}</td>
-                <td style={{ color: r.sepaOk ? "var(--primary)" : "#ef4444" }}>{r.sepaOk ? "OK" : "fehlt"}</td>
+                <td className={r.sepaOk ? "kc-text-ok" : "kc-text-error"}>{r.sepaOk ? "OK" : "fehlt"}</td>
                 <td>
                   <input
                     className="form-select form-select-max"

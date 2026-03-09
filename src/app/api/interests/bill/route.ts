@@ -4,6 +4,7 @@ import { checkPermission, extractTokenAndUserId } from "@/services/authService";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
 import { computeInterestContributions, type DueWithAccount } from "@/services/interestService";
 import { createTransactionWithBalance } from "@/services/transactionService";
+import { resolveInterestAmount, buildInterestDescription, type InterestOverrideMap } from "@/app/api/interests/_interestOverride";
 
 function parseBool(val: any): boolean | null {
   if (val == null) return null;
@@ -11,12 +12,6 @@ function parseBool(val: any): boolean | null {
   if (["true", "1", "yes"].includes(v)) return true;
   if (["false", "0", "no"].includes(v)) return false;
   return null;
-}
-
-function getRate(): number {
-  const s = process.env.INTEREST_RATE_PERCENT || process.env["interest.rate.percent"] || "0";
-  const n = parseFloat(String(s).replace(",", "."));
-  return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
 export async function POST(req: NextRequest) {
@@ -78,7 +73,7 @@ export async function POST(req: NextRequest) {
   }
 
   // createdBy ermitteln
-  let { userId } = extractTokenAndUserId(req as any);
+  const { userId } = extractTokenAndUserId(req as any);
   let createdById: number | null = null;
   if (userId) {
     const user = isNaN(Number(userId))
@@ -87,6 +82,12 @@ export async function POST(req: NextRequest) {
     if (user) createdById = user.id;
   }
   if (!createdById) return NextResponse.json({ error: "Kein Benutzerkontext" }, { status: 400 });
+
+  // Optional: manuelle Overrides pro Due (nur sinnvoll in Kombination mit ids)
+  const overridesById: InterestOverrideMap | null =
+    body && typeof body === "object" && body.overridesById && typeof body.overridesById === "object"
+      ? (body.overridesById as InterestOverrideMap)
+      : null;
 
   const rateStr = process.env.INTEREST_RATE_PERCENT || process.env["interest.rate.percent"] || "0";
   const rate = parseFloat(String(rateStr).replace(",", "."));
@@ -122,14 +123,33 @@ export async function POST(req: NextRequest) {
       const interestEnabled = !!acc?.interest;
 
       const contrib = perDue.get(d.id) || { days: 0, interest: 0 };
-      const interestAmount = interestEnabled ? contrib.interest : 0;
+      const computedInterest = interestEnabled ? contrib.interest : 0;
+
+      // Overrides nur anwenden, wenn ids verwendet wurden; sonst ignorieren.
+      const overrideVal = ids.length ? overridesById?.[d.id] : null;
+      const { amount: interestAmount, overridden } = resolveInterestAmount({
+        computedInterest,
+        override: overrideVal,
+        interestEnabled,
+      });
 
       let interestTxId: number | null = null;
-      if (interestEnabled && interestAmount > 0) {
+      // Buchung auch bei 0 erzeugen, wenn manuell überschrieben wurde (Nachvollziehbarkeit).
+      // Sonst wie bisher nur bei > 0 buchen.
+      if (interestEnabled && (overridden || interestAmount > 0)) {
+        const description = buildInterestDescription({
+          dueId: d.id,
+          days: contrib.days,
+          ratePercent: rate,
+          computedInterest,
+          finalInterest: interestAmount,
+          overridden,
+        });
+
         const tx = await createTransactionWithBalance(p, {
           accountId: d.accountId,
           amount: -interestAmount,
-          description: `Zinsen für Fälligkeit #${d.id} (${contrib.days} Tage, ${rate}% p.a.)`,
+          description,
           createdById: createdById!,
           dateValued: today,
           costCenterId: costCenterId,

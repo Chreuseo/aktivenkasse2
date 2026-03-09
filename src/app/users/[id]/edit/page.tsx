@@ -191,22 +191,22 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
               Mailadresse
               <input type="email" name="mail" value={formData.mail} onChange={handleChange} required />
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label className="kc-checkline">
               <input type="checkbox" name="enabled" checked={formData.enabled} onChange={handleChange} />
               <span>Aktiviert</span>
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label className="kc-checkline">
               <input type="checkbox" name="interest" checked={formData.interest} onChange={handleChange} />
               <span>Zinsen erheben</span>
             </label>
             <button className="button" type="submit" disabled={loading}>Speichern</button>
           </form>
 
-          <hr style={{ margin: "1rem 0" }} />
+          <hr className="u-mt-3 u-mb-3" />
 
           <form className="edit-form" onSubmit={(e) => { e.preventDefault(); saveSepa(); }}>
-            <h2 style={{ margin: 0 }}>SEPA-Mandat</h2>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h2 className="kc-page-title kc-page-title--tight">SEPA-Mandat</h2>
+            <label className="kc-checkline">
               <input type="checkbox" name="sepa_mandate" checked={Boolean(sepaData.sepa_mandate)} onChange={handleSepaChange} />
               <span>Mandat aktiv</span>
             </label>

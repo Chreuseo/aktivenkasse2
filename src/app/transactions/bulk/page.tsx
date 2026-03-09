@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import "../../css/forms.css";
 import "../../css/tables.css";
 import { extractToken, fetchJson } from "@/lib/utils";
@@ -9,6 +9,13 @@ import type { User } from "@/app/types/clearingAccount";
 import type { BankAccount } from "@/app/types/bankAccount";
 import type { ClearingAccount } from "@/app/types/clearingAccount";
 import AttachmentHint from "@/app/components/AttachmentHint";
+import {
+  calcRowAmountCents,
+  centsToAmountString,
+  ensureQtyKeys,
+  parsePriceToCents,
+  type TickItem,
+} from "@/lib/tickList";
 
 const bulkTypes = [
   { value: "einzug", label: "Einzug" },
@@ -41,6 +48,10 @@ export default function BulkTransactionPage() {
   const { data: session } = useSession();
   // Datum einzeln Toggle (vorher konstant false)
   const [individualDates, setIndividualDates] = useState<boolean>(false);
+
+  const [tickListMode, setTickListMode] = useState<boolean>(false);
+  const [tickItems, setTickItems] = useState<TickItem[]>([{ id: crypto.randomUUID(), price: "" }]);
+
   const [formData, setFormData] = useState({
     date_valued: "",
     description: "",
@@ -56,12 +67,47 @@ export default function BulkTransactionPage() {
   const [bankOptions, setBankOptions] = useState<BankAccount[]>([]);
   const [clearingOptions, setClearingOptions] = useState<ClearingAccount[]>([]);
   const [rows, setRows] = useState([
-    { date: "", type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "" },
+    { date: "", type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "", qtyByItemId: {} as Record<string, number> },
   ]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [budgetPlans, setBudgetPlans] = useState<any[]>([]);
   const [costCentersByPlan, setCostCentersByPlan] = useState<Record<string, any[]>>({});
+
+  // Dedupe für parallele CostCenter-Ladevorgänge
+  const costCenterLoadInFlight = useRef<Record<string, Promise<any[]>>>({});
+
+  // Kostenstellen für einen Plan laden (lazy + Cache)
+  const loadCostCenters = async (planId: string) => {
+    if (!planId) return [] as any[];
+
+    // Cache hit
+    if (costCentersByPlan[planId]) return costCentersByPlan[planId];
+
+    // bereits laufenden Request wiederverwenden
+    const inFlight = costCenterLoadInFlight.current[planId];
+    if (inFlight) return inFlight;
+
+    const token = extractToken(session);
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const p = fetchJson(`/api/budget-plan/cost-centers?planId=${planId}`, { headers })
+      .then((list) => {
+        const arr = Array.isArray(list) ? list : [];
+        setCostCentersByPlan((prev) => ({ ...prev, [planId]: arr }));
+        return arr;
+      })
+      .catch(() => {
+        setCostCentersByPlan((prev) => ({ ...prev, [planId]: [] }));
+        return [];
+      })
+      .finally(() => {
+        delete costCenterLoadInFlight.current[planId];
+      });
+
+    costCenterLoadInFlight.current[planId] = p;
+    return p;
+  };
 
   // Zusatz: Filter-Lade-Box State
   const [statusOptions, setStatusOptions] = useState<string[]>([]);
@@ -153,10 +199,82 @@ export default function BulkTransactionPage() {
   };
   // Handler: Änderung von Zeilenfeldern inkl. Datum
   const handleRowChange = (idx: number, field: string, value: any) => {
-    setRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
+    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
   };
+
+  // Spezial: Budgetplan in Zeile geändert => Kostenstellen nachladen + Auswahl zurücksetzen
+  const handleRowBudgetPlanChange = async (idx: number, planId: string) => {
+    // erst UI-State updaten, damit Dropdown sofort reagiert
+    setRows((prev) =>
+      prev.map((r, i) =>
+        i === idx
+          ? {
+              ...r,
+              budgetPlanId: planId,
+              costCenterId: "",
+            }
+          : r,
+      ),
+    );
+
+    if (!planId) return;
+    await loadCostCenters(planId);
+  };
+
+  // Spezial: Typ in Zeile geändert.
+  // Wenn nicht Kostenstelle: Budgetplan/Kostenstelle leeren.
+  const handleRowTypeChange = (idx: number, type: string) => {
+    setRows((prev) =>
+      prev.map((r, i) => {
+        if (i !== idx) return r;
+        const next: any = { ...r, type };
+        if (type !== "cost_center") {
+          next.budgetPlanId = "";
+          next.costCenterId = "";
+        }
+        return next;
+      }),
+    );
+  };
+
+  const handleQtyChange = (rowIdx: number, itemId: string, value: string) => {
+    setRows(prev => prev.map((r, i) => {
+      if (i !== rowIdx) return r;
+      const parsed = value === "" ? "" : String(Math.max(0, Math.trunc(Number(value))));
+      return {
+        ...r,
+        qtyByItemId: {
+          ...((r as any).qtyByItemId ?? {}),
+          [itemId]: parsed,
+        },
+      };
+    }));
+  };
+
+  const addTickItem = () => {
+    const newItem: TickItem = { id: crypto.randomUUID(), price: "" };
+    setTickItems(prev => [...prev, newItem]);
+    setRows(prev => prev.map(r => ({
+      ...r,
+      qtyByItemId: { ...((r as any).qtyByItemId ?? {}), [newItem.id]: 0 },
+    })));
+  };
+
+  const removeTickItem = (itemId: string) => {
+    setTickItems(prev => prev.filter(i => i.id !== itemId));
+    setRows(prev => prev.map(r => {
+      const next = { ...((r as any).qtyByItemId ?? {}) };
+      delete (next as any)[itemId];
+      return { ...r, qtyByItemId: next };
+    }));
+  };
+
+  const updateTickItemPrice = (itemId: string, price: string) => {
+    setTickItems(prev => prev.map(i => i.id === itemId ? { ...i, price } : i));
+  };
+
   const addRow = () => {
-    setRows(prev => [...prev, { date: "", type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "" }]);
+    setRows(prev => [...prev, { date: "", type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "", qtyByItemId: Object.fromEntries(tickItems.map(i => [i.id, 0])) as Record<string, number> }]);
   };
   const removeRow = () => {
     if (rows.length > 1) setRows(prev => prev.slice(0, -1));
@@ -168,6 +286,7 @@ export default function BulkTransactionPage() {
   const rowAccountTypes = [
     { value: "user", label: "Nutzer" },
     { value: "clearing_account", label: "Verrechnungskonto" },
+    { value: "cost_center", label: "Kostenstelle" },
   ];
 
   const handleSubmit = async () => {
@@ -184,6 +303,20 @@ export default function BulkTransactionPage() {
       } else {
         if (!formData.accountId) {
           setMessage('❌ Bitte ein Hauptkonto in der Auswahl wählen.');
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (tickListMode) {
+        if (!tickItems.length) {
+          setMessage('❌ Bitte mindestens eine Einzelpreis-Spalte anlegen.');
+          setLoading(false);
+          return;
+        }
+        const invalid = tickItems.find(i => parsePriceToCents(i.price) === null);
+        if (invalid) {
+          setMessage('❌ Bitte alle Einzelpreise im Tabellenkopf befüllen (größer 0).');
           setLoading(false);
           return;
         }
@@ -209,7 +342,12 @@ export default function BulkTransactionPage() {
       if (formData.attachment) {
         formDataObj.append("attachment", formData.attachment);
       }
-      formDataObj.append("rows", JSON.stringify(rows));
+
+      const rowsForSubmit = tickListMode
+        ? (rows.map((r, idx) => ({ ...r, amount: computedAmountByRowIndex[idx] ?? "0.00" })) as any)
+        : rows;
+
+      formDataObj.append("rows", JSON.stringify(rowsForSubmit));
 
       const res = await fetch("/api/transactions/bulk", {
         method: "POST",
@@ -241,7 +379,9 @@ export default function BulkTransactionPage() {
           globalCostCenterId: "",
           attachment: null,
         });
-        setRows([{ date: "", type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "" }]);
+        setTickListMode(false);
+        setTickItems([{ id: crypto.randomUUID(), price: "" }]);
+        setRows([{ date: "", type: "user", id: "", amount: "", description: "", budgetPlanId: "", costCenterId: "", qtyByItemId: {} as Record<string, number> }]);
       }
     } catch (e: any) {
       setMessage("❌ " + (e?.message || "Serverfehler"));
@@ -271,10 +411,11 @@ export default function BulkTransactionPage() {
           date: individualDates ? formData.date_valued : "",
           type: "user",
           id: String(u.id),
-          amount: loadFilter.amount || "",
+          amount: tickListMode ? "" : (loadFilter.amount || ""),
           description: loadFilter.description || "",
           budgetPlanId: "",
           costCenterId: "",
+          qtyByItemId: Object.fromEntries(tickItems.map(i => [i.id, 0])) as Record<string, number>,
         }));
         return [...base, ...appended];
       });
@@ -283,8 +424,19 @@ export default function BulkTransactionPage() {
     }
   };
 
+  const computedAmountByRowIndex = useMemo(() => {
+    if (!tickListMode) return [] as string[];
+    return rows.map(r => centsToAmountString(calcRowAmountCents(r as any, tickItems)));
+  }, [rows, tickItems, tickListMode]);
+
+  useEffect(() => {
+    // Beim Umschalten in den Strichtlistenmodus: stelle sicher, dass alle Zeilen alle Item-Keys haben.
+    if (!tickListMode) return;
+    setRows(prev => ensureQtyKeys(prev as any, tickItems) as any);
+  }, [tickListMode, tickItems]);
+
   return (
-    <div className="kc-page">
+    <div className="kc-page table-center">
       <h1>Sammeltransaktion anlegen</h1>
       <form onSubmit={e => { e.preventDefault(); handleSubmit(); }} className="form">
         <div className="form-container">
@@ -330,10 +482,9 @@ export default function BulkTransactionPage() {
           Einzugsart
           <select
             name="bulkType"
-            className="form-select form-select-max"
+            className="form-select form-select-max kc-max-220"
             value={formData.bulkType}
             onChange={handleChange}
-            style={{ maxWidth: "220px" }}
           >
             {bulkTypes.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -344,10 +495,9 @@ export default function BulkTransactionPage() {
           Auswahltyp
           <select
             name="accountType"
-            className="form-select form-select-max"
+            className="form-select form-select-max kc-max-220"
             value={formData.accountType}
             onChange={handleChange}
-            style={{ maxWidth: "220px" }}
           >
             {accountTypes.filter(opt => {
               if (formData.bulkType === "einzahlung") return ["bank"].includes(opt.value);
@@ -364,11 +514,10 @@ export default function BulkTransactionPage() {
             Auswahl
             <select
               name="accountId"
-              className="form-select form-select-max"
+              className="form-select form-select-max kc-max-220"
               value={formData.accountId}
               onChange={handleChange}
               required
-              style={{ maxWidth: "220px" }}
             >
               <option value="">Bitte wählen</option>
               {getOptions(formData.accountType, userOptions, bankOptions, clearingOptions).map(opt => (
@@ -382,11 +531,10 @@ export default function BulkTransactionPage() {
               Auswahl (Haushaltsplan)
               <select
                 name="globalBudgetPlanId"
-                className="form-select form-select-max"
+                className="form-select form-select-max kc-max-220"
                 value={formData.globalBudgetPlanId}
                 onChange={handleChange}
                 required
-                style={{ maxWidth: "220px" }}
               >
                 <option value="">Bitte wählen</option>
                 {budgetPlans.map(bp => (
@@ -398,11 +546,10 @@ export default function BulkTransactionPage() {
               Kostenstelle
               <select
                 name="globalCostCenterId"
-                className="form-select form-select-max"
+                className="form-select form-select-max kc-max-220"
                 value={formData.globalCostCenterId}
                 onChange={handleChange}
                 required
-                style={{ maxWidth: "220px" }}
                 disabled={!formData.globalBudgetPlanId}
               >
                 <option value="">Bitte wählen</option>
@@ -425,6 +572,16 @@ export default function BulkTransactionPage() {
         </label>
         <AttachmentHint file={formData.attachment} />
 
+        <label>
+          Strichtlistenmodus
+          <input
+            type="checkbox"
+            name="tickListMode"
+            checked={tickListMode || false}
+            onChange={e => setTickListMode(e.target.checked)}
+          />
+        </label>
+
       </div>
         <div className="form-table-wrapper">
           <table className="kc-table compact">
@@ -433,10 +590,41 @@ export default function BulkTransactionPage() {
                 <th hidden={!individualDates}>Datum einzeln</th>
                 <th>Typ</th>
                 <th>Auswahl</th>
-                <th>Betrag</th>
-                <th>Beschreibung</th>
-                <th>Budgetplan</th>
                 <th>Kostenstelle</th>
+                <th>Betrag</th>
+                {tickListMode && (
+                  <>
+                    {tickItems.map((item, idx) => (
+                      <th key={item.id} className="kc-th--min-140">
+                        <div className="kc-head-controls">
+                          <input
+                            type="number"
+                            className="kc-input kc-w-110"
+                            value={item.price}
+                            onChange={e => updateTickItemPrice(item.id, e.target.value)}
+                            placeholder={`Einzelpreis ${idx + 1}`}
+                            step="0.01"
+                            inputMode="decimal"
+                            required
+                          />
+                          <button
+                            type="button"
+                            className="form-btn form-btn-danger kc-px-8"
+                            onClick={() => removeTickItem(item.id)}
+                            disabled={tickItems.length === 1}
+                            title="Spalte entfernen"
+                          >
+                            −
+                          </button>
+                        </div>
+                      </th>
+                    ))}
+                    <th className="kc-th--w-60">
+                      <button type="button" className="form-btn form-btn-secondary" onClick={addTickItem} title="Spalte hinzufügen">+</button>
+                    </th>
+                  </>
+                )}
+                <th>Beschreibung</th>
                 <th></th>
               </tr>
             </thead>
@@ -456,7 +644,7 @@ export default function BulkTransactionPage() {
                     <select
                       className="kc-select"
                       value={row.type}
-                      onChange={e => handleRowChange(idx, "type", e.target.value)}
+                      onChange={e => handleRowTypeChange(idx, e.target.value)}
                       required
                     >
                       {rowAccountTypes.map(opt => (
@@ -465,15 +653,41 @@ export default function BulkTransactionPage() {
                     </select>
                   </td>
                   <td>
+                    {row.type === "cost_center" ? (
+                      <select
+                        className="kc-select"
+                        value={row.budgetPlanId || ""}
+                        onChange={e => handleRowBudgetPlanChange(idx, e.target.value)}
+                        disabled={formData.accountType === 'cost_center' || !!row.id}
+                      >
+                        <option value="">Haushalt wählen</option>
+                        {budgetPlans.map(bp => (
+                          <option key={bp.id} value={bp.id}>{bp.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <select
+                        className="kc-select"
+                        value={row.id}
+                        onChange={e => handleRowChange(idx, "id", e.target.value)}
+                      >
+                        <option value="">Bitte wählen</option>
+                        {getOptions(row.type, userOptions, [], clearingOptions).map(opt => (
+                          <option key={opt.id} value={opt.id}>{getAccountDisplayName(opt)}</option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
+                  <td>
                     <select
                       className="kc-select"
-                      value={row.id}
-                      onChange={e => handleRowChange(idx, "id", e.target.value)}
-                      // required entfernt: Pflicht nur, falls keine Kostenstelle
+                      value={row.costCenterId || ""}
+                      onChange={e => handleRowChange(idx, "costCenterId", e.target.value)}
+                      disabled={row.type !== "cost_center" || formData.accountType === 'cost_center' || !!row.id || !row.budgetPlanId}
                     >
                       <option value="">Bitte wählen</option>
-                      {getOptions(row.type, userOptions, [], clearingOptions).map(opt => (
-                        <option key={opt.id} value={opt.id}>{getAccountDisplayName(opt)}</option>
+                      {(row.budgetPlanId && costCentersByPlan[row.budgetPlanId] ? costCentersByPlan[row.budgetPlanId] : []).map(cc => (
+                        <option key={cc.id} value={cc.id}>{cc.name}</option>
                       ))}
                     </select>
                   </td>
@@ -481,15 +695,40 @@ export default function BulkTransactionPage() {
                     <input
                       type="number"
                       className="kc-input"
-                      value={row.amount}
+                      value={tickListMode ? (computedAmountByRowIndex[idx] ?? "0.00") : row.amount}
                       onChange={e => handleRowChange(idx, "amount", e.target.value)}
-                      // Bei Kontobewegung sind auch negative Werte erlaubt
                       min={formData.bulkType === 'einzahlung' ? undefined : "0"}
                       step="0.01"
                       inputMode="decimal"
                       required
+                      disabled={tickListMode}
                     />
                   </td>
+
+                  {tickListMode && (
+                    <>
+                      {tickItems.map(item => {
+                        const qtyRaw = (row as any).qtyByItemId?.[item.id];
+                        const qtyValue = qtyRaw === undefined ? "" : String(qtyRaw);
+                        return (
+                          <td key={item.id}>
+                            <input
+                              type="number"
+                              className="kc-input kc-w-110"
+                              value={qtyValue}
+                              onChange={e => handleQtyChange(idx, item.id, e.target.value)}
+                              min={0}
+                              step={1}
+                              inputMode="numeric"
+                              placeholder="0"
+                            />
+                          </td>
+                        );
+                      })}
+                      <td />
+                    </>
+                  )}
+
                   <td>
                     <input
                       type="text"
@@ -498,33 +737,7 @@ export default function BulkTransactionPage() {
                       onChange={e => handleRowChange(idx, "description", e.target.value)}
                     />
                   </td>
-                  <td>
-                    <select
-                      className="kc-select"
-                      value={row.budgetPlanId || ""}
-                      onChange={e => handleRowChange(idx, "budgetPlanId", e.target.value)}
-                      disabled={formData.accountType === 'cost_center' || !!row.id}
-                    >
-                      <option value="">Kein Budgetplan</option>
-                      {budgetPlans.map(bp => (
-                        <option key={bp.id} value={bp.id}>{bp.name}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <select
-                      className="kc-select"
-                      value={row.costCenterId || ""}
-                      onChange={e => handleRowChange(idx, "costCenterId", e.target.value)}
-                      disabled={formData.accountType === 'cost_center' || !!row.id || !row.budgetPlanId}
-                    >
-                      <option value="">Bitte wählen</option>
-                      {(row.budgetPlanId && costCentersByPlan[row.budgetPlanId] ? costCentersByPlan[row.budgetPlanId] : []).map(cc => (
-                        <option key={cc.id} value={cc.id}>{cc.name}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td className="kc-cell--num">
                     <button type="button" className="form-btn form-btn-danger" onClick={() => removeRowAt(idx)}>x</button>
                   </td>
                 </tr>
@@ -533,16 +746,21 @@ export default function BulkTransactionPage() {
           </table>
         </div>
 
+        <div className="form-table-buttons">
+          <button type="button" className="form-btn form-btn-secondary" onClick={addRow}>Zeile hinzufügen</button>
+          <button type="button" className="form-btn form-btn-danger" onClick={removeRow} disabled={rows.length === 1}>Zeile löschen</button>
+          <button type="submit" className="form-btn form-btn-primary" disabled={loading}>Absenden</button>
+        </div>
+
         {/* Zusatzbox zum Vorlagenladen */}
-        <div className="form-container" style={{ marginTop: '1rem', borderTop: '1px solid #ddd', paddingTop: '1rem' }}>
+        <div className="form-container kc-section kc-section--light">
           <h3>Vorlage laden</h3>
           <label>
             Status
             <select
-              className="form-select form-select-max"
+              className="form-select form-select-max kc-max-220"
               value={loadFilter.status}
               onChange={e => setLoadFilter(prev => ({ ...prev, status: e.target.value }))}
-              style={{ maxWidth: "220px" }}
             >
               <option value="">Alle</option>
               {statusOptions.map(s => (
@@ -553,10 +771,9 @@ export default function BulkTransactionPage() {
           <label>
             Hausvereinsmitglied
             <select
-              className="form-select form-select-max"
+              className="form-select form-select-max kc-max-220"
               value={loadFilter.hv}
               onChange={e => setLoadFilter(prev => ({ ...prev, hv: e.target.value as any }))}
-              style={{ maxWidth: "220px" }}
             >
               <option value="alle">Alle</option>
               <option value="ja">Ja</option>
@@ -586,12 +803,6 @@ export default function BulkTransactionPage() {
           <div>
             <button type="button" className="form-btn form-btn-secondary" onClick={handleLoadTemplate}>Laden</button>
           </div>
-        </div>
-
-        <div className="form-table-buttons">
-          <button type="button" className="form-btn form-btn-secondary" onClick={addRow}>Zeile hinzufügen</button>
-          <button type="button" className="form-btn form-btn-danger" onClick={removeRow} disabled={rows.length === 1}>Zeile löschen</button>
-          <button type="submit" className="form-btn form-btn-primary" disabled={loading}>Absenden</button>
         </div>
       </form>
       {message && <p className="message">{message}</p>}

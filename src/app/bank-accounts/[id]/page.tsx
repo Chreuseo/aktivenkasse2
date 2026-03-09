@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useParams } from "next/navigation";
 import "@/app/css/tables.css";
@@ -9,12 +9,6 @@ import { extractToken, fetchJson } from "@/lib/utils";
 import { Transaction } from "@/app/types/transaction";
 import { BankAccount } from "@/app/types/bankAccount";
 import TransactionTable from "@/app/components/TransactionTable";
-import AllowancesTable from "@/app/components/AllowancesTable";
-
-interface BankAccountDetail {
-  bankAccount: BankAccount;
-  transactions: Transaction[];
-}
 
 export default function BankAccountDetailPage() {
   const params = useParams();
@@ -56,24 +50,24 @@ export default function BankAccountDetailPage() {
   const past = data?.past || [];
   const allowances = data?.allowances || [];
 
-  if (status === "loading" || !token) return <div style={{ color: "var(--muted)", margin: "2rem auto", maxWidth: 900 }}>Lade Session ...</div>;
-  if (loading) return <div style={{ color: "var(--muted)", margin: "2rem auto", maxWidth: 900 }}>Lade Daten ...</div>;
-  if (error) return <div style={{ color: "var(--accent)", margin: "2rem auto", maxWidth: 900 }}>{error}</div>;
-  if (!data || !data.bankAccount) return <div style={{ color: "var(--accent)", margin: "2rem auto", maxWidth: 900 }}>Bankkonto-Daten konnten nicht geladen werden.</div>;
+  if (status === "loading" || !token) return <div className="kc-page kc-status">Lade Session ...</div>;
+  if (loading) return <div className="kc-page kc-status">Lade Daten ...</div>;
+  if (error) return <div className="kc-page kc-error">{error}</div>;
+  if (!data || !data.bankAccount) return <div className="kc-page kc-error">Bankkonto-Daten konnten nicht geladen werden.</div>;
   const { bankAccount } = data;
   return (
-    <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
-      <h2 style={{ marginBottom: "1.2rem" }}>Bankkonto-Detailansicht</h2>
+    <div className="kc-page">
+      <h2 className="kc-page-title">Bankkonto-Detailansicht</h2>
       <div className="kc-infobox">
-        <div style={{ fontSize: "1.2rem", fontWeight: 600 }}>{bankAccount.name}</div>
-        <div style={{ color: "var(--muted)", marginBottom: 4 }}>{bankAccount.bank}</div>
-        <div style={{ marginBottom: 4 }}>Kontoinhaber: <span style={{ fontWeight: 600 }}>{bankAccount.owner}</span></div>
-        <div style={{ fontWeight: 500 }}>IBAN: <span style={{ fontWeight: 700 }}>{bankAccount.iban}</span></div>
-        <div style={{ fontWeight: 500 }}>Kontostand: <span style={{ color: "var(--primary)", fontWeight: 700 }}>{bankAccount.balance.toFixed(2)} €</span></div>
+        <div className="kc-infobox-title">{bankAccount.name}</div>
+        <div className="kc-infobox-subtitle">{bankAccount.bank}</div>
+        <div className="kc-kv">Kontoinhaber: <span className="kc-fw-600">{bankAccount.owner}</span></div>
+        <div className="kc-kv">IBAN: <span className="kc-fw-700">{bankAccount.iban}</span></div>
+        <div className="kc-kv">Kontostand: <span className="kc-money">{bankAccount.balance.toFixed(2)} €</span></div>
       </div>
 
       {/* Rückstellungen */}
-      <h3 style={{ marginBottom: "0.8rem" }}>Rückstellungen</h3>
+      <h3 className="kc-section-title">Rückstellungen</h3>
       {allowances.length > 0 ? (
         <table className="kc-table">
           <thead>
@@ -98,15 +92,15 @@ export default function BankAccountDetailPage() {
           </tbody>
         </table>
       ) : (
-        <div style={{ color: "var(--muted)" }}>Keine Daten</div>
+        <div className="kc-muted">Keine Daten</div>
       )}
 
       {/* Geplante Transaktionen */}
-      <h3 style={{ margin: "1rem 0 0.6rem" }}>Geplante Transaktionen</h3>
+      <h3 className="kc-section-title kc-section-title--spaced">Geplante Transaktionen</h3>
       <TransactionTable transactions={planned} />
 
       {/* Vergangene Transaktionen */}
-      <h3 style={{ margin: "1rem 0 0.6rem" }}>Vergangene Transaktionen</h3>
+      <h3 className="kc-section-title kc-section-title--spaced">Vergangene Transaktionen</h3>
       <TransactionTable transactions={past} />
     </div>
   );

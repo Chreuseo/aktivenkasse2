@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { ResourceType, AuthorizationType } from '@/app/types/authorization';
 import { computeAccount2Negative, normalizeBoolean, isAllowedAttachment, parsePositiveAmount, AccountTypeStr, roundToTwoDecimals } from '@/lib/validation';
-import { extractUserFromAuthHeader, resolveAccountId as resolveAccountIdUtil } from '@/lib/serverUtils';
-import { checkPermission} from "@/services/authService";
+import { resolveAccountId as resolveAccountIdUtil } from '@/lib/serverUtils';
+import { checkPermission, extractTokenAndUserId } from "@/services/authService";
 import { saveAttachmentFromFormFileData as saveAttachmentFromFormFile } from '@/lib/apiHelpers';
 import { createPairedTransactions, createTransactionWithBalance, createDonationDepositPair } from '@/services/transactionService';
 import { createDonationForTransaction } from '@/services/donationService';
@@ -26,10 +26,9 @@ function inferOtherFromAccount(acc: any): { type: 'user'|'bank'|'clearing_accoun
 }
 
 export async function POST(req: Request) {
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
-  const { userId } = extractUserFromAuthHeader(authHeader as string | undefined);
+  const { userId } = extractTokenAndUserId(req as any);
   if (!userId) {
-    return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 403 });
+    return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 401 });
   }
 
   const perm = await checkPermission( req, ResourceType.transactions, AuthorizationType.write_all );
@@ -274,13 +273,12 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || undefined;
-  const { userId } = extractUserFromAuthHeader(authHeader as string | undefined);
+  const { userId } = extractTokenAndUserId(req as any);
   if (!userId) {
-    return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 403 });
+    return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 401 });
   }
 
-    const perm = await checkPermission( req, ResourceType.transactions, AuthorizationType.read_all );
+  const perm = await checkPermission( req, ResourceType.transactions, AuthorizationType.read_all );
   if (!perm.allowed) {
     return NextResponse.json({ error: 'Keine Berechtigung für read_all auf transactions' }, { status: 403 });
   }
