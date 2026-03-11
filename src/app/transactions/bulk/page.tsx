@@ -49,9 +49,6 @@ export default function BulkTransactionPage() {
   // Datum einzeln Toggle (vorher konstant false)
   const [individualDates, setIndividualDates] = useState<boolean>(false);
 
-  const [tickListMode, setTickListMode] = useState<boolean>(false);
-  const [tickItems, setTickItems] = useState<TickItem[]>([{ id: crypto.randomUUID(), price: "" }]);
-
   const [formData, setFormData] = useState({
     date_valued: "",
     description: "",
@@ -63,6 +60,18 @@ export default function BulkTransactionPage() {
     globalCostCenterId: "",
     attachment: null as File | null,
   });
+
+  // Kontobewegung: Datum einzeln immer aktiv (State erzwingen)
+  useEffect(() => {
+    if (formData.bulkType === 'einzahlung' && !individualDates) {
+      setIndividualDates(true);
+    }
+  }, [formData.bulkType, individualDates]);
+
+  const [tickListMode, setTickListMode] = useState<boolean>(false);
+  const [tickItems, setTickItems] = useState<TickItem[]>([{ id: crypto.randomUUID(), price: "" }]);
+
+
   const [userOptions, setUserOptions] = useState<User[]>([]);
   const [bankOptions, setBankOptions] = useState<BankAccount[]>([]);
   const [clearingOptions, setClearingOptions] = useState<ClearingAccount[]>([]);
@@ -329,7 +338,7 @@ export default function BulkTransactionPage() {
       formDataObj.append("reference", formData.reference);
       formDataObj.append("bulkType", formData.bulkType);
       // Flag mitgeben, damit Route gezielt reagieren kann
-      formDataObj.append("individualDates", String(individualDates));
+      formDataObj.append("individualDates", String(formData.bulkType === 'einzahlung' ? true : individualDates));
 
       if (formData.accountType === 'cost_center') {
         formDataObj.append("globalBudgetPlanId", formData.globalBudgetPlanId);
@@ -457,6 +466,7 @@ export default function BulkTransactionPage() {
                 name="individualDates"
                 checked={individualDates || false}
                 onChange={e => setIndividualDates(e.target.checked)}
+                disabled={formData.bulkType === 'einzahlung'}
                 />
           </label>
         <label>
@@ -466,7 +476,8 @@ export default function BulkTransactionPage() {
             name="description"
             value={formData.description}
             onChange={handleChange}
-            required
+            required={formData.bulkType !== 'einzahlung'}
+            disabled={formData.bulkType === 'einzahlung'}
           />
         </label>
         <label>
@@ -658,7 +669,7 @@ export default function BulkTransactionPage() {
                         className="kc-select"
                         value={row.budgetPlanId || ""}
                         onChange={e => handleRowBudgetPlanChange(idx, e.target.value)}
-                        disabled={formData.accountType === 'cost_center' || !!row.id}
+                        disabled={formData.accountType === 'cost_center'}
                       >
                         <option value="">Haushalt wählen</option>
                         {budgetPlans.map(bp => (
@@ -683,7 +694,7 @@ export default function BulkTransactionPage() {
                       className="kc-select"
                       value={row.costCenterId || ""}
                       onChange={e => handleRowChange(idx, "costCenterId", e.target.value)}
-                      disabled={row.type !== "cost_center" || formData.accountType === 'cost_center' || !!row.id || !row.budgetPlanId}
+                      disabled={row.type !== "cost_center" || formData.accountType === 'cost_center' || !row.budgetPlanId}
                     >
                       <option value="">Bitte wählen</option>
                       {(row.budgetPlanId && costCentersByPlan[row.budgetPlanId] ? costCentersByPlan[row.budgetPlanId] : []).map(cc => (
@@ -735,6 +746,7 @@ export default function BulkTransactionPage() {
                       className="kc-input"
                       value={row.description}
                       onChange={e => handleRowChange(idx, "description", e.target.value)}
+                      required={formData.bulkType === 'einzahlung'}
                     />
                   </td>
                   <td className="kc-cell--num">
