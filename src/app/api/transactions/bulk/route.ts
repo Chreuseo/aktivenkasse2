@@ -170,6 +170,9 @@ export async function POST(req: Request) {
     }
     const amountAbs = roundToTwoDecimals(Math.abs(rawAmountNum));
 
+    // Kontobewegung: Vorzeichen beibehalten (auch negativ erlaubt)
+    const amountSignedDeposit = isDeposit ? roundToTwoDecimals(rawAmountNum) : undefined;
+
     // Beschreibung
     if (isDeposit && !String(row?.description || '').trim()) {
       return NextResponse.json({ error: `${idxInfo}: Beschreibung ist bei Kontobewegung ein Pflichtfeld` }, { status: 400 });
@@ -183,7 +186,8 @@ export async function POST(req: Request) {
       if (!row.budgetPlanId || !row.costCenterId) {
         return NextResponse.json({ error: `${idxInfo}: Kostenstellenzeile erfordert Haushaltsplan und Kostenstelle` }, { status: 400 });
       }
-      const signedMain = mainSign * amountAbs;
+      // Bei Kontobewegung wird der Betrag direkt auf dem Hauptkonto gebucht (Vorzeichen beibehalten)
+      const signedMain = Number(amountSignedDeposit);
       let txDescription = String(description || '');
       if (row.description) txDescription += (txDescription ? ' - ' : '') + row.description;
       preparedMainOnlyRows.push({
