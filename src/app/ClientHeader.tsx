@@ -126,7 +126,10 @@ const menu: MenuItem[] = [
             {
                 type: 'group',
                 label: 'Daten',
-                children: [{ label: 'Daten-Export', href: '/processes/export' }],
+                children: [
+                    { label: 'Daten-Export', href: '/processes/export' },
+                    { label: 'Nachrechenaufgabe', href: '/processes/recalculate' },
+                ],
             },
         ],
     },
