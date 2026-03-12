@@ -102,7 +102,7 @@ export default function TransactionTable({ transactions }: TransactionTableProps
           ),
       },
     ],
-    { enableFilters: true }
+    { enableFilters: true, initialSort: { columnId: 'date', direction: 'desc' } }
   );
 
   return (

@@ -44,6 +44,22 @@ function getAccountDisplayName(opt: any) {
   return String(opt.id || "Unbekannt");
 }
 
+function sortUsersAlpha(users: User[]): User[] {
+  return [...users].sort((a, b) => {
+    const al = `${a.last_name ?? ''}`.trim();
+    const bl = `${b.last_name ?? ''}`.trim();
+    const c1 = al.localeCompare(bl, 'de', { sensitivity: 'base' });
+    if (c1 !== 0) return c1;
+    const af = `${a.first_name ?? ''}`.trim();
+    const bf = `${b.first_name ?? ''}`.trim();
+    return af.localeCompare(bf, 'de', { sensitivity: 'base' });
+  });
+}
+
+function sortByNameAlpha<T extends { name?: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => String(a?.name ?? '').localeCompare(String(b?.name ?? ''), 'de', { sensitivity: 'base', numeric: true }));
+}
+
 export default function BulkTransactionPage() {
   const { data: session } = useSession();
   // Datum einzeln Toggle (vorher konstant false)
@@ -130,10 +146,12 @@ export default function BulkTransactionPage() {
   useEffect(() => {
     const token = extractToken(session);
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-    fetchJson("/api/users", { headers }).then(setUserOptions).catch(() => setUserOptions([]));
-    fetchJson("/api/bank-accounts", { headers }).then(setBankOptions).catch(() => setBankOptions([]));
-    fetchJson("/api/clearing-accounts", { headers }).then(setClearingOptions).catch(() => setClearingOptions([]));
-    fetchJson("/api/budget-plan", { headers }).then(list => setBudgetPlans(Array.isArray(list) ? list.filter((p: any) => p?.state === 'active') : [])).catch(() => setBudgetPlans([]));
+    fetchJson("/api/users", { headers }).then((u) => setUserOptions(sortUsersAlpha(u))).catch(() => setUserOptions([]));
+    fetchJson("/api/bank-accounts", { headers }).then((b) => setBankOptions(sortByNameAlpha(b))).catch(() => setBankOptions([]));
+    fetchJson("/api/clearing-accounts", { headers }).then((c) => setClearingOptions(sortByNameAlpha(c))).catch(() => setClearingOptions([]));
+    fetchJson("/api/budget-plan", { headers })
+      .then((list) => setBudgetPlans(sortByNameAlpha(Array.isArray(list) ? list.filter((p: any) => p?.state === 'active') : [])))
+      .catch(() => setBudgetPlans([]));
     // Status-Optionen laden
     fetchJson("/api/users?action=statuses", { headers }).then((list: string[]) => setStatusOptions(Array.isArray(list) ? list : [])).catch(() => setStatusOptions([]));
   }, [session]);

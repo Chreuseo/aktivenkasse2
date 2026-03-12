@@ -30,6 +30,22 @@ function getAccountDisplayName(opt: any) {
   return String(opt.id || "Unbekannt");
 }
 
+function sortUsersAlpha(users: User[]): User[] {
+  return [...users].sort((a, b) => {
+    const al = `${a.last_name ?? ''}`.trim();
+    const bl = `${b.last_name ?? ''}`.trim();
+    const c1 = al.localeCompare(bl, 'de', { sensitivity: 'base' });
+    if (c1 !== 0) return c1;
+    const af = `${a.first_name ?? ''}`.trim();
+    const bf = `${b.first_name ?? ''}`.trim();
+    return af.localeCompare(bf, 'de', { sensitivity: 'base' });
+  });
+}
+
+function sortByNameAlpha<T extends { name?: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => String(a?.name ?? '').localeCompare(String(b?.name ?? ''), 'de', { sensitivity: 'base', numeric: true }));
+}
+
 export default function NewAllowancePage() {
   const { data: session } = useSession();
   const [formData, setFormData] = useState({
@@ -47,9 +63,15 @@ export default function NewAllowancePage() {
   useEffect(() => {
     const token = extractToken(session);
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-    fetchJson("/api/users", { headers }).then(setUserOptions).catch(() => setUserOptions([]));
-    fetchJson("/api/bank-accounts", { headers }).then(setBankOptions).catch(() => setBankOptions([]));
-    fetchJson("/api/clearing-accounts", { headers }).then(setClearingOptions).catch(() => setClearingOptions([]));
+    fetchJson("/api/users", { headers })
+      .then((u) => setUserOptions(sortUsersAlpha(u)))
+      .catch(() => setUserOptions([]));
+    fetchJson("/api/bank-accounts", { headers })
+      .then((b) => setBankOptions(sortByNameAlpha(b)))
+      .catch(() => setBankOptions([]));
+    fetchJson("/api/clearing-accounts", { headers })
+      .then((c) => setClearingOptions(sortByNameAlpha(c)))
+      .catch(() => setClearingOptions([]));
   }, [session]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {

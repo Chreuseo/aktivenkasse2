@@ -35,6 +35,8 @@ export interface ColumnDef<T> {
 export interface UseClientTableOptions {
   /** When true, renders a filter row under headers in the provided UI helper. */
   enableFilters?: boolean;
+  /** Default sorting applied when the table mounts. */
+  initialSort?: { columnId: string; direction?: SortDirection };
 }
 
 export interface UseClientTableResult<T> {
@@ -186,9 +188,10 @@ export function useClientTable<T>(
 ): UseClientTableResult<T> {
   const enableFilters = options.enableFilters ?? true;
 
-  const [sort, setSort] = React.useState<{ columnId: string | null; direction: SortDirection }>({
-    columnId: null,
-    direction: 'asc',
+  const [sort, setSort] = React.useState<{ columnId: string | null; direction: SortDirection }>(() => {
+    const initial = options.initialSort;
+    if (!initial?.columnId) return { columnId: null, direction: 'asc' };
+    return { columnId: initial.columnId, direction: initial.direction ?? 'asc' };
   });
 
   const [filters, setFilters] = React.useState<Record<string, ColumnFilterValue | undefined>>({});
