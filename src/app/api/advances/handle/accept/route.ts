@@ -36,6 +36,20 @@ export async function POST(req: Request) {
   const reasonRaw = Object.prototype.hasOwnProperty.call(body, 'reason') ? body.reason : undefined;
   const reason = reasonRaw === undefined ? undefined : String(reasonRaw);
 
+  // Frontend darf bestimmte Felder überschreiben; diese Overrides sollen in Transaktion/Spende landen,
+  // die Auslage selbst bleibt unverändert (außer Status/Reviewer/Reason/...)
+  const descriptionRaw = Object.prototype.hasOwnProperty.call(body ?? {}, 'description') ? body.description : undefined;
+  const effectiveDescription = (descriptionRaw !== undefined ? String(descriptionRaw) : String(advance.description || '')).trim();
+  if (!effectiveDescription) return NextResponse.json({ error: 'Beschreibung ist erforderlich' }, { status: 400 });
+
+  const amountRaw = Object.prototype.hasOwnProperty.call(body ?? {}, 'amount') ? body.amount : undefined;
+  const amountNum = amountRaw !== undefined
+    ? Number(String(amountRaw).replace(',', '.'))
+    : (typeof advance.amount === 'number' ? advance.amount : Number(advance.amount));
+  if (!isFinite(amountNum)) return NextResponse.json({ error: 'Ungültiger Betrag' }, { status: 400 });
+  const amt = parsePositiveAmount(amountNum);
+  if (amt === null) return NextResponse.json({ error: 'Ungültiger Betrag' }, { status: 400 });
+
   // Spendenflag (kann im Body überschrieben werden)
   const isDonation = (body && Object.prototype.hasOwnProperty.call(body, 'is_donation'))
     ? !!body.is_donation
@@ -44,12 +58,6 @@ export async function POST(req: Request) {
     ? body.donationType
     : (advance as any).donationType;
   const donationType = String(donationTypeRaw || 'material') === 'waive_fees' ? 'waive_fees' : 'material';
-
-  // Betrag validieren
-  const amountNum = typeof advance.amount === 'number' ? advance.amount : Number(advance.amount);
-  if (!isFinite(amountNum)) return NextResponse.json({ error: 'Ungültiger Betrag in Auslage' }, { status: 400 });
-  const amt = parsePositiveAmount(amountNum);
-  if (amt === null) return NextResponse.json({ error: 'Ungültiger Betrag' }, { status: 400 });
 
   // Accounts und Referenz
   const submitter = advance.user;
@@ -110,7 +118,7 @@ export async function POST(req: Request) {
         const donation = await p.donation.create({
           data: {
             date: now,
-            description: advance.description,
+            description: effectiveDescription,
             amount: amt,
             type: donationType,
             userId: submitter.id,
@@ -147,7 +155,7 @@ export async function POST(req: Request) {
           amount1: amt,
           account2Id: acc2Id,
           amount2: -amt,
-          description: advance.description,
+          description: effectiveDescription,
           createdById: reviewer.id,
           reference,
           dateValued: now,
@@ -170,7 +178,7 @@ export async function POST(req: Request) {
       const tx = await createTransactionWithBalance(p, {
         accountId: acc1Id,
         amount: amt,
-        description: advance.description,
+        description: effectiveDescription,
         createdById: reviewer.id,
         reference,
         dateValued: now,
@@ -198,7 +206,7 @@ export async function POST(req: Request) {
           'Details:',
           `• Betrag: ${amountFmt}`,
           `• Datum: ${dateFmt}`,
-          `• Beschreibung: ${advance.description}`,
+          `• Beschreibung: ${effectiveDescription}`,
         ].join('\n');
         if (submitter.mail) {
           await sendPlainMail({
