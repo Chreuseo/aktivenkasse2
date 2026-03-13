@@ -22,6 +22,10 @@ type EffectiveAccount = { id: number; label: string };
 
 type AccountError = { accountId: number; soll: string; ist: string };
 
+type TimelineEvent =
+  | { kind: 'tx'; date: Date; id: number; amountCents: number; oldAfterCents: number }
+  | { kind: 'allowance'; date: Date; id: number; amountCents: number };
+
 export async function POST(req: Request) {
   // Permission: write_all on transactions (process can update transaction.accountValueAfter)
   const perm = await checkPermission(req, ResourceType.transactions, AuthorizationType.write_all);
@@ -86,15 +90,55 @@ export async function POST(req: Request) {
           orderBy: [{ date_valued: 'asc' }, { id: 'asc' }],
         });
 
+        // Alle Rückstellungen (auch geschlossene) als Timeline-Events einbauen:
+        // - bei allowance.date: Betrag wird vom Konto abgezogen
+        // - bei allowance.returnDate: Betrag wird wieder gutgeschrieben
+        const allowances = await p.allowance.findMany({
+          where: { accountId },
+          select: { id: true, date: true, returnDate: true, amount: true },
+        });
+
+        const events: TimelineEvent[] = [];
+        for (const t of txs) {
+          events.push({
+            kind: 'tx',
+            date: t.date_valued,
+            id: t.id,
+            amountCents: toCents(t.amount),
+            oldAfterCents: toCents(t.accountValueAfter),
+          });
+        }
+        for (const a of allowances) {
+          const amtCents = toCents(a.amount);
+          // Abzug bei Anlage
+          events.push({ kind: 'allowance', date: a.date, id: a.id, amountCents: -amtCents });
+          // Gutschrift bei Rückgabe
+          if (a.returnDate) {
+            events.push({ kind: 'allowance', date: a.returnDate, id: a.id, amountCents: amtCents });
+          }
+        }
+
+        // Sortierung: erst nach Datum, dann deterministisch nach kind/id
+        // Wichtig: bei gleichem Timestamp sollen Allowance-Events vor/zwischen Transaktionen stabil bleiben.
+        events.sort((a, b) => {
+          const d = a.date.getTime() - b.date.getTime();
+          if (d !== 0) return d;
+          const ak = a.kind === 'allowance' ? 0 : 1;
+          const bk = b.kind === 'allowance' ? 0 : 1;
+          if (ak !== bk) return ak - bk;
+          return a.id - b.id;
+        });
+
         let runningCents = 0;
         const updates: Array<{ id: number; newAfterCents: number }> = [];
 
-        for (const tx of txs) {
-          runningCents += toCents(tx.amount);
-          const newAfterCents = runningCents;
-          const oldAfterCents = toCents(tx.accountValueAfter);
-          if (newAfterCents !== oldAfterCents) {
-            updates.push({ id: tx.id, newAfterCents });
+        for (const ev of events) {
+          runningCents += ev.amountCents;
+          if (ev.kind === 'tx') {
+            const newAfterCents = runningCents;
+            if (newAfterCents !== ev.oldAfterCents) {
+              updates.push({ id: ev.id, newAfterCents });
+            }
           }
         }
 
