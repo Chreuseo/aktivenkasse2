@@ -60,6 +60,30 @@ function sortByNameAlpha<T extends { name?: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => String(a?.name ?? '').localeCompare(String(b?.name ?? ''), 'de', { sensitivity: 'base', numeric: true }));
 }
 
+// Monatliche Termine: Datum nach YYYY-MM-DD + Offset erzeugen (auf Monatsende kappen)
+function buildMonthlyDateISO(startDateYYYYMMDD: string, monthOffset: number): string {
+  const m = /^\d{4}-\d{2}-\d{2}$/.test(startDateYYYYMMDD) ? startDateYYYYMMDD : "";
+  if (!m) return "";
+
+  const [yStr, moStr, dStr] = m.split("-");
+  const year = Number(yStr);
+  const monthIndex0 = Number(moStr) - 1;
+  const dayOfMonth = Number(dStr);
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex0) || !Number.isFinite(dayOfMonth)) return "";
+
+  const base = new Date(year, monthIndex0, 1);
+  base.setMonth(base.getMonth() + monthOffset);
+
+  const y = base.getFullYear();
+  const m0 = base.getMonth();
+  const lastDay = new Date(y, m0 + 1, 0).getDate();
+  const d = Math.min(Math.max(1, Math.trunc(dayOfMonth)), lastDay);
+
+  const mm = String(m0 + 1).padStart(2, "0");
+  const dd = String(d).padStart(2, "0");
+  return `${y}-${mm}-${dd}`;
+}
+
 export default function BulkTransactionPage() {
   const { data: session } = useSession();
   // Datum einzeln Toggle (vorher konstant false)
@@ -134,14 +158,35 @@ export default function BulkTransactionPage() {
     return p;
   };
 
-  // Zusatz: Filter-Lade-Box State
-  const [statusOptions, setStatusOptions] = useState<string[]>([]);
-  const [loadFilter, setLoadFilter] = useState<{ status: string; hv: "alle" | "ja" | "nein"; description: string; amount: string }>({
+    // Zusatz: Filter-Lade-Box State
+    const [statusOptions, setStatusOptions] = useState<string[]>([]);
+    const [loadFilter, setLoadFilter] = useState<{ status: string; hv: "alle" | "ja" | "nein"; description: string; amount: string }>({
     status: "",
     hv: "alle",
     description: "",
     amount: "",
-  });
+    });
+
+    // Zusatz: „monatlich terminiert“ State
+    const [monthlyLoadFilter, setMonthlyLoadFilter] = useState<{
+    startDate: string;
+    count: string;
+    accountType: "user" | "clearing_account" | "cost_center";
+    accountId: string;
+    budgetPlanId: string;
+    costCenterId: string;
+    description: string;
+    amount: string;
+    }>({
+    startDate: "",
+    count: "1",
+    accountType: "user",
+    accountId: "",
+    budgetPlanId: "",
+    costCenterId: "",
+    description: "",
+    amount: "",
+    });
 
   useEffect(() => {
     const token = extractToken(session);
@@ -156,12 +201,21 @@ export default function BulkTransactionPage() {
     fetchJson("/api/users?action=statuses", { headers }).then((list: string[]) => setStatusOptions(Array.isArray(list) ? list : [])).catch(() => setStatusOptions([]));
   }, [session]);
 
-  useEffect(() => {
+    useEffect(() => {
     if (!formData.date_valued) {
       const today = new Date().toISOString().slice(0, 10);
       setFormData(prev => ({ ...prev, date_valued: today }));
     }
-  }, [formData.date_valued]);
+    }, [formData.date_valued]);
+
+    // Default für Startdatum (monatliche Vorlage): aus formData.date_valued ableiten
+    useEffect(() => {
+    if (monthlyLoadFilter.startDate) return;
+    if (!formData.date_valued) return;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(formData.date_valued)) {
+      setMonthlyLoadFilter(prev => ({ ...prev, startDate: formData.date_valued }));
+    }
+    }, [formData.date_valued, monthlyLoadFilter.startDate]);
 
   // Wenn Toggle für individuelle Daten aktiviert wird, passe accountType je nach bulkType an
   useEffect(() => {
@@ -419,8 +473,8 @@ export default function BulkTransactionPage() {
 
   const globalCostCenters = formData.globalBudgetPlanId ? (costCentersByPlan[formData.globalBudgetPlanId] || []) : [];
 
-  // Nutzer anhand Filter laden und Zeilen auffüllen (nur Client-seitig, kein Absenden)
-  const handleLoadTemplate = async () => {
+    // Nutzer anhand Filter laden und Zeilen auffüllen (nur Client-seitig, kein Absenden)
+    const handleLoadTemplate = async () => {
     const token = extractToken(session);
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const params = new URLSearchParams();
@@ -449,7 +503,85 @@ export default function BulkTransactionPage() {
     } catch (err: any) {
       setMessage("❌ Fehler beim Laden der Nutzer: " + (err?.message || 'Unbekannt'));
     }
-  };
+    };
+
+    // Zeilenweise laden: „monatlich terminiert“
+    const handleLoadMonthlyTemplate = async () => {
+    if (!individualDates) {
+      setMessage("❌ Bitte zuerst 'Datum einzeln' aktivieren, damit monatliche Termine pro Zeile gesetzt werden können.");
+      return;
+    }
+
+    const count = Math.max(1, Math.trunc(Number(monthlyLoadFilter.count || "1")));
+    if (!Number.isFinite(count) || count < 1) {
+      setMessage("❌ Bitte eine gültige Anzahl angeben.");
+      return;
+    }
+
+    const startDate = monthlyLoadFilter.startDate;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+      setMessage("❌ Bitte 'beginnend am' (Datum) auswählen.");
+      return;
+    }
+
+    if (monthlyLoadFilter.accountType === "cost_center") {
+      if (!monthlyLoadFilter.budgetPlanId || !monthlyLoadFilter.costCenterId) {
+        setMessage("❌ Bitte Haushaltsplan und Kostenstelle auswählen.");
+        return;
+      }
+    } else {
+      if (!monthlyLoadFilter.accountId) {
+        setMessage("❌ Bitte eine Auswahl treffen.");
+        return;
+      }
+    }
+
+    const token = extractToken(session);
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+    try {
+      const appended = Array.from({ length: count }).map((_, i) => {
+        const date = buildMonthlyDateISO(startDate, i);
+        return {
+          date,
+          type: monthlyLoadFilter.accountType,
+          id: monthlyLoadFilter.accountType === "cost_center" ? "" : monthlyLoadFilter.accountId,
+          amount: tickListMode ? "" : (monthlyLoadFilter.amount || ""),
+          description: monthlyLoadFilter.description || "",
+          budgetPlanId: monthlyLoadFilter.accountType === "cost_center" ? monthlyLoadFilter.budgetPlanId : "",
+          costCenterId: monthlyLoadFilter.accountType === "cost_center" ? monthlyLoadFilter.costCenterId : "",
+          qtyByItemId: Object.fromEntries(tickItems.map(it => [it.id, 0])) as Record<string, number>,
+        };
+      });
+
+      // Wenn Kostenstellen-Typ: Kostenstellenliste lazy nachladen, damit Dropdowns gefüllt sind
+      if (monthlyLoadFilter.accountType === "cost_center" && monthlyLoadFilter.budgetPlanId) {
+        if (!costCentersByPlan[monthlyLoadFilter.budgetPlanId]) {
+          await loadCostCenters(monthlyLoadFilter.budgetPlanId);
+        }
+      }
+
+      // Entferne eine letzte leere Zeile (UX wie beim Gruppen-Loader)
+      setRows(prev => {
+        let base = prev;
+        if (base.length && !base[base.length - 1].id && !base[base.length - 1].amount && !base[base.length - 1].description) {
+          base = base.slice(0, -1);
+        }
+        return [...base, ...appended];
+      });
+
+      // optional: Header-Datum an Startdatum angleichen, damit Kontext passt
+      const derivedFirstDate = buildMonthlyDateISO(startDate, 0);
+      if (derivedFirstDate) {
+        setFormData(prev => ({ ...prev, date_valued: derivedFirstDate }));
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      void headers;
+    } catch (err: any) {
+      setMessage("❌ Fehler beim Laden der monatlichen Vorlage: " + (err?.message || "Unbekannt"));
+    }
+    };
 
   const computedAmountByRowIndex = useMemo(() => {
     if (!tickListMode) return [] as string[];
@@ -782,56 +914,174 @@ export default function BulkTransactionPage() {
           <button type="submit" className="form-btn form-btn-primary" disabled={loading}>Absenden</button>
         </div>
 
-        {/* Zusatzbox zum Vorlagenladen */}
-        <div className="form-container kc-section kc-section--light">
-          <h3>Vorlage laden</h3>
-          <label>
-            Status
-            <select
-              className="form-select form-select-max kc-max-220"
-              value={loadFilter.status}
-              onChange={e => setLoadFilter(prev => ({ ...prev, status: e.target.value }))}
-            >
-              <option value="">Alle</option>
-              {statusOptions.map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Hausvereinsmitglied
-            <select
-              className="form-select form-select-max kc-max-220"
-              value={loadFilter.hv}
-              onChange={e => setLoadFilter(prev => ({ ...prev, hv: e.target.value as any }))}
-            >
-              <option value="alle">Alle</option>
-              <option value="ja">Ja</option>
-              <option value="nein">Nein</option>
-            </select>
-          </label>
-          <label>
-            Beschreibung
-            <input
-              type="text"
-              className="kc-input"
-              value={loadFilter.description}
-              onChange={e => setLoadFilter(prev => ({ ...prev, description: e.target.value }))}
-            />
-          </label>
-          <label>
-            Betrag
-            <input
-              type="number"
-              className="kc-input"
-              value={loadFilter.amount}
-              onChange={e => setLoadFilter(prev => ({ ...prev, amount: e.target.value }))}
-              step="0.01"
-              inputMode="decimal"
-            />
-          </label>
-          <div>
-            <button type="button" className="form-btn form-btn-secondary" onClick={handleLoadTemplate}>Laden</button>
+        {/* Zusatzboxen zum Vorlagenladen */}
+        <div className="kc-template-grid">
+          <div className="form-container kc-section kc-section--light">
+            <h3>Vorlage laden - Gruppen</h3>
+            <label>
+              Status
+              <select
+                className="form-select form-select-max kc-max-220"
+                value={loadFilter.status}
+                onChange={e => setLoadFilter(prev => ({ ...prev, status: e.target.value }))}
+              >
+                <option value="">Alle</option>
+                {statusOptions.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Hausvereinsmitglied
+              <select
+                className="form-select form-select-max kc-max-220"
+                value={loadFilter.hv}
+                onChange={e => setLoadFilter(prev => ({ ...prev, hv: e.target.value as any }))}
+              >
+                <option value="alle">Alle</option>
+                <option value="ja">Ja</option>
+                <option value="nein">Nein</option>
+              </select>
+            </label>
+            <label>
+              Beschreibung
+              <input
+                type="text"
+                className="kc-input"
+                value={loadFilter.description}
+                onChange={e => setLoadFilter(prev => ({ ...prev, description: e.target.value }))}
+              />
+            </label>
+            <label>
+              Betrag
+              <input
+                type="number"
+                className="kc-input"
+                value={loadFilter.amount}
+                onChange={e => setLoadFilter(prev => ({ ...prev, amount: e.target.value }))}
+                step="0.01"
+                inputMode="decimal"
+              />
+            </label>
+            <div>
+              <button type="button" className="form-btn form-btn-secondary" onClick={handleLoadTemplate}>Laden</button>
+            </div>
+          </div>
+
+          <div className="form-container kc-section kc-section--light">
+            <h3>Vorlage laden - monatlich terminiert</h3>
+
+            <label>
+              beginnend am
+              <input
+                type="date"
+                className="kc-input"
+                value={monthlyLoadFilter.startDate}
+                onChange={e => setMonthlyLoadFilter(prev => ({ ...prev, startDate: e.target.value }))}
+                required
+              />
+            </label>
+
+            <label>
+              Anzahl
+              <input
+                type="number"
+                className="kc-input"
+                value={monthlyLoadFilter.count}
+                onChange={e => setMonthlyLoadFilter(prev => ({ ...prev, count: e.target.value }))}
+                min={1}
+                step={1}
+                inputMode="numeric"
+                required
+              />
+            </label>
+
+            <label>
+              Typ
+              <select
+                className="form-select form-select-max kc-max-220"
+                value={monthlyLoadFilter.accountType}
+                onChange={e => setMonthlyLoadFilter(prev => ({ ...prev, accountType: e.target.value as any, accountId: "", budgetPlanId: "", costCenterId: "" }))}
+              >
+                {rowAccountTypes.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Auswahl
+              {monthlyLoadFilter.accountType === "cost_center" ? (
+                <select
+                  className="form-select form-select-max kc-max-220"
+                  value={monthlyLoadFilter.budgetPlanId}
+                  onChange={e => {
+                    const planId = e.target.value;
+                    setMonthlyLoadFilter(prev => ({ ...prev, budgetPlanId: planId, costCenterId: "" }));
+                    if (planId) void loadCostCenters(planId);
+                  }}
+                >
+                  <option value="">Haushalt wählen</option>
+                  {budgetPlans.map(bp => (
+                    <option key={bp.id} value={bp.id}>{bp.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  className="form-select form-select-max kc-max-220"
+                  value={monthlyLoadFilter.accountId}
+                  onChange={e => setMonthlyLoadFilter(prev => ({ ...prev, accountId: e.target.value }))}
+                >
+                  <option value="">Bitte wählen</option>
+                  {getOptions(monthlyLoadFilter.accountType, userOptions, [], clearingOptions).map(opt => (
+                    <option key={opt.id} value={opt.id}>{getAccountDisplayName(opt)}</option>
+                  ))}
+                </select>
+              )}
+            </label>
+
+            {monthlyLoadFilter.accountType === "cost_center" && (
+              <label>
+                Kostenstelle
+                <select
+                  className="form-select form-select-max kc-max-220"
+                  value={monthlyLoadFilter.costCenterId}
+                  onChange={e => setMonthlyLoadFilter(prev => ({ ...prev, costCenterId: e.target.value }))}
+                  disabled={!monthlyLoadFilter.budgetPlanId}
+                >
+                  <option value="">Bitte wählen</option>
+                  {(monthlyLoadFilter.budgetPlanId && costCentersByPlan[monthlyLoadFilter.budgetPlanId] ? costCentersByPlan[monthlyLoadFilter.budgetPlanId] : []).map(cc => (
+                    <option key={cc.id} value={cc.id}>{cc.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            <label>
+              Beschreibung
+              <input
+                type="text"
+                className="kc-input"
+                value={monthlyLoadFilter.description}
+                onChange={e => setMonthlyLoadFilter(prev => ({ ...prev, description: e.target.value }))}
+              />
+            </label>
+
+            <label>
+              Betrag
+              <input
+                type="number"
+                className="kc-input"
+                value={monthlyLoadFilter.amount}
+                onChange={e => setMonthlyLoadFilter(prev => ({ ...prev, amount: e.target.value }))}
+                step="0.01"
+                inputMode="decimal"
+              />
+            </label>
+
+            <div>
+              <button type="button" className="form-btn form-btn-secondary" onClick={handleLoadMonthlyTemplate}>Laden</button>
+            </div>
           </div>
         </div>
       </form>

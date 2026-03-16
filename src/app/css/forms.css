@@ -354,3 +354,25 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+/* Template-Loader: 2 Spalten auf Desktop, 1 Spalte mobil */
+.kc-template-grid {
+  width: 100%;
+  max-width: 1100px;
+  margin: 1.5rem auto 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.kc-template-grid > .form-container {
+  max-width: none; /* Boxen dürfen im Grid die Spaltenbreite nutzen */
+  margin: 0;       /* Grid steuert Abstände */
+}
+
+@media (min-width: 900px) {
+  .kc-template-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
