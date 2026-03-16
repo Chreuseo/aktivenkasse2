@@ -1,12 +1,77 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { BulkTransactionType } from '@prisma/client';
-import { isAllowedAttachment, parsePositiveAmount, roundToTwoDecimals } from '@/lib/validation';
+import { isAllowedAttachment } from '@/lib/validation';
 import { resolveAccountId as resolveAccountIdUtil } from '@/lib/serverUtils';
-import {AuthorizationType, ResourceType} from "@/app/types/authorization";
-import {checkPermission, extractTokenAndUserId} from "@/services/authService";
+import { AuthorizationType, ResourceType } from '@/app/types/authorization';
+import { checkPermission, extractTokenAndUserId } from '@/services/authService';
 import { saveAttachmentFromFormFileData as saveAttachmentFromFormFile } from '@/lib/apiHelpers';
-import { addBulkRowWithCounter, createBulkWithMain, createPairedTransactions, createTransactionWithBalance } from '@/services/transactionService';
+import {
+  addBulkMainCostCenterRow,
+  addBulkRowWithCounter,
+  createBulkWithMain,
+  createPairedTransactions,
+  createTransactionWithBalance,
+} from '@/services/transactionService';
+
+function parseBoolean(v: FormDataEntryValue | null): boolean {
+  if (v == null) return false;
+  return String(v).toLowerCase() === 'true';
+}
+
+function parseDateOnlyOrThrow(value: string, fieldName: string): Date {
+  // Erwartet YYYY-MM-DD
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`Ungültiges Datum in '${fieldName}': ${value}`);
+  }
+  const d = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) {
+    throw new Error(`Ungültiges Datum in '${fieldName}': ${value}`);
+  }
+  return d;
+}
+
+function parseAmountOrThrow(raw: any, rowIndex?: number): number {
+  const s = String(raw ?? '').trim().replace(',', '.');
+  const n = Number(s);
+  if (!Number.isFinite(n)) {
+    const prefix = rowIndex != null ? `Zeile ${rowIndex + 1}: ` : '';
+    throw new Error(prefix + `Ungültiger Betrag: ${String(raw)}`);
+  }
+  return n;
+}
+
+type IncomingRow = {
+  date?: string;
+  type?: 'user' | 'clearing_account' | 'cost_center';
+  id?: string;
+  amount?: string;
+  description?: string;
+  budgetPlanId?: string;
+  costCenterId?: string;
+};
+
+type NormalizedAccountRow = {
+  dateValued: Date;
+  rowAccountId: number;
+  amount: number; // positiv (Vorzeichen wird später gesetzt)
+  description: string;
+};
+
+type NormalizedCostCenterRow = {
+  dateValued: Date;
+  costCenterId: number;
+  amount: number; // positiv
+  description: string;
+};
+
+async function resolveAccountIdOrThrow(p: typeof prisma, type: string, id: string, context: string): Promise<number> {
+  const accountId = await resolveAccountIdUtil(p as any, type, id);
+  const n = Number(accountId);
+  if (!Number.isFinite(n) || n <= 0) {
+    throw new Error(`${context}: Konto konnte nicht aufgelöst werden (type=${type}, id=${id})`);
+  }
+  return n;
+}
 
 export async function POST(req: Request) {
   const { userId } = extractTokenAndUserId(req as any);
@@ -15,7 +80,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 401 });
   }
 
-  const perm = await checkPermission( req, ResourceType.transactions, AuthorizationType.write_all );
+  const perm = await checkPermission(req, ResourceType.transactions, AuthorizationType.write_all);
   if (!perm.allowed) {
     return NextResponse.json({ error: 'Keine Berechtigung für write_all auf transactions' }, { status: 403 });
   }
@@ -34,281 +99,351 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Fehler beim Parsen der Formulardaten', detail: err?.message }, { status: 400 });
   }
 
-  const getField = (name: string) => {
-    const v = formData.get(name);
-    if (v === null) return undefined;
-    if (typeof v === 'string') return v;
-    return v as any; // File
-  };
-
-  const date_valued = getField('date_valued');
-  const description = getField('description');
-  const reference = getField('reference');
-  const bulkType = getField('bulkType');
-  const accountType = getField('accountType');
-  const accountId = getField('accountId');
-  const file = formData.get('attachment') as File | null;
-  const rowsRaw = getField('rows');
-  const globalBudgetPlanId = getField('globalBudgetPlanId');
-  const globalCostCenterId = getField('globalCostCenterId');
-  const individualDates = String(getField('individualDates') || '').toLowerCase() === 'true';
-
-  const bulkTypeLower = String(bulkType || '').toLowerCase();
-
-  if (!date_valued || !bulkType) {
-    return NextResponse.json({ error: 'Pflichtfelder fehlen', fields: { date_valued, bulkType } }, { status: 400 });
-  }
-
-  // --- Vereinfachte Modus-Validierung (gewünschte Logik) ---
-  // Einzug/Auszahlung & Hauptkonto Kostenstelle: verboten
-  // Einzug/Auszahlung & Hauptkonto Nutzer/Verrechnungskonto: erlaubt
-  // Kontobewegung & Hauptkonto Bank: erlaubt
-
-  const isDeposit = bulkTypeLower === 'einzahlung';
-  const isCollection = bulkTypeLower === 'einzug';
-  const isPayout = bulkTypeLower === 'auszahlung';
-
-  if (!isDeposit && !isCollection && !isPayout) {
-    return NextResponse.json({ error: 'Ungültige Einzugsart' }, { status: 400 });
-  }
-
-  // Bei Einzug/Auszahlung sind Kostenstellen-Features NICHT erlaubt
-  if (!isDeposit) {
-    if (globalBudgetPlanId || globalCostCenterId) {
-      return NextResponse.json({ error: 'Kostenstelle ist bei Einzug/Auszahlung nicht erlaubt.' }, { status: 400 });
-    }
-  }
-
-  // Hauptkonto muss immer gesetzt sein (in dieser vereinfachten Logik)
-  if (!accountType || !accountId) {
-    return NextResponse.json({ error: 'Pflichtfelder fehlen', fields: { accountType, accountId } }, { status: 400 });
-  }
-
-  const accountTypeLower = String(accountType).toLowerCase();
-
-  if ((isCollection || isPayout) && accountTypeLower === 'cost_center') {
-    return NextResponse.json({ error: 'Kostenstelle ist bei Einzug/Auszahlung nicht erlaubt.' }, { status: 400 });
-  }
-
-  if ((isCollection || isPayout) && !['user', 'clearing_account'].includes(accountTypeLower)) {
-    return NextResponse.json({ error: 'Auswahltyp für Hauptkonto passt nicht zur Einzugsart' }, { status: 400 });
-  }
-
-  if (isDeposit && accountTypeLower !== 'bank') {
-    return NextResponse.json({ error: 'Bei Kontobewegungen muss ein Bankkonto als Hauptkonto gewählt werden.' }, { status: 400 });
-  }
-
-  // Kontobewegung: wir erzwingen weiterhin "Datum einzeln" (UI sollte das auch machen)
-  if (isDeposit && !individualDates) {
-    return NextResponse.json({ error: 'Bei Kontobewegung muss "Datum einzeln" aktiv sein.' }, { status: 400 });
-  }
-
-  // Pflichtbeschreibung: bei Kontobewegung optional (Zeilenbeschreibung Pflicht), sonst global Pflicht
-  if (!isDeposit && !description) {
-    return NextResponse.json({ error: 'Pflichtfelder fehlen', fields: { description } }, { status: 400 });
-  }
-
-  // Attachment-Typ prüfen
-  if (file && !isAllowedAttachment((file as any).type)) {
-    return NextResponse.json({ error: 'Dateityp nicht erlaubt (nur Bilder oder PDF)' }, { status: 400 });
-  }
-
-  // Hauptkonto auflösen
-  const mainAccountId = await resolveAccountIdUtil(prisma as any, String(accountType), String(accountId));
-  if (!mainAccountId) {
-    return NextResponse.json({ error: 'Hauptkonto konnte nicht aufgelöst werden' }, { status: 400 });
-  }
-
-  // BulkType Enum
-  let bulkTypeEnum: BulkTransactionType;
-  if (isPayout) bulkTypeEnum = BulkTransactionType.payout;
-  else if (isCollection) bulkTypeEnum = BulkTransactionType.collection;
-  else bulkTypeEnum = BulkTransactionType.deposit;
-
-  // Rows parsen
-  let rows: any[] = [];
   try {
-    rows = JSON.parse(String(rowsRaw || '[]'));
-  } catch {
-    return NextResponse.json({ error: 'Ungültige Einzelbuchungen' }, { status: 400 });
-  }
-  if (!Array.isArray(rows) || rows.length === 0) {
-    return NextResponse.json({ error: 'Mindestens eine Einzelbuchung erforderlich' }, { status: 400 });
-  }
+    const bulkTypeRaw = String(formData.get('bulkType') ?? '').trim();
+    const individualDates = parseBoolean(formData.get('individualDates'));
 
-  const attachmentId = await saveAttachmentFromFormFile(prisma as any, file);
-  const dateVal = new Date(String(date_valued));
+    const headerDateStr = String(formData.get('date_valued') ?? '').trim();
+    const headerDateValued = headerDateStr ? parseDateOnlyOrThrow(headerDateStr, 'date_valued') : null;
 
-  // Signs
-  const mainSign = isPayout ? -1 : 1; // Auszahlung: Hauptkonto negativ; Einzug + Einzahlung: positiv
+    const headerDescription = String(formData.get('description') ?? '').trim();
+    const reference = String(formData.get('reference') ?? '').trim() || null;
 
-  // Prepared rows
-  type PreparedRow = { accountId: number; amount: number; description: string; reference?: string; dateValued?: Date };
-  type PreparedMainOnlyRow = { amount: number; description: string; reference?: string; dateValued?: Date; costCenterId: number };
-  const preparedRows: PreparedRow[] = [];
-  const preparedMainOnlyRows: PreparedMainOnlyRow[] = [];
-  let totalAbsAmount = 0;
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    const idxInfo = `Zeile ${i + 1}`;
-
-    // Datum je Zeile
-    const rowDateStr: string | undefined = individualDates ? String(row.date || '') : undefined;
-    const rowDateVal: Date | undefined = rowDateStr ? new Date(rowDateStr) : undefined;
-
-    // Betrag
-    let rawAmountNum: number | null;
-    if (isDeposit) {
-      const num = Number(row.amount);
-      rawAmountNum = Number.isFinite(num) ? num : null;
-    } else {
-      rawAmountNum = parsePositiveAmount(row.amount);
-    }
-    if (rawAmountNum === null) {
-      return NextResponse.json({ error: `${idxInfo}: Ungültiger Betrag` }, { status: 400 });
-    }
-    const amountAbs = roundToTwoDecimals(Math.abs(rawAmountNum));
-
-    // Kontobewegung: Vorzeichen beibehalten (auch negativ erlaubt)
-    const amountSignedDeposit = isDeposit ? roundToTwoDecimals(rawAmountNum) : undefined;
-
-    // Beschreibung
-    if (isDeposit && !String(row?.description || '').trim()) {
-      return NextResponse.json({ error: `${idxInfo}: Beschreibung ist bei Kontobewegung ein Pflichtfeld` }, { status: 400 });
+    const rowsRaw = formData.get('rows');
+    if (!rowsRaw) {
+      return NextResponse.json({ error: "Feld 'rows' fehlt" }, { status: 400 });
     }
 
-    // Zeile: entweder Konto (user/clearing) ODER (nur bei Kontobewegung) cost_center (bucht direkt aufs Hauptkonto)
-    if (String(row.type) === 'cost_center') {
-      if (!isDeposit) {
-        return NextResponse.json({ error: `${idxInfo}: Kostenstelle ist bei Einzug/Auszahlung nicht erlaubt.` }, { status: 400 });
+    let incomingRows: IncomingRow[];
+    try {
+      incomingRows = JSON.parse(String(rowsRaw));
+    } catch (e: any) {
+      return NextResponse.json({ error: "Feld 'rows' ist kein gültiges JSON", detail: e?.message }, { status: 400 });
+    }
+    if (!Array.isArray(incomingRows)) {
+      return NextResponse.json({ error: "Feld 'rows' muss ein Array sein" }, { status: 400 });
+    }
+
+    // Attachment optional speichern
+    const attachmentFile = formData.get('attachment');
+    let attachmentId: number | null = null;
+    if (attachmentFile instanceof File) {
+      if (!isAllowedAttachment(attachmentFile.type)) {
+        return NextResponse.json({ error: 'Nicht erlaubter Anhang' }, { status: 400 });
       }
-      if (!row.budgetPlanId || !row.costCenterId) {
-        return NextResponse.json({ error: `${idxInfo}: Kostenstellenzeile erfordert Haushaltsplan und Kostenstelle` }, { status: 400 });
+      const savedId = await saveAttachmentFromFormFile(prisma, attachmentFile);
+      attachmentId = savedId ?? null;
+    }
+
+    // main context
+    const accountType = String(formData.get('accountType') ?? '').trim();
+    const accountIdRaw = String(formData.get('accountId') ?? '').trim();
+
+    const globalBudgetPlanIdRaw = String(formData.get('globalBudgetPlanId') ?? '').trim();
+    const globalCostCenterIdRaw = String(formData.get('globalCostCenterId') ?? '').trim();
+
+    const hasMainAccount = !!accountType && !!accountIdRaw;
+    const hasGlobalCostCenter = !!globalBudgetPlanIdRaw && !!globalCostCenterIdRaw;
+
+    if (!hasMainAccount && !hasGlobalCostCenter) {
+      return NextResponse.json(
+        { error: 'Bitte entweder ein Hauptkonto (accountType/accountId) oder globalBudgetPlanId/globalCostCenterId angeben.' },
+        { status: 400 },
+      );
+    }
+
+    if (bulkTypeRaw !== 'einzug' && bulkTypeRaw !== 'auszahlung' && bulkTypeRaw !== 'kontobewegung') {
+      return NextResponse.json({ error: `Ungültiger bulkType: ${bulkTypeRaw}` }, { status: 400 });
+    }
+
+    if (!headerDateValued && !individualDates) {
+      return NextResponse.json({ error: "Feld 'date_valued' fehlt" }, { status: 400 });
+    }
+
+    // 1) Zeilen normalisieren + splitten
+    const normalizedAccountRows: NormalizedAccountRow[] = [];
+    const normalizedCostCenterRows: NormalizedCostCenterRow[] = [];
+
+    for (let i = 0; i < incomingRows.length; i++) {
+      const r = incomingRows[i] ?? {};
+
+      // Leere/Placeholder-Zeilen (UI lässt oft eine letzte leere Zeile stehen)
+      const isPlaceholderRow =
+        (!r.id || String(r.id).trim() === '') &&
+        (!r.amount || String(r.amount).trim() === '') &&
+        (!r.description || String(r.description).trim() === '') &&
+        (!r.budgetPlanId || String(r.budgetPlanId).trim() === '') &&
+        (!r.costCenterId || String(r.costCenterId).trim() === '') &&
+        (!r.date || String(r.date).trim() === '');
+      if (isPlaceholderRow) continue;
+
+      const type = r.type;
+      if (type !== 'user' && type !== 'clearing_account' && type !== 'cost_center') {
+        return NextResponse.json({ error: `Zeile ${i + 1}: Ungültiger type`, detail: String(type), rowIndex: i }, { status: 400 });
       }
-      // Bei Kontobewegung wird der Betrag direkt auf dem Hauptkonto gebucht (Vorzeichen beibehalten)
-      const signedMain = Number(amountSignedDeposit);
-      let txDescription = String(description || '');
-      if (row.description) txDescription += (txDescription ? ' - ' : '') + row.description;
-      preparedMainOnlyRows.push({
-        amount: signedMain,
-        description: txDescription,
-        reference: String(reference || ''),
-        costCenterId: Number(row.costCenterId),
-        ...(rowDateVal ? { dateValued: rowDateVal } : {}),
-      });
-      continue;
+
+      const amount = parseAmountOrThrow(r.amount, i);
+      if (bulkTypeRaw !== 'kontobewegung' && !(amount > 0)) {
+        return NextResponse.json({ error: `Zeile ${i + 1}: Betrag muss größer 0 sein`, rowIndex: i }, { status: 400 });
+      }
+
+      const rowDesc = String(r.description ?? '').trim() || headerDescription;
+      if (!rowDesc && bulkTypeRaw !== 'kontobewegung') {
+        return NextResponse.json({ error: `Zeile ${i + 1}: Beschreibung fehlt`, rowIndex: i }, { status: 400 });
+      }
+
+      let dateValued: Date;
+      if (individualDates) {
+        const rowDateStr = String(r.date ?? '').trim();
+        if (!rowDateStr) {
+          return NextResponse.json({ error: `Zeile ${i + 1}: Datum fehlt (individualDates aktiv)`, rowIndex: i }, { status: 400 });
+        }
+        try {
+          dateValued = parseDateOnlyOrThrow(rowDateStr, `rows[${i}].date`);
+        } catch (e: any) {
+          return NextResponse.json({ error: `Zeile ${i + 1}: Ungültiges Datum`, detail: e?.message, rowIndex: i }, { status: 400 });
+        }
+      } else {
+        dateValued = headerDateValued as Date;
+      }
+
+      if (type === 'cost_center') {
+        const ccId = Number(String(r.costCenterId ?? '').trim());
+        if (!Number.isFinite(ccId) || ccId <= 0) {
+          return NextResponse.json({ error: `Zeile ${i + 1}: costCenterId fehlt/ungültig`, rowIndex: i }, { status: 400 });
+        }
+        normalizedCostCenterRows.push({
+          dateValued,
+          costCenterId: ccId,
+          amount,
+          description: rowDesc || '(ohne Beschreibung)',
+        });
+      } else {
+        const idStr = String(r.id ?? '').trim();
+        if (!idStr) {
+          return NextResponse.json({ error: `Zeile ${i + 1}: id fehlt`, rowIndex: i }, { status: 400 });
+        }
+        let rowAccountId: number;
+        try {
+          rowAccountId = await resolveAccountIdOrThrow(prisma, type, idStr, `Zeile ${i + 1}`);
+        } catch (e: any) {
+          return NextResponse.json({ error: `Zeile ${i + 1}: Konto konnte nicht aufgelöst werden`, detail: e?.message, rowIndex: i }, { status: 400 });
+        }
+        normalizedAccountRows.push({
+          dateValued,
+          rowAccountId,
+          amount,
+          description: rowDesc || '(ohne Beschreibung)',
+        });
+      }
     }
 
-    // Konto-Zeile
-    if (!row?.id) {
-      return NextResponse.json({ error: `${idxInfo}: Bitte ein Konto auswählen` }, { status: 400 });
+    if (!normalizedAccountRows.length && !normalizedCostCenterRows.length) {
+      return NextResponse.json({ error: 'Keine gültigen Zeilen vorhanden' }, { status: 400 });
     }
 
-    const rowTypeLower = String(row.type).toLowerCase();
-    if (!['user', 'clearing_account'].includes(rowTypeLower)) {
-      return NextResponse.json({ error: `${idxInfo}: Ungültiger Typ (erlaubt: Nutzer, Verrechnungskonto)` }, { status: 400 });
-    }
+    // Sortieren, damit deterministische Reihenfolge (Datum, dann Konto/Kostenstelle)
+    normalizedAccountRows.sort((a, b) => a.dateValued.getTime() - b.dateValued.getTime() || a.rowAccountId - b.rowAccountId);
+    normalizedCostCenterRows.sort((a, b) => a.dateValued.getTime() - b.dateValued.getTime() || a.costCenterId - b.costCenterId);
 
-    const accId = await resolveAccountIdUtil(prisma as any, rowTypeLower, row.id);
-    if (!accId) {
-      return NextResponse.json({ error: `${idxInfo}: Konto konnte nicht aufgelöst werden` }, { status: 400 });
-    }
+    // 2) Buchungen anlegen
+    if (bulkTypeRaw === 'kontobewegung') {
+      if (!hasMainAccount) {
+        return NextResponse.json({ error: 'Kontobewegung benötigt ein Hauptkonto (accountType/accountId).' }, { status: 400 });
+      }
 
-    const signedRow = isCollection ? -Math.abs(rawAmountNum) : (isPayout ? Math.abs(rawAmountNum) : Number(rawAmountNum));
-    totalAbsAmount += amountAbs;
+      // Für kontobewegung: accountRows werden als Paarbuchung gebucht (Hauptkonto +, Gegenkonto -).
+      // Kostenstellen-Zeilen werden als einzelne Buchung auf dem Hauptkonto mit costCenterId gebucht.
 
-    let txDescription = String(description || '');
-    if (row.description) txDescription += (txDescription ? ' - ' : '') + row.description;
-
-    preparedRows.push({
-      accountId: accId,
-      amount: signedRow,
-      description: txDescription,
-      reference: String(reference || ''),
-      ...(rowDateVal ? { dateValued: rowDateVal } : {}),
-    });
-  }
-
-  try {
-    // Kontobewegung: jede Konto-Zeile als Paartransaktion + optionale Main-only Zeilen
-    if (isDeposit) {
-      const created = await prisma.$transaction(async (p: any) => {
-        // Konto-Zeilen -> Paar
-        for (const r of preparedRows) {
-          const dv = r.dateValued ?? dateVal;
-          await createPairedTransactions(p, {
-            account1Id: r.accountId,
+      const mainAccountId = await resolveAccountIdOrThrow(prisma, accountType, accountIdRaw, 'Hauptkonto');
+      const created = await prisma.$transaction(async (p) => {
+        const transactionIds: number[] = [];
+        for (const r of normalizedAccountRows) {
+          // Vorzeichen wie in der jeweiligen Zeile für beide Accounts: wir verwenden die Zeilenmenge als "amount" inkl. Vorzeichen
+          // Da UI -> amount immer positiv ist, interpretieren wir kontobewegung hier als: Hauptkonto +amount, Gegenkonto -amount.
+          const { tx1, tx2 } = await createPairedTransactions(p, {
+            account1Id: mainAccountId,
             amount1: r.amount,
-            account2Id: Number(mainAccountId),
+            account2Id: r.rowAccountId,
             amount2: r.amount,
             description: r.description,
             createdById: currentUser.id,
-            reference: r.reference,
-            dateValued: dv,
-            attachmentId: attachmentId ?? null,
-            costCenterId1: null,
-            costCenterId2: null,
+            reference,
+            dateValued: r.dateValued,
+            attachmentId,
           });
+          transactionIds.push(tx1.id, tx2.id);
         }
 
-        // Kostenstellen-Zeilen -> Einzeltransaktion direkt aufs Hauptkonto (über Service)
-        for (const r of preparedMainOnlyRows) {
-          const dv = r.dateValued ?? dateVal;
-          await createTransactionWithBalance(p, {
-            accountId: Number(mainAccountId),
-            amount: r.amount,
-            description: r.description,
-            reference: r.reference,
-            dateValued: dv,
+        for (const cc of normalizedCostCenterRows) {
+          const tx = await createTransactionWithBalance(p, {
+            accountId: mainAccountId,
+            amount: cc.amount,
+            description: cc.description,
             createdById: currentUser.id,
-            attachmentId: attachmentId ?? null,
-            costCenterId: r.costCenterId,
+            reference,
+            dateValued: cc.dateValued,
+            attachmentId,
+            costCenterId: cc.costCenterId,
           });
+          transactionIds.push(tx.id);
         }
-
-        return { count: preparedRows.length + preparedMainOnlyRows.length };
+        return { transactionIds };
       });
 
-      return NextResponse.json(created, { status: 201 });
+      return NextResponse.json({ ok: true, ...created }, { status: 200 });
     }
 
-    // Einzug/Auszahlung: klassischer Bulk (nur user/clearing rows)
-    const result = await prisma.$transaction(async (p: any) => {
-      const mainAmt = mainSign * totalAbsAmount;
-      const { bulk, mainTx } = await createBulkWithMain(p, {
-        mainAccountId: Number(mainAccountId),
-        mainAmount: mainAmt,
-        description: String(description),
-        createdById: currentUser.id,
-        type: bulkTypeEnum,
-        dateValued: dateVal,
-        reference: reference ? String(reference) : undefined,
-        attachmentId: attachmentId ?? null,
-      });
+    // einzug/auszahlung
+    const mainSign = bulkTypeRaw === 'einzug' ? 1 : -1;
 
-      for (const r of preparedRows) {
-        await addBulkRowWithCounter(p, {
-          bulkId: bulk.id,
-          mainTxId: mainTx.id,
-          rowAccountId: r.accountId,
-          amount: r.amount,
-          description: r.description,
-          createdById: currentUser.id,
-          dateValued: r.dateValued ?? dateVal,
-          reference: r.reference,
-          attachmentId: attachmentId ?? null,
-          costCenterId: null,
+    if (hasMainAccount) {
+      const mainAccountId = await resolveAccountIdOrThrow(prisma, accountType, accountIdRaw, 'Hauptkonto');
+
+      const bulkType: 'collection' | 'payout' = bulkTypeRaw === 'einzug' ? 'collection' : 'payout';
+
+      // individualDates? -> Paare pro Datum (kein Bulk), sonst Bulk mit Main
+      if (individualDates) {
+        const created = await prisma.$transaction(async (p) => {
+          const transactionIds: number[] = [];
+
+          for (const r of normalizedAccountRows) {
+            const { tx1, tx2 } = await createPairedTransactions(p, {
+              account1Id: mainAccountId,
+              amount1: mainSign * r.amount,
+              account2Id: r.rowAccountId,
+              amount2: -mainSign * r.amount,
+              description: r.description,
+              createdById: currentUser.id,
+              reference,
+              dateValued: r.dateValued,
+              attachmentId,
+            });
+            transactionIds.push(tx1.id, tx2.id);
+          }
+
+          for (const cc of normalizedCostCenterRows) {
+            const tx = await createTransactionWithBalance(p, {
+              accountId: mainAccountId,
+              amount: mainSign * cc.amount,
+              description: cc.description,
+              createdById: currentUser.id,
+              reference,
+              dateValued: cc.dateValued,
+              attachmentId,
+              costCenterId: cc.costCenterId,
+            });
+            transactionIds.push(tx.id);
+          }
+
+          return { transactionIds };
         });
+
+        return NextResponse.json({ ok: true, ...created }, { status: 200 });
       }
 
-      return { id: bulk.id, rows: preparedRows.length };
+      // !individualDates -> echtes Bulk
+      const dateValued = headerDateValued as Date;
+
+      // Summe nur aus accountRows (Kostenstellen-Row sind Buchungen auf Hauptkonto ohne Gegenkonto)
+      const sumAccountRows = normalizedAccountRows.reduce((acc, r) => acc + r.amount, 0);
+      if (!(sumAccountRows > 0) && !normalizedCostCenterRows.length) {
+        return NextResponse.json({ error: 'Summe der Zeilen muss größer 0 sein' }, { status: 400 });
+      }
+
+      const descriptionForBulk = headerDescription || normalizedAccountRows[0]?.description || normalizedCostCenterRows[0]?.description || '(ohne Beschreibung)';
+
+      const created = await prisma.$transaction(async (p) => {
+        const createdTransactionIds: number[] = [];
+
+        const { bulk, mainTx } = await createBulkWithMain(p, {
+          mainAccountId,
+          mainAmount: mainSign * sumAccountRows,
+          description: descriptionForBulk,
+          createdById: currentUser.id,
+          type: bulkType,
+          dateValued,
+          reference,
+          attachmentId,
+        });
+        createdTransactionIds.push(mainTx.id);
+
+        for (const r of normalizedAccountRows) {
+          const tx = await addBulkRowWithCounter(p, {
+            bulkId: bulk.id,
+            mainTxId: mainTx.id,
+            rowAccountId: r.rowAccountId,
+            amount: -mainSign * r.amount,
+            description: r.description,
+            createdById: currentUser.id,
+            dateValued,
+            reference,
+            attachmentId,
+          });
+          createdTransactionIds.push(tx.id);
+        }
+
+        for (const cc of normalizedCostCenterRows) {
+          const tx = await addBulkMainCostCenterRow(p, {
+            bulkId: bulk.id,
+            mainAccountId,
+            amount: mainSign * cc.amount,
+            description: cc.description,
+            createdById: currentUser.id,
+            dateValued,
+            reference,
+            attachmentId,
+            costCenterId: cc.costCenterId,
+          });
+          createdTransactionIds.push(tx.id);
+        }
+
+        return { bulkId: bulk.id, mainTransactionId: mainTx.id, transactionIds: createdTransactionIds };
+      });
+
+      return NextResponse.json({ ok: true, ...created }, { status: 200 });
+    }
+
+    // else: Haupt-Kostenstelle-Modus (kein Hauptkonto, aber globalCostCenter)
+    if (normalizedCostCenterRows.length) {
+      return NextResponse.json({ error: 'In diesem Modus sind keine Kostenstellen-Zeilen erlaubt.' }, { status: 400 });
+    }
+
+    // In diesem Modus werden IMMER einzelne Transaktionen angelegt (auch wenn individualDates=false),
+    // weil es kein Hauptkonto/Bulk gibt. Bei individualDates=true kommt das Datum pro Zeile aus der Normalisierung.
+
+    const globalCostCenterId = Number(globalCostCenterIdRaw);
+    if (!Number.isFinite(globalCostCenterId) || globalCostCenterId <= 0) {
+      return NextResponse.json({ error: 'globalCostCenterId fehlt/ungültig' }, { status: 400 });
+    }
+
+    // Laut Wunsch: hier einfach einzelne Transaktionen buchen und die Kostenstelle hinterlegen.
+    // Einzug: von den Accounts abziehen (negativ). Auszahlung: gutschreiben (positiv).
+    const sign = bulkTypeRaw === 'einzug' ? -1 : 1;
+
+    const created = await prisma.$transaction(async (p) => {
+      const transactionIds: number[] = [];
+
+      for (const r of normalizedAccountRows) {
+        const tx = await createTransactionWithBalance(p, {
+          accountId: r.rowAccountId,
+          amount: sign * r.amount,
+          description: r.description,
+          createdById: currentUser.id,
+          reference,
+          dateValued: r.dateValued,
+          attachmentId,
+          costCenterId: globalCostCenterId,
+        });
+        transactionIds.push(tx.id);
+      }
+
+      return { transactionIds };
     });
 
-    return NextResponse.json(result, { status: 201 });
-  } catch (e: any) {
-    console.error('Sammeltransaktion fehlgeschlagen', e);
-    return NextResponse.json({ error: 'Sammeltransaktion fehlgeschlagen' }, { status: 500 });
+    return NextResponse.json({ ok: true, ...created }, { status: 200 });
+  } catch (err: any) {
+    return NextResponse.json({ error: 'Fehler beim Anlegen der Bulk-Transaktionen', detail: err?.message }, { status: 400 });
   }
 }
 

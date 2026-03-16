@@ -98,6 +98,16 @@ export async function createTransactionWithBalance(p: PrismaTx, params: CreateTr
     extraData,
   } = params;
 
+  if (!Number.isFinite(accountId)) {
+    throw new Error(`Ungültige accountId: ${String(accountId)}`);
+  }
+  if (!Number.isFinite(Number(amount))) {
+    throw new Error(`Ungültiger amount: ${String(amount)}`);
+  }
+  if (!Number.isFinite(createdById)) {
+    throw new Error(`Ungültige createdById: ${String(createdById)}`);
+  }
+
   const acc = await p.account.findUnique({ where: { id: accountId } });
   if (!acc) throw new Error('Account nicht gefunden');
   const bal = Number(acc.balance);
