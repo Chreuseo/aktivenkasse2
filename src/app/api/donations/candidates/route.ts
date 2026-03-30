@@ -24,6 +24,8 @@ export async function GET(req: Request) {
   const txs = await prisma.transaction.findMany({
     where: {
       donations: { none: {} },
+      storno: false,
+      amount: { lt: 0 },
       // Robust: explizit nur Transaktionen mit gesetzter Kostenstelle und Donation-Flag
       costCenterId: { not: null },
       costCenter: { is_donation: true },

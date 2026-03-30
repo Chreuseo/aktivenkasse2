@@ -41,12 +41,20 @@ export async function createDonationForTransaction(
     throw new Error('Zuwendungsbescheid existiert bereits');
   }
 
+  if (tx.storno === true) {
+    throw new Error('Transaktion ist storniert');
+  }
+
+  if (!(Number(tx.amount) < 0)) {
+    throw new Error('Nur negative Nutzer-Transaktionen sind zulässig');
+  }
+
   const txUser = tx.account.users[0];
   const txDateValued: Date | null = tx.date_valued ? new Date(tx.date_valued) : null;
   const txDate: Date | null = tx.date ? new Date(tx.date) : null;
   const date = txDateValued || txDate || new Date();
 
-  const donation = await p.donation.create({
+  return await p.donation.create({
     data: {
       createdAt: new Date(),
       date,
@@ -58,6 +66,4 @@ export async function createDonationForTransaction(
       processorId,
     },
   });
-
-  return donation;
 }

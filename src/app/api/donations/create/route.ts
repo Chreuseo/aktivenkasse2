@@ -66,6 +66,14 @@ export async function POST(req: Request) {
         skipped.push({ transactionId: tx.id, reason: 'Zuwendungsbescheid existiert bereits' });
         continue;
       }
+      if (tx.storno === true) {
+        skipped.push({ transactionId: tx.id, reason: 'Transaktion ist storniert' });
+        continue;
+      }
+      if (!(Number(tx.amount) < 0)) {
+        skipped.push({ transactionId: tx.id, reason: 'Nur negative Nutzer-Transaktionen sind zulässig' });
+        continue;
+      }
 
       try {
         const createdDonation = await createDonationForTransaction(p, {
