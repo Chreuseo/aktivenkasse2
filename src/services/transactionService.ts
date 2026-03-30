@@ -521,7 +521,7 @@ export async function stornoTransactionWithCounter(p: PrismaTx, params: StornoTr
   const donationRows = originals.flatMap((o: any) => (o.donations || []).map((d: any) => ({ txId: Number(o.id), id: Number(d.id), downloadedAt: d.downloadedAt }))); 
   const downloadedDonation = donationRows.find((d: any) => !!d.downloadedAt);
   if (downloadedDonation) {
-    throw new Error(`Donation ${downloadedDonation.id} wurde bereits abgerufen und kann nicht storniert werden`);
+    throw new Error(`Zuwendungsbescheid ${downloadedDonation.id} wurde bereits abgerufen und kann nicht storniert werden`);
   }
 
   if (donationRows.length > 0) {
