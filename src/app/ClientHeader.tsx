@@ -29,6 +29,7 @@ const menu: MenuItem[] = [
                     { label: 'Letzte Transaktionen', href: '/transactions/recent' },
                     { label: 'Künftige Transaktionen', href: '/transactions/future' },
                     { label: 'Belegupload', href: '/attachments/upload' },
+                    { label: 'Storno', href: '/transactions/storno'},
                 ],
             },
             {

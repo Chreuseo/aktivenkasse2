@@ -16,7 +16,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   // Hole alle Transaktionen mit costCenterId = id (signed amounts)
   const transactions = await prisma.transaction.findMany({
-    where: { costCenterId: id },
+    where: { costCenterId: id, storno: false },
     select: { amount: true },
   });
 

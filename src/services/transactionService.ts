@@ -421,3 +421,167 @@ export async function createDonationDepositPair(p: PrismaTx, params: CreateDonat
 
   return { bankTx, userCounterTx, donationTx };
 }
+export type StornoTransactionParams = {
+  transactionId: number;
+  createdById: number;
+};
+
+function toStornoDescription(description: string, originalId: number): string {
+  const base = String(description || '').trim();
+  if (base.startsWith('STORNO:')) return base;
+  return `STORNO: ${base || `Transaktion #${originalId}`}`;
+}
+
+function toStornoReference(reference: string | null | undefined, originalId: number): string {
+  const ref = String(reference || '').trim();
+  return ref ? `Storno zu TX #${originalId} | ${ref}` : `Storno zu TX #${originalId}`;
+}
+
+export async function stornoTransactionWithCounter(p: PrismaTx, params: StornoTransactionParams) {
+  const { transactionId, createdById } = params;
+
+  const toProcess = [transactionId];
+  const originalIdSet = new Set<number>();
+  const bulkScopeCache = new Map<number, { mainId: number; txIds: number[] }>();
+
+  while (toProcess.length > 0) {
+    const currentId = Number(toProcess.pop());
+    if (!Number.isFinite(currentId) || currentId <= 0 || originalIdSet.has(currentId)) continue;
+
+    const tx = await p.transaction.findUnique({
+      where: { id: currentId },
+      select: { id: true, counter_transactionId: true, transactionBulkId: true },
+    });
+    if (!tx) throw new Error('Transaktion nicht gefunden');
+
+    originalIdSet.add(Number(tx.id));
+
+    // Gegentransaktion wird immer mit storniert.
+    if (tx.counter_transactionId && !originalIdSet.has(Number(tx.counter_transactionId))) {
+      toProcess.push(Number(tx.counter_transactionId));
+    }
+
+    // Bulk-Regeln:
+    // - Wird eine Bulk-Teiltransaktion storniert, wird zusätzlich die Haupttransaktion mit storniert.
+    // - Wird die Haupttransaktion storniert, werden alle Bulk-Transaktionen storniert.
+    if (tx.transactionBulkId) {
+      const bulkId = Number(tx.transactionBulkId);
+      let scope = bulkScopeCache.get(bulkId);
+      if (!scope) {
+        const bulk = await p.transactionBulk.findUnique({
+          where: { id: bulkId },
+          select: {
+            transactionId: true,
+            transactions: { select: { id: true } },
+          },
+        });
+        if (!bulk) throw new Error('Sammeltransaktion nicht gefunden');
+        const allIds = Array.from(new Set([Number(bulk.transactionId), ...(bulk.transactions || []).map((t: any) => Number(t.id))]));
+        scope = { mainId: Number(bulk.transactionId), txIds: allIds };
+        bulkScopeCache.set(bulkId, scope);
+      }
+
+      if (Number(tx.id) === scope.mainId) {
+        for (const id of scope.txIds) {
+          if (!originalIdSet.has(id)) toProcess.push(id);
+        }
+      } else if (!originalIdSet.has(scope.mainId)) {
+        toProcess.push(scope.mainId);
+      }
+    }
+  }
+
+  const originalIds = Array.from(originalIdSet);
+  const originals = await p.transaction.findMany({
+    where: { id: { in: originalIds } },
+    select: {
+      id: true,
+      amount: true,
+      description: true,
+      reference: true,
+      date_valued: true,
+      date: true,
+      accountId: true,
+      costCenterId: true,
+      storno: true,
+      counter_transactionId: true,
+      transactionBulkId: true,
+      donations: { select: { id: true, downloadedAt: true } },
+    },
+    orderBy: { id: 'asc' },
+  });
+
+  if (!originals.length || originals.length !== originalIds.length) {
+    throw new Error('Nicht alle zu stornierenden Transaktionen wurden gefunden');
+  }
+  if (originals.some((t: any) => t.storno)) {
+    throw new Error('Mindestens eine Transaktion ist bereits storniert');
+  }
+
+  const donationRows = originals.flatMap((o: any) => (o.donations || []).map((d: any) => ({ txId: Number(o.id), id: Number(d.id), downloadedAt: d.downloadedAt }))); 
+  const downloadedDonation = donationRows.find((d: any) => !!d.downloadedAt);
+  if (downloadedDonation) {
+    throw new Error(`Donation ${downloadedDonation.id} wurde bereits abgerufen und kann nicht storniert werden`);
+  }
+
+  if (donationRows.length > 0) {
+    const donationIds = donationRows.map((d: any) => Number(d.id));
+    await p.advances.updateMany({ where: { donationId: { in: donationIds } }, data: { donationId: null } });
+    await p.donation.deleteMany({ where: { id: { in: donationIds } } });
+  }
+
+  const stornoTxs: Array<{ id: number; sourceId: number }> = [];
+  const sourceToStorno = new Map<number, number>();
+  for (const o of originals) {
+    const stornoTx = await createTransactionWithBalance(p, {
+      accountId: Number(o.accountId),
+      amount: -Number(o.amount),
+      description: toStornoDescription(String(o.description || ''), Number(o.id)),
+      createdById,
+      reference: toStornoReference(o.reference, Number(o.id)),
+      dateValued: o.date_valued ?? o.date,
+      costCenterId: o.costCenterId ? Number(o.costCenterId) : null,
+      extraData: o.transactionBulkId ? { transactionBulk: { connect: { id: Number(o.transactionBulkId) } } } : undefined,
+    });
+    const stornoId = Number(stornoTx.id);
+    sourceToStorno.set(Number(o.id), stornoId);
+    stornoTxs.push({ id: stornoId, sourceId: Number(o.id) });
+  }
+
+  for (const o of originals) {
+    const sourceId = Number(o.id);
+    const counterId = o.counter_transactionId ? Number(o.counter_transactionId) : null;
+    if (!counterId) continue;
+    if (sourceId > counterId) continue;
+
+    const stornoA = sourceToStorno.get(sourceId);
+    const stornoB = sourceToStorno.get(counterId);
+    if (!stornoA || !stornoB) continue;
+
+    await p.transaction.update({ where: { id: stornoA }, data: { counter_transaction: { connect: { id: stornoB } } } });
+    await p.transaction.update({ where: { id: stornoB }, data: { counter_transaction: { connect: { id: stornoA } } } });
+  }
+
+  await p.transaction.updateMany({ where: { id: { in: originals.map((o: any) => Number(o.id)) } }, data: { storno: true } });
+  await p.transaction.updateMany({ where: { id: { in: stornoTxs.map((s) => s.id) } }, data: { storno: true } });
+
+  const advancesToReopen = await p.advances.findMany({
+    where: { transactionId: { in: originals.map((o: any) => Number(o.id)) } },
+    select: { id: true },
+  });
+
+  if (advancesToReopen.length > 0) {
+    await p.advances.updateMany({
+      where: { id: { in: advancesToReopen.map((a: any) => Number(a.id)) } },
+      data: { state: 'open', transactionId: null, reviewerId: null, decidedAt: null },
+    });
+  }
+
+  return {
+    originals: originals.map((o: any) => Number(o.id)),
+    stornoTransactions: stornoTxs,
+    reopenedAdvances: advancesToReopen.map((a: any) => Number(a.id)),
+    deletedDonations: donationRows.map((d: any) => Number(d.id)),
+  };
+}
+

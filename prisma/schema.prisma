@@ -187,6 +187,7 @@ model Transaction {
   advances              Advances[]
   dues                  Dues[]
   donations             Donation[]
+  storno                Boolean          @default(false)
 }
 
 model TransactionBulk {

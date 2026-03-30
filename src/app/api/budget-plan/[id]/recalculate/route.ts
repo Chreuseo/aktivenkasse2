@@ -38,7 +38,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const ccIds = costCenters.map(c => c.id);
   // Alle relevanten Transaktionen inkl. Kontotyp laden
   const transactions = await prisma.transaction.findMany({
-    where: { costCenterId: { in: ccIds } },
+    where: { costCenterId: { in: ccIds }, storno: false },
     select: { costCenterId: true, amount: true, account: { select: { type: true } } },
   });
 
