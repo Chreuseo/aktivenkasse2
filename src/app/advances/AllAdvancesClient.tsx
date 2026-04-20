@@ -243,11 +243,10 @@ export default function AllAdvancesClient() {
         if (isFinite(an)) body.amount = as;
       }
       if (attachmentId) body.attachmentId = attachmentId;
-      if (row.clearingAccountId) {
-        body.clearingAccountId = Number(row.clearingAccountId);
-      } else if (row.costCenterId) {
-        body.costCenterId = Number(row.costCenterId);
-      }
+      // Always send both IDs explicitly so backend can distinguish
+      // "user cleared field" from "field not provided".
+      body.clearingAccountId = row.clearingAccountId ? Number(row.clearingAccountId) : null;
+      body.costCenterId = row.costCenterId ? Number(row.costCenterId) : null;
 
       const token = extractToken(session);
       const res = await fetch('/api/advances/handle/accept', {

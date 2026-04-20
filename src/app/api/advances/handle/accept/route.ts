@@ -65,15 +65,32 @@ export async function POST(req: Request) {
   const acc1Id = submitter.accountId;
   if (!acc1Id) return NextResponse.json({ error: 'Account des Einreichenden nicht gefunden' }, { status: 400 });
 
-  // Ziel-Konten aus Body oder Advance
-  const clearingAccountId = body?.clearingAccountId ? Number(body.clearingAccountId) : (advance.clearingAccountId ?? null);
-  const costCenterId = body?.costCenterId ? Number(body.costCenterId) : null;
+  // Ziel-Konten aus Body oder Advance (explizite null/leer-Werte aus dem Frontend respektieren)
+  const hasClearingOverride = Object.prototype.hasOwnProperty.call(body ?? {}, 'clearingAccountId');
+  const hasCostCenterOverride = Object.prototype.hasOwnProperty.call(body ?? {}, 'costCenterId');
+
+  const parseOptionalId = (value: unknown): number | null => {
+    if (value === undefined || value === null || value === '') return null;
+    const n = Number(value);
+    if (!Number.isInteger(n) || n <= 0) return null;
+    return n;
+  };
+
+  const clearingAccountId = hasClearingOverride
+    ? parseOptionalId(body.clearingAccountId)
+    : (advance.clearingAccountId ?? null);
+  const costCenterId = hasCostCenterOverride
+    ? parseOptionalId(body.costCenterId)
+    : null;
 
   if (isDonation) {
     if (clearingAccountId || costCenterId) {
       return NextResponse.json({ error: 'Bei Spenden-Auslagen dürfen weder Verrechnungskonto noch Kostenstelle gesetzt sein' }, { status: 400 });
     }
   } else {
+    if (clearingAccountId && costCenterId) {
+      return NextResponse.json({ error: 'Es darf nur Verrechnungskonto oder Kostenstelle gesetzt sein' }, { status: 400 });
+    }
     if (!clearingAccountId && !costCenterId) {
       return NextResponse.json({ error: 'Entweder clearingAccountId oder costCenterId muss angegeben sein' }, { status: 400 });
     }
