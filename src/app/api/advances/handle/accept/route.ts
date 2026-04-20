@@ -128,13 +128,18 @@ export async function POST(req: Request) {
   if (!reviewer) return NextResponse.json({ error: 'Reviewer nicht gefunden' }, { status: 404 });
 
   const now = new Date();
+  const donationDateSource: unknown = (advance as any).date_advance ?? advance.date;
+  const donationDate = new Date(donationDateSource as any);
+  const effectiveDonationDate = Number.isNaN(donationDate.getTime()) ? now : donationDate;
 
   try {
     const result = await prisma.$transaction(async (p: any) => {
       if (isDonation) {
         const donation = await p.donation.create({
           data: {
-            date: now,
+            // Spendenquittung auf fachliches Datum datieren (Wertstellung/Leistungsdatum),
+            // nicht auf den Bewilligungszeitpunkt.
+            date: effectiveDonationDate,
             description: effectiveDescription,
             amount: amt,
             type: donationType,
@@ -236,7 +241,6 @@ export async function POST(req: Request) {
           });
         }
       } catch (e) {
-        // eslint-disable-next-line no-console
         console.error('Send accept mail failed', e);
       }
     })();
