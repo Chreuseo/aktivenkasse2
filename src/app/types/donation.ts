@@ -2,6 +2,7 @@ export type DonationTypeUi = 'financial' | 'material' | 'waiver';
 
 export interface DonationRow {
   id: number;
+  userId?: number;
   date: string; // ISO
   description: string;
   type: DonationTypeUi;

@@ -28,16 +28,21 @@ export async function GET(req: Request) {
   const { userId } = await getAuthContext(req);
   if (!userId) return NextResponse.json({ error: 'Keine UserId im Token' }, { status: 401 });
 
-  const perm = await checkPermission(req, ResourceType.transactions, AuthorizationType.read_own);
-  if (!perm.allowed) {
-    return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
-  }
-
   const url = new URL(req.url);
   const from = parseDateParam(url.searchParams.get('from'));
   const to = parseDateParam(url.searchParams.get('to'));
+  const requestedUserIdRaw = url.searchParams.get('userId');
   if (!from || !to) {
     return NextResponse.json({ error: 'Query-Parameter from und to sind erforderlich (YYYY-MM-DD oder ISO)' }, { status: 400 });
+  }
+
+  let requestedUserId: number | null = null;
+  if (requestedUserIdRaw) {
+    const parsed = Number(requestedUserIdRaw);
+    if (!Number.isFinite(parsed)) {
+      return NextResponse.json({ error: 'Query-Parameter userId muss numerisch sein' }, { status: 400 });
+    }
+    requestedUserId = parsed;
   }
 
   // to als inklusives Enddatum behandeln: bis Tagesende
@@ -51,9 +56,24 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Benutzer nicht gefunden' }, { status: 403 });
   }
 
+  const targetUserId = requestedUserId ?? currentUser.id;
+  const requiredAuthorization =
+    targetUserId === currentUser.id ? AuthorizationType.read_own : AuthorizationType.read_all;
+
+  const perm = await checkPermission(req, ResourceType.transactions, requiredAuthorization);
+  if (!perm.allowed) {
+    return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
+  }
+
+  const targetUser =
+    targetUserId === currentUser.id ? currentUser : await prisma.user.findUnique({ where: { id: targetUserId } });
+  if (!targetUser) {
+    return NextResponse.json({ error: 'Ziel-Benutzer nicht gefunden' }, { status: 404 });
+  }
+
   const donations = await prisma.donation.findMany({
     where: {
-      userId: currentUser.id,
+      userId: targetUser.id,
       date: { gte: from, lte: toInclusive },
     },
     orderBy: { date: 'asc' },
@@ -100,10 +120,10 @@ export async function GET(req: Request) {
     signatory2Name: requireEnv('DONATION_SIGNATORY_NAME_2'),
     signatureFooter: requireEnv('DONATION_SIGNATURE_FOOTER'),
     user: {
-      name: `${currentUser.first_name} ${currentUser.last_name}`,
-      street: currentUser.street ?? '',
-      postalCode: currentUser.postal_code ?? '',
-      city: currentUser.city ?? '',
+      name: `${targetUser.first_name} ${targetUser.last_name}`,
+      street: targetUser.street ?? '',
+      postalCode: targetUser.postal_code ?? '',
+      city: targetUser.city ?? '',
     },
     createdAt: new Date(),
     from,
@@ -111,7 +131,7 @@ export async function GET(req: Request) {
     rows,
   });
 
-  const fileName = `Spendenquittung_${currentUser.last_name}_${from.toISOString().slice(0, 10)}_${to.toISOString().slice(0, 10)}.pdf`;
+  const fileName = `Spendenquittung_${targetUser.last_name}_${from.toISOString().slice(0, 10)}_${to.toISOString().slice(0, 10)}.pdf`;
 
   // Buffer ist nicht direkt als BodyInit typisiert -> als Uint8Array/ArrayBuffer liefern
   const body = new Uint8Array(pdf);

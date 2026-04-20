@@ -47,6 +47,7 @@ export async function GET(req: Request) {
 
   const ui = donations.map((d: any) => ({
     id: d.id,
+    userId: d.userId,
     date: (d.date as Date).toISOString(),
     description: d.description,
     type: donationTypeToUi(d.type),
