@@ -216,10 +216,13 @@ export type CreateBulkMainParams = {
   dateValued: Date;
   reference?: string | null;
   attachmentId?: number | null;
+  costCenterId?: number | null;
 };
 
 export async function createBulkWithMain(p: PrismaTx, params: CreateBulkMainParams) {
-  const { mainAccountId, mainAmount, description, createdById, type, dateValued, reference, attachmentId } = params;
+  const { mainAccountId, mainAmount, description, createdById, type, dateValued, reference, attachmentId, costCenterId } = params;
+  const hasMainCostCenter = Number.isFinite(Number(costCenterId)) && Number(costCenterId) > 0;
+
   const mainTx = await createTransactionWithBalance(p, {
     accountId: mainAccountId,
     amount: mainAmount,
@@ -228,6 +231,7 @@ export async function createBulkWithMain(p: PrismaTx, params: CreateBulkMainPara
     reference,
     dateValued,
     attachmentId,
+    costCenterId: hasMainCostCenter ? Number(costCenterId) : null,
   });
 
   const bulk = await p.transactionBulk.create({
@@ -244,6 +248,11 @@ export async function createBulkWithMain(p: PrismaTx, params: CreateBulkMainPara
 
   // Rücklink auch am mainTx setzen, damit Daten konsistent sind
   await p.transaction.update({ where: { id: mainTx.id }, data: { transactionBulk: { connect: { id: bulk.id } } } });
+
+  // Bulk-Regel: Ohne Kostenstelle zeigt die Main-Transaktion als Gegenbuchung auf sich selbst.
+  if (!hasMainCostCenter) {
+    await p.transaction.update({ where: { id: mainTx.id }, data: { counter_transaction: { connect: { id: mainTx.id } } } });
+  }
 
   return { bulk, mainTx };
 }
@@ -262,7 +271,8 @@ export type AddBulkRowWithCounterParams = {
 };
 
 export async function addBulkRowWithCounter(p: PrismaTx, params: AddBulkRowWithCounterParams) {
-  const { bulkId, rowAccountId, amount, description, createdById, dateValued, reference, attachmentId, costCenterId } = params;
+  const { bulkId, mainTxId, rowAccountId, amount, description, createdById, dateValued, reference, attachmentId, costCenterId } = params;
+  const hasCostCenter = Number.isFinite(Number(costCenterId)) && Number(costCenterId) > 0;
 
   return await createTransactionWithBalance(p, {
     accountId: rowAccountId,
@@ -273,8 +283,11 @@ export async function addBulkRowWithCounter(p: PrismaTx, params: AddBulkRowWithC
     dateValued,
     attachmentId,
     costCenterId: costCenterId ?? null,
-    // Bulk ist 1:n. counter_transaction ist 1:1 und darf hier NICHT gesetzt werden.
-    extraData: { transactionBulk: { connect: { id: bulkId } } },
+    // Bulk-Regel: Gegenbuchung zeigt auf Main-Transaktion, außer bei Kostenstelle.
+    extraData: {
+      transactionBulk: { connect: { id: bulkId } },
+      ...(hasCostCenter ? {} : { counter_transaction: { connect: { id: Number(mainTxId) } } }),
+    },
   });
 }
 

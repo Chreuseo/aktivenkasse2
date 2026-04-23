@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
         const desc = `Ausgleich Verrechnungskonto ${clearing.name}`;
         const delta = amt >= 0 ? -Math.abs(amt) : Math.abs(amt);
 
-        const { bulk, mainTx } = await createBulkWithMain(p as any, {
+        const { bulk } = await createBulkWithMain(p as any, {
           mainAccountId: Number(clearing.accountId),
           mainAmount: delta,
           description: desc,
@@ -185,10 +185,8 @@ export async function POST(req: NextRequest) {
           dateValued: new Date(),
           reference: undefined,
           attachmentId: null,
+          costCenterId: Number(costCenterId),
         });
-
-        // Kostenstelle an der Haupttransaktion setzen
-        await p.transaction.update({ where: { id: mainTx.id }, data: { costCenter: { connect: { id: Number(costCenterId) } } } });
 
         const newBalance = caBalance + delta;
         return { ok: true, action: action, newBalance, bulkId: bulk.id };
