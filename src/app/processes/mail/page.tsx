@@ -166,9 +166,6 @@ export default function MailProcessPage() {
     setReceiptLoadingByRow({});
     setReceiptErrorByRow({});
     setSelectedReceiptsByRow({});
-    if (mode !== "Verrechnungskonto") {
-      setAttachReceipts(false);
-    }
   }, [mode]);
 
   const loadReceiptsForRow = useCallback(async (row: TableRow): Promise<void> => {
@@ -518,7 +515,7 @@ export default function MailProcessPage() {
                           onClick={() => {
                             void toggleReceipts(r);
                           }}
-                          style={{ border: "none", background: "transparent", color: "#2563eb", textDecoration: "underline", cursor: "pointer", padding: 0 }}
+                          className="kc-link-button"
                         >
                           {isExpanded ? "Belege ausblenden" : "Belege"}
                           {selectedCount > 0 ? ` (${selectedCount})` : ""}
@@ -536,7 +533,7 @@ export default function MailProcessPage() {
                         ) : rowReceipts.length === 0 ? (
                           <div>Keine Transaktionen gefunden.</div>
                         ) : (
-                          <table className="kc-table" style={{ marginTop: 8 }}>
+                          <table className="kc-table kc-table--mt-8">
                             <thead>
                               <tr>
                                 <th className="kc-checkbox" />
@@ -554,7 +551,6 @@ export default function MailProcessPage() {
                                     <td className="kc-checkbox">
                                       <input
                                         type="checkbox"
-                                        disabled={!canAttach}
                                         checked={rowSelectedReceipts[tx.id] ?? false}
                                         onChange={(e) =>
                                           setSelectedReceiptsByRow((s) => ({

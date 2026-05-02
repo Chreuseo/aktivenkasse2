@@ -68,3 +68,17 @@
   align-items: center;
   gap: 6px;
 }
+
+.kc-link-button {
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.kc-table--mt-8 {
+  margin-top: 8px;
+}
+

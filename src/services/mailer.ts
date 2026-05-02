@@ -186,6 +186,14 @@ function formatCurrency(value: number | null): string {
 // Minimale Bankkonto-Typen für Mails
 type DbBankAccountForMail = { bank: string; owner: string; iban: string; bic: string | null; create_girocode: boolean };
 
+type RelevantTransactionRow = {
+  date: string;
+  subject: string;
+  counterAccount: string;
+  amount: string;
+  attachmentName: string;
+};
+
 export async function getPaymentMethodAccounts(): Promise<DbBankAccountForMail[]> {
   const rows = await prisma.bankAccount.findMany({ where: { payment_method: true }, select: { bank: true, owner: true, iban: true, bic: true, create_girocode: true } });
   return rows as DbBankAccountForMail[];
@@ -230,6 +238,23 @@ function sanitizeMultiLineToHtml(input: string): string {
   return escaped.replace(/\n/g, "<br/>");
 }
 
+function getMailHtmlStyles(): string {
+  return [
+    ".mail-note{color:#666;}",
+    ".mail-note-small{color:#666;font-size:.95em;}",
+    ".mail-duehint{margin-top:6px;color:#444;}",
+    ".mail-section-gap{margin-top:10px;}",
+    ".mail-giro-wrap{margin:12px 0 20px 0;}",
+    ".mail-giro-title{font-weight:600;margin-bottom:6px;}",
+    ".mail-giro-image{width:220px;height:220px;border:1px solid #eee;border-radius:4px;}",
+    ".mail-tx-wrap{margin-top:14px;}",
+    ".mail-tx-title{font-weight:600;margin-bottom:6px;}",
+    ".mail-table{border-collapse:collapse;width:100%;font-size:.95em;}",
+    ".mail-table th,.mail-table td{padding:6px;border:1px solid #ddd;text-align:left;}",
+    ".mail-table .mail-amount{text-align:right;}",
+  ].join("\n");
+}
+
 function buildEpcGirocodeString(b: DbBankAccountForMail, opts?: { remittance?: string; amountEur?: number | null }): string {
   const name = sanitizeSingleLine(b.owner).slice(0, 70);
   const iban = sanitizeSingleLine(b.iban).replace(/\s+/g, "");
@@ -265,9 +290,9 @@ async function buildGirocodeAttachments(paymentAccounts: DbBankAccountForMail[])
     const cid = `girocode-${b.iban.replace(/\s+/g, "").slice(-8)}@aktivenkasse`;
     attachments.push({ filename: `GiroCode_${b.owner}_${b.iban.slice(-6)}.png`, content: png, cid, contentType: "image/png" });
     htmlBlocks.push(
-      `<div style="margin:12px 0 20px 0;">
-         <div style="font-weight:600;margin-bottom:6px;">GiroCode für ${b.owner} (${b.bank})</div>
-         <img src="cid:${cid}" alt="GiroCode" style="width:220px;height:220px;border:1px solid #eee;border-radius:4px;"/>
+      `<div class="mail-giro-wrap">
+         <div class="mail-giro-title">GiroCode für ${escapeHtml(b.owner)} (${escapeHtml(b.bank)})</div>
+         <img src="cid:${cid}" alt="GiroCode" class="mail-giro-image"/>
        </div>`
     );
   }
@@ -296,13 +321,13 @@ function buildPaymentInfoHtml(bas: DbBankAccountForMail[]): string {
   if (!bas?.length) return "";
   const blocks = bas.map((b) => {
     const lines: string[] = [];
-    lines.push(`<div><strong>Bank:</strong> ${b.bank}</div>`);
-    lines.push(`<div><strong>Kontoinhaber:</strong> ${b.owner}</div>`);
-    lines.push(`<div><strong>IBAN:</strong> ${b.iban}</div>`);
-    if (b.bic) lines.push(`<div><strong>BIC:</strong> ${b.bic}</div>`);
-    return `<div style="margin-bottom:10px;">${lines.join("")}</div>`;
+    lines.push(`<div><strong>Bank:</strong> ${escapeHtml(b.bank)}</div>`);
+    lines.push(`<div><strong>Kontoinhaber:</strong> ${escapeHtml(b.owner)}</div>`);
+    lines.push(`<div><strong>IBAN:</strong> ${escapeHtml(b.iban)}</div>`);
+    if (b.bic) lines.push(`<div><strong>BIC:</strong> ${escapeHtml(b.bic)}</div>`);
+    return `<div class="mail-section-gap">${lines.join("")}</div>`;
   });
-  return `<div><div>Bitte überweise den Betrag falls negativ auf eines der folgenden Konten:</div><div style="height:8px"></div>${blocks.join("")}</div>`;
+  return `<div><div>Bitte überweise den Betrag falls negativ auf eines der folgenden Konten:</div>${blocks.join("")}</div>`;
 }
 
 export function buildSubject(_input: MailBuildInput): string {
@@ -327,6 +352,98 @@ function formatDate(d: Date): string {
   }
 }
 
+function inferCounterAccountLabel(acc: any): string {
+  if (!acc) return "-";
+  if (Array.isArray(acc.users) && acc.users.length > 0) {
+    const u = acc.users[0];
+    return `${u.first_name} ${u.last_name}`;
+  }
+  if (Array.isArray(acc.bankAccounts) && acc.bankAccounts.length > 0) {
+    const b = acc.bankAccounts[0];
+    return b.name || b.bank || "Bankkonto";
+  }
+  if (Array.isArray(acc.clearingAccounts) && acc.clearingAccounts.length > 0) {
+    const c = acc.clearingAccounts[0];
+    return c.name || "Verrechnungskonto";
+  }
+  return "-";
+}
+
+async function loadRelevantTransactionsForAccount(accountId: number, selectedTransactionIds: number[]): Promise<RelevantTransactionRow[]> {
+  if (!Number.isFinite(accountId)) return [];
+  const transactionIds = Array.from(new Set((selectedTransactionIds || []).map((n) => Number(n)).filter((n) => Number.isFinite(n))));
+  if (!transactionIds.length) return [];
+
+  const rows = await prisma.transaction.findMany({
+    where: { id: { in: transactionIds }, accountId },
+    include: {
+      attachment: true,
+      counter_transaction: {
+        include: {
+          account: { include: { users: true, bankAccounts: true, clearingAccounts: true } },
+        },
+      },
+    },
+    orderBy: { date: "desc" },
+  });
+
+  return rows.map((tx) => {
+    const valuedDate = (tx as any).date_valued ?? tx.date;
+    const amountNumber = decimalToNumber((tx as any).amount) ?? 0;
+    const counter = tx.counter_transaction ? inferCounterAccountLabel((tx.counter_transaction as any).account) : "-";
+    return {
+      date: formatDate(valuedDate),
+      subject: sanitizeSingleLine((tx as any).description || "-"),
+      counterAccount: sanitizeSingleLine(counter),
+      amount: formatCurrency(amountNumber),
+      attachmentName: tx.attachment?.name ? sanitizeSingleLine(tx.attachment.name) : "kein Beleg",
+    };
+  });
+}
+
+function buildRelevantTransactionsText(rows: RelevantTransactionRow[]): string {
+  if (!rows?.length) return "";
+  const lines: string[] = [
+    "Relevante Transaktionen:",
+    "Datum (Wertstellung) | Betreff | Gegenkonto | Betrag | Beleg (Name)",
+  ];
+  for (const r of rows) {
+    lines.push(`${r.date} | ${r.subject} | ${r.counterAccount} | ${r.amount} | ${r.attachmentName}`);
+  }
+  return lines.join("\n");
+}
+
+function buildRelevantTransactionsHtml(rows: RelevantTransactionRow[]): string {
+  if (!rows?.length) return "";
+  const bodyRows = rows
+    .map((r) =>
+      `<tr>
+        <td>${escapeHtml(r.date)}</td>
+        <td>${escapeHtml(r.subject)}</td>
+        <td>${escapeHtml(r.counterAccount)}</td>
+        <td class="mail-amount">${escapeHtml(r.amount)}</td>
+        <td>${escapeHtml(r.attachmentName)}</td>
+      </tr>`
+    )
+    .join("\n");
+
+  return `<div class="mail-tx-wrap">
+    <div class="mail-tx-title">Relevante Transaktionen</div>
+    <table class="mail-table">
+      <thead>
+        <tr>
+          <th>Datum (Wertstellung)</th>
+          <th>Betreff</th>
+          <th>Gegenkonto</th>
+          <th class="mail-amount">Betrag</th>
+          <th>Beleg (Name)</th>
+        </tr>
+      </thead>
+      <tbody>${bodyRows}</tbody>
+    </table>
+  </div>`;
+}
+
 export function buildBodyText(opts: {
   input: MailBuildInput;
   salutation: string;
@@ -335,8 +452,9 @@ export function buildBodyText(opts: {
   remark?: string;
   paymentAccounts: DbBankAccountForMail[];
   dueHint?: string | null;
+  relevantTransactions?: RelevantTransactionRow[];
 }): string {
-  const { input, salutation, closing, initiatorName, remark, paymentAccounts, dueHint } = opts;
+  const { input, salutation, closing, initiatorName, remark, paymentAccounts, dueHint, relevantTransactions } = opts;
   const payText = buildPaymentInfoText(paymentAccounts);
   const corp = getCorporationName();
   const appUrl = getAppUrl();
@@ -376,6 +494,11 @@ export function buildBodyText(opts: {
     parts.push(dueHint);
   }
 
+  if (relevantTransactions && relevantTransactions.length > 0) {
+    parts.push("");
+    parts.push(buildRelevantTransactionsText(relevantTransactions));
+  }
+
   parts.push("");
   parts.push(closing);
   parts.push(initiatorName);
@@ -400,8 +523,9 @@ function buildBodyHtml(opts: {
   paymentAccounts: DbBankAccountForMail[];
   giroHtmlSection?: string;
   dueHint?: string | null;
+  relevantTransactions?: RelevantTransactionRow[];
 }): string {
-  const { input, salutation, closing, initiatorName, remark, paymentAccounts, giroHtmlSection, dueHint } = opts;
+  const { input, salutation, closing, initiatorName, remark, paymentAccounts, giroHtmlSection, dueHint, relevantTransactions } = opts;
   const corp = getCorporationName();
   const appUrl = getAppUrl();
   const parts: string[] = [];
@@ -416,12 +540,12 @@ function buildBodyHtml(opts: {
     const balance = formatCurrency(decimalToNumber(c.account.balance));
     parts.push(`<p>${salutation} ${c.responsible.first_name} ${c.responsible.last_name},</p>`);
     parts.push(`<p>Der Kontostand für das Verrechnungskonto "${c.name}": aktuell <strong>${balance}</strong>.</p>`);
-    parts.push(`<p style="color:#666;">Hinweis: Du bekommst diese Mail, weil du als Verantwortlicher für das Konto eingetragen bist.</p>`);
+    parts.push(`<p class="mail-note">Hinweis: Du bekommst diese Mail, weil du als Verantwortlicher für das Konto eingetragen bist.</p>`);
   }
 
     // Hinweis zu Fälligkeit
     if (dueHint) {
-        parts.push(`<p style="margin-top:6px;color:#444;">${dueHint}</p>`);
+        parts.push(`<p class="mail-duehint">${escapeHtml(dueHint)}</p>`);
     }
 
     if (remark && remark.trim()) {
@@ -430,7 +554,7 @@ function buildBodyHtml(opts: {
 
     const payHtml = buildPaymentInfoHtml(paymentAccounts);
     if (payHtml) {
-        parts.push(`<div style="margin-top:10px;">${payHtml}</div>`);
+        parts.push(`<div class="mail-section-gap">${payHtml}</div>`);
     }
 
     parts.push(`<p>${closing}<br/>${sanitizeSingleLine(initiatorName)}<br/>${corp}</p>`);
@@ -439,13 +563,17 @@ function buildBodyHtml(opts: {
     const linkLine = appUrl
         ? `Alle Details zu deinem Aktivenkonto findest du unter <a href="${appUrl}">${appUrl}</a>.`
         : "Alle Details zu deinem Aktivenkonto findest du auf der Aktivenkasse-Seite.";
-    parts.push(`<p style="color:#666; font-size:0.95em;">${linkLine}<br/>Falls du dich noch nie eingeloggt hast, setze beim ersten Login dein Passwort zurück.</p>`);
+    parts.push(`<p class="mail-note-small">${linkLine}<br/>Falls du dich noch nie eingeloggt hast, setze beim ersten Login dein Passwort zurück.</p>`);
 
   if (giroHtmlSection) {
-    parts.push(`<div style="margin-top:6px;">${giroHtmlSection}</div>`);
+    parts.push(`<div>${giroHtmlSection}</div>`);
   }
 
-  return parts.join("\n");
+  if (relevantTransactions && relevantTransactions.length > 0) {
+    parts.push(buildRelevantTransactionsHtml(relevantTransactions));
+  }
+
+  return `<style>${getMailHtmlStyles()}</style>\n${parts.join("\n")}`;
 }
 
 function buildFromAddress(initiatorName: string): string {
@@ -553,6 +681,10 @@ export async function buildMail(
     }
   }
 
+  const relevantTransactions = accountId
+    ? await loadRelevantTransactionsForAccount(accountId, selectedReceiptTransactionIds || [])
+    : [];
+
   // Text-Teil
   const text = buildBodyText({
     input,
@@ -562,6 +694,7 @@ export async function buildMail(
     remark,
     paymentAccounts,
     dueHint,
+    relevantTransactions,
   });
 
   // HTML + GiroCode-Anhänge
@@ -571,9 +704,9 @@ export async function buildMail(
   if (hasGiro) {
     const { attachments: att, html: giroHtml } = await buildGirocodeAttachments(paymentAccounts);
     attachments = att;
-    html = buildBodyHtml({ input, salutation, closing, initiatorName, remark, paymentAccounts, giroHtmlSection: giroHtml, dueHint });
+    html = buildBodyHtml({ input, salutation, closing, initiatorName, remark, paymentAccounts, giroHtmlSection: giroHtml, dueHint, relevantTransactions });
   } else {
-    html = buildBodyHtml({ input, salutation, closing, initiatorName, remark, paymentAccounts, dueHint });
+    html = buildBodyHtml({ input, salutation, closing, initiatorName, remark, paymentAccounts, dueHint, relevantTransactions });
   }
 
   const to = input.kind === "user" ? input.user.mail : input.clearing.responsible.mail;
