@@ -10,6 +10,7 @@ import { getToken } from "next-auth/jwt";
 // Requires: write_all on mails
 
 type Recipients = { type: "user" | "clearing"; ids: number[] };
+type ReceiptSelection = { recipientId: number; transactionIds: number[] };
 
 export async function POST(req: NextRequest) {
   // Permission
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: perm.error || "Nicht erlaubt" }, { status: 403 });
   }
 
-  let body: { recipients?: Recipients; remark?: string; subject?: string };
+  let body: { recipients?: Recipients; remark?: string; subject?: string; receiptSelections?: ReceiptSelection[] };
   try {
     body = await req.json();
   } catch {
@@ -35,6 +36,21 @@ export async function POST(req: NextRequest) {
   const ids = body.recipients.ids.map((n) => Number(n)).filter((n) => Number.isFinite(n));
   if (!ids.length) {
     return NextResponse.json({ error: "recipients.ids leer" }, { status: 400 });
+  }
+
+  let receiptSelectionsByClearingId: Record<number, number[]> = {};
+  if (body.recipients.type === "clearing" && Array.isArray(body.receiptSelections)) {
+    receiptSelectionsByClearingId = body.receiptSelections.reduce<Record<number, number[]>>((acc, item) => {
+      const recipientId = Number(item?.recipientId);
+      if (!Number.isFinite(recipientId)) return acc;
+      const txIds = Array.isArray(item?.transactionIds)
+        ? item.transactionIds.map((n) => Number(n)).filter((n) => Number.isFinite(n))
+        : [];
+      if (txIds.length > 0) {
+        acc[recipientId] = Array.from(new Set(txIds));
+      }
+      return acc;
+    }, {});
   }
 
   // Initiator-Name + Mail ermitteln (Header oder NextAuth-Token)
@@ -61,7 +77,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Empfänger laden und Input für Mailservice bauen
-  let inputs: MailBuildInput[] = [];
+  let inputs: MailBuildInput[];
   if (body.recipients.type === "user") {
     const items = await prisma.user.findMany({ where: { id: { in: ids } }, include: { account: true } });
     inputs = items.map((u) => ({ kind: "user", user: u }));
@@ -78,7 +94,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Keine gültigen Empfänger gefunden" }, { status: 404 });
   }
 
-  const { success, errors } = await sendMails(inputs, body.remark, initiatorName, initiatorEmail, body.subject);
+  const { success, errors } = await sendMails(
+    inputs,
+    body.remark,
+    initiatorName,
+    initiatorEmail,
+    body.subject,
+    receiptSelectionsByClearingId
+  );
 
   return NextResponse.json({ total: inputs.length, success, failed: errors.length, errors });
 }

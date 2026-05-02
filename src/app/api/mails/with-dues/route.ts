@@ -35,6 +35,7 @@ function decimalToNumber(v: unknown): number {
 }
 
 type Recipients = { type: "user" | "clearing"; ids: number[] };
+type ReceiptSelection = { recipientId: number; transactionIds: number[] };
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   // Permission identisch zu /api/mails
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: perm.error || "Nicht erlaubt" }, { status: 403 });
   }
 
-  let body: { recipients?: Recipients; remark?: string; subject?: string };
+  let body: { recipients?: Recipients; remark?: string; subject?: string; receiptSelections?: ReceiptSelection[] };
   try {
     body = await req.json();
   } catch {
@@ -60,6 +61,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const ids = body.recipients.ids.map((n) => Number(n)).filter((n) => Number.isFinite(n));
   if (!ids.length) {
     return NextResponse.json({ error: "recipients.ids leer" }, { status: 400 });
+  }
+
+  let receiptSelectionsByClearingId: Record<number, number[]> = {};
+  if (body.recipients.type === "clearing" && Array.isArray(body.receiptSelections)) {
+    receiptSelectionsByClearingId = body.receiptSelections.reduce<Record<number, number[]>>((acc, item) => {
+      const recipientId = Number(item?.recipientId);
+      if (!Number.isFinite(recipientId)) return acc;
+      const txIds = Array.isArray(item?.transactionIds)
+        ? item.transactionIds.map((n) => Number(n)).filter((n) => Number.isFinite(n))
+        : [];
+      if (txIds.length > 0) {
+        acc[recipientId] = Array.from(new Set(txIds));
+      }
+      return acc;
+    }, {});
   }
 
   // Initiator (Name + Mail) ermitteln
@@ -113,6 +129,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .map((c) => ({
         kind: "clearing",
         clearing: {
+          id: c.id,
           name: c.name,
           account: {
             id: (c as any).account?.id,
@@ -134,7 +151,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // 1) Mails senden (wie gehabt)
-  const { success, errors } = await sendMails(inputs, body.remark, initiatorName, initiatorEmail, body.subject);
+  const { success, errors } = await sendMails(
+    inputs,
+    body.remark,
+    initiatorName,
+    initiatorEmail,
+    body.subject,
+    receiptSelectionsByClearingId
+  );
 
   // 2) Fälligkeiten erzeugen: nur für Konten mit negativem Kontostand
   const defaultDaysStr = getEnvMulti(["DUE_DEFAULT_DAYS", "DUES_DEFAULT_DAYS", "due.default.days"], "14");

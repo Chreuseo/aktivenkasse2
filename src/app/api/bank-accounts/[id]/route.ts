@@ -84,6 +84,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     owner: bankAccount.owner,
     bank: bankAccount.bank,
     iban: bankAccount.iban,
+    bic: bankAccount.bic,
+    payment_method: Boolean(bankAccount.payment_method),
+    create_girocode: Boolean(bankAccount.create_girocode),
     balance: Number(bankAccount.account.balance),
     accountId: bankAccount.accountId,
   };

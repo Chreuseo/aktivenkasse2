@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ResourceType, AuthorizationType } from "@/app/types/authorization";
-import { checkPermission, getUserIdFromRequest } from "@/services/authService";
+import { checkPermission, getAuthContext } from "@/services/authService";
 import {getClearingAccountRole} from "@/lib/getUserAuthContext";
 
 function inferOtherFromAccount(acc: any) {
@@ -23,7 +23,15 @@ function inferOtherFromAccount(acc: any) {
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const keycloakId = getUserIdFromRequest(req);
+  const { userId } = await getAuthContext(req);
+  if (!userId) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
+
+  // read_own Rollenprüfung benötigt keycloak_id; bei numerischer User-ID aus DB auflösen.
+  let keycloakId: string | null = userId;
+  if (!isNaN(Number(userId))) {
+    const user = await prisma.user.findUnique({ where: { id: Number(userId) }, select: { keycloak_id: true } });
+    keycloakId = user?.keycloak_id || null;
+  }
   if (!keycloakId) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
   const idNum = Number(id);
   if (isNaN(idNum)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

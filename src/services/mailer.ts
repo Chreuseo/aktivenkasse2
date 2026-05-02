@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import nodemailer from "nodemailer";
 import * as QRCode from "qrcode";
+import JSZip from "jszip";
 
 // Minimale Typen, die wir tatsächlich benutzen, statt Prisma-Modelltypen zu importieren
 export type DbUserForMail = {
@@ -12,6 +13,7 @@ export type DbUserForMail = {
 };
 
 export type DbClearingForMail = {
+  id: number;
   name: string;
   account: { id: number; balance: unknown; interest?: boolean };
   responsible: { id: number; first_name: string; last_name: string; mail: string };
@@ -35,7 +37,7 @@ export type BuiltMail = {
   text: string;
   from: string;
   html?: string;
-  attachments?: { filename: string; content: Buffer; cid: string; contentType?: string }[];
+  attachments?: { filename: string; content: Buffer; cid?: string; contentType?: string }[];
   replyTo?: string;
   recipientUserId?: number | null;
 };
@@ -200,6 +202,14 @@ function getAppUrl(): string | null {
 
 function sanitizeSingleLine(input: string): string {
   return (input || "").replace(/[\r\n]+/g, " ").trim();
+}
+
+function sanitizeFilenamePart(input: string): string {
+  return (input || "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80) || "beleg";
 }
 
 function escapeHtml(input: string): string {
@@ -463,12 +473,60 @@ function applyStandardClosingAndFooter(text: string, initiatorName: string): str
   return lines.join("\n");
 }
 
+async function buildReceiptAttachmentsForClearing(clearing: DbClearingForMail, selectedTransactionIds: number[]): Promise<{ filename: string; content: Buffer; contentType?: string }[] | undefined> {
+  if (!selectedTransactionIds?.length) return undefined;
+  const accountId = Number(clearing.account?.id);
+  if (!Number.isFinite(accountId)) return undefined;
+
+  const transactionIds = Array.from(
+    new Set(
+      selectedTransactionIds
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n))
+    )
+  );
+  if (!transactionIds.length) return undefined;
+
+  const rows = await prisma.transaction.findMany({
+    where: {
+      id: { in: transactionIds },
+      accountId,
+      attachmentId: { not: null },
+    },
+    include: { attachment: true },
+    orderBy: { date: "desc" },
+  });
+
+  const files = rows
+    .filter((tx) => !!tx.attachment)
+    .map((tx) => {
+      const name = sanitizeFilenamePart(tx.attachment?.name || `beleg_${tx.id}`);
+      return {
+        filename: `${String(tx.date.toISOString().slice(0, 10))}_${tx.id}_${name}`,
+        content: Buffer.from(tx.attachment!.data as unknown as Uint8Array),
+        contentType: tx.attachment?.mimeType || undefined,
+      };
+    });
+
+  if (!files.length) return undefined;
+  if (files.length === 1) return files;
+
+  const zip = new JSZip();
+  for (const file of files) {
+    zip.file(file.filename, file.content);
+  }
+  const zipContent = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+  const zipName = `Belege_${sanitizeFilenamePart(clearing.name || "Verrechnungskonto")}.zip`;
+  return [{ filename: zipName, content: zipContent, contentType: "application/zip" }];
+}
+
 export async function buildMail(
   input: MailBuildInput,
   remark: string | undefined,
   initiatorName: string,
   initiatorEmail?: string | null,
-  subjectOverride?: string | null
+  subjectOverride?: string | null,
+  selectedReceiptTransactionIds?: number[]
 ): Promise<BuiltMail> {
   const salutation = getEnvMulti(["MAIL_SALUTATION", "mail.salutation"], "Hallo");
   const closing = getEnvMulti(["MAIL_CLOSING", "mail.closing"], "Viele Grüße");
@@ -478,7 +536,7 @@ export async function buildMail(
 
   // Due-Hinweis vorbereiten, wenn interest aktiv
   let dueHint: string | null = null;
-  let accountId: number | null = null;
+  let accountId: number | null;
   let interestFlag: boolean;
   if (input.kind === "user") {
     accountId = input.user.account?.id ?? null;
@@ -509,7 +567,7 @@ export async function buildMail(
 
   // HTML + GiroCode-Anhänge
   let html: string;
-  let attachments: { filename: string; content: Buffer; cid: string; contentType?: string }[] | undefined;
+  let attachments: { filename: string; content: Buffer; cid?: string; contentType?: string }[] | undefined;
   const hasGiro = paymentAccounts.some((b) => b.create_girocode);
   if (hasGiro) {
     const { attachments: att, html: giroHtml } = await buildGirocodeAttachments(paymentAccounts);
@@ -523,6 +581,13 @@ export async function buildMail(
   const recipientUserId = input.kind === "user" ? input.user.id : input.clearing.responsible.id;
   const from = buildFromAddress(initiatorName);
   const replyTo = initiatorEmail || undefined;
+  if (input.kind === "clearing") {
+    const receiptAttachments = await buildReceiptAttachmentsForClearing(input.clearing, selectedReceiptTransactionIds || []);
+    if (receiptAttachments?.length) {
+      attachments = [...(attachments || []), ...receiptAttachments];
+    }
+  }
+
   return { to, subject, text, from, replyTo, recipientUserId, html, attachments };
 }
 
@@ -531,7 +596,8 @@ export async function sendMails(
   remark: string | undefined,
   initiatorName: string,
   initiatorEmail?: string | null,
-  subjectOverride?: string | null
+  subjectOverride?: string | null,
+  receiptSelectionsByClearingId?: Record<number, number[]>
 ): Promise<{ success: number; errors: { to: string; error: string }[] }>{
   const transport = getTransport();
   let success = 0;
@@ -539,7 +605,10 @@ export async function sendMails(
 
   for (const inp of inputs) {
     try {
-      const mail = await buildMail(inp, remark, initiatorName, initiatorEmail, subjectOverride || undefined);
+      const selectedReceiptIds = inp.kind === "clearing"
+        ? receiptSelectionsByClearingId?.[inp.clearing.id] || []
+        : [];
+      const mail = await buildMail(inp, remark, initiatorName, initiatorEmail, subjectOverride || undefined, selectedReceiptIds);
       await transport.send(mail);
       success += 1;
     } catch (e: any) {
