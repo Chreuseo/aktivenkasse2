@@ -473,9 +473,8 @@ function applyStandardClosingAndFooter(text: string, initiatorName: string): str
   return lines.join("\n");
 }
 
-async function buildReceiptAttachmentsForClearing(clearing: DbClearingForMail, selectedTransactionIds: number[]): Promise<{ filename: string; content: Buffer; contentType?: string }[] | undefined> {
+async function buildReceiptAttachmentsForAccount(accountId: number, zipLabel: string, selectedTransactionIds: number[]): Promise<{ filename: string; content: Buffer; contentType?: string }[] | undefined> {
   if (!selectedTransactionIds?.length) return undefined;
-  const accountId = Number(clearing.account?.id);
   if (!Number.isFinite(accountId)) return undefined;
 
   const transactionIds = Array.from(
@@ -516,7 +515,7 @@ async function buildReceiptAttachmentsForClearing(clearing: DbClearingForMail, s
     zip.file(file.filename, file.content);
   }
   const zipContent = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
-  const zipName = `Belege_${sanitizeFilenamePart(clearing.name || "Verrechnungskonto")}.zip`;
+  const zipName = `Belege_${sanitizeFilenamePart(zipLabel)}.zip`;
   return [{ filename: zipName, content: zipContent, contentType: "application/zip" }];
 }
 
@@ -581,11 +580,15 @@ export async function buildMail(
   const recipientUserId = input.kind === "user" ? input.user.id : input.clearing.responsible.id;
   const from = buildFromAddress(initiatorName);
   const replyTo = initiatorEmail || undefined;
-  if (input.kind === "clearing") {
-    const receiptAttachments = await buildReceiptAttachmentsForClearing(input.clearing, selectedReceiptTransactionIds || []);
-    if (receiptAttachments?.length) {
-      attachments = [...(attachments || []), ...receiptAttachments];
-    }
+  const receiptAccountId = input.kind === "user"
+    ? Number(input.user.account?.id)
+    : Number(input.clearing.account?.id);
+  const receiptZipLabel = input.kind === "user"
+    ? `${input.user.first_name}_${input.user.last_name}`
+    : input.clearing.name;
+  if (Number.isFinite(receiptAccountId)) {
+    const receiptAttachments = await buildReceiptAttachmentsForAccount(receiptAccountId, receiptZipLabel, selectedReceiptTransactionIds || []);
+    if (receiptAttachments?.length) attachments = [...(attachments || []), ...receiptAttachments];
   }
 
   return { to, subject, text, from, replyTo, recipientUserId, html, attachments };
@@ -597,7 +600,7 @@ export async function sendMails(
   initiatorName: string,
   initiatorEmail?: string | null,
   subjectOverride?: string | null,
-  receiptSelectionsByClearingId?: Record<number, number[]>
+  receiptSelectionsByRecipientId?: Record<number, number[]>
 ): Promise<{ success: number; errors: { to: string; error: string }[] }>{
   const transport = getTransport();
   let success = 0;
@@ -605,9 +608,8 @@ export async function sendMails(
 
   for (const inp of inputs) {
     try {
-      const selectedReceiptIds = inp.kind === "clearing"
-        ? receiptSelectionsByClearingId?.[inp.clearing.id] || []
-        : [];
+      const recipientId = inp.kind === "user" ? inp.user.id : inp.clearing.id;
+      const selectedReceiptIds = receiptSelectionsByRecipientId?.[recipientId] || [];
       const mail = await buildMail(inp, remark, initiatorName, initiatorEmail, subjectOverride || undefined, selectedReceiptIds);
       await transport.send(mail);
       success += 1;

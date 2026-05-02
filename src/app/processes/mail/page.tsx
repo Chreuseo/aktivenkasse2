@@ -172,15 +172,17 @@ export default function MailProcessPage() {
   }, [mode]);
 
   const loadReceiptsForRow = useCallback(async (row: TableRow): Promise<void> => {
-    if (row.type !== "clearing") return;
-    const clearingId = Number(row.source.id);
-    if (!Number.isFinite(clearingId)) return;
+    const recipientId = Number(row.source.id);
+    if (!Number.isFinite(recipientId)) return;
 
     setReceiptLoadingByRow((s) => ({ ...s, [row.key]: true }));
     setReceiptErrorByRow((s) => ({ ...s, [row.key]: null }));
     try {
       const token = extractToken(session);
-      const res = await fetch(`/api/clearing-accounts/${clearingId}`, {
+      const endpoint = row.type === "clearing"
+        ? `/api/clearing-accounts/${recipientId}`
+        : `/api/users/${recipientId}`;
+      const res = await fetch(endpoint, {
         cache: "no-store",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -277,7 +279,6 @@ export default function MailProcessPage() {
   const hasReceiptAttachment = useCallback((tx: TxReceiptRow): boolean => Boolean(tx.attachmentId), []);
 
   const toggleReceipts = useCallback(async (row: TableRow): Promise<void> => {
-    if (row.type !== "clearing") return;
     const isOpen = receiptsExpanded[row.key];
     if (isOpen) {
       setReceiptsExpanded((s) => ({ ...s, [row.key]: false }));
@@ -300,7 +301,7 @@ export default function MailProcessPage() {
       const type: "user" | "clearing" = mode === "Nutzer" ? "user" : "clearing";
       const url = setDues ? "/api/mails/with-dues" : "/api/mails";
       const receiptSelections: ReceiptSelection[] | undefined =
-        (type === "clearing" && attachReceipts)
+        attachReceipts
           ? chosen
               .map((row) => {
                 const transactionIds = Object.entries(selectedReceiptsByRow[row.key] || {})
@@ -435,23 +436,21 @@ export default function MailProcessPage() {
           <span>Fälligkeiten setzen</span>
         </div>
 
-        {mode === "Verrechnungskonto" ? (
-          <div className="kc-checkline u-mt-2">
-            <input
-              type="checkbox"
-              checked={attachReceipts}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                const checked = e.target.checked;
-                setAttachReceipts(checked);
-                if (!checked) {
-                  setReceiptsExpanded({});
-                  setSelectedReceiptsByRow({});
-                }
-              }}
-            />
-            <span>Belege anfügen</span>
-          </div>
-        ) : null}
+        <div className="kc-checkline u-mt-2">
+          <input
+            type="checkbox"
+            checked={attachReceipts}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              const checked = e.target.checked;
+              setAttachReceipts(checked);
+              if (!checked) {
+                setReceiptsExpanded({});
+                setSelectedReceiptsByRow({});
+              }
+            }}
+          />
+          <span>Belege anfügen</span>
+        </div>
 
         <div className="u-mt-2">
           <button className="button" disabled={!canSend} onClick={handleSend}>
@@ -478,13 +477,13 @@ export default function MailProcessPage() {
               <th>Name</th>
               <th>Mail</th>
               <th>Kontostand</th>
-              {mode === "Verrechnungskonto" && attachReceipts ? <th>Belege</th> : null}
+              {attachReceipts ? <th>Belege</th> : null}
             </tr>
           </thead>
           <tbody>
             {filteredOnce && rows.length === 0 ? (
               <tr>
-                <td colSpan={mode === "Verrechnungskonto" && attachReceipts ? 6 : 5} className="kc-table-note kc-table-note--muted">
+                <td colSpan={attachReceipts ? 6 : 5} className="kc-table-note kc-table-note--muted">
                   Keine Einträge für den aktuellen Filter.
                 </td>
               </tr>
@@ -495,7 +494,7 @@ export default function MailProcessPage() {
               const rowError = receiptErrorByRow[r.key];
               const rowSelectedReceipts = selectedReceiptsByRow[r.key] || {};
               const selectedCount = Object.values(rowSelectedReceipts).filter(Boolean).length;
-              const showReceiptColumn = mode === "Verrechnungskonto" && attachReceipts;
+              const showReceiptColumn = attachReceipts;
               const isExpanded = receiptsExpanded[r.key];
               return (
                 <React.Fragment key={r.key}>
@@ -514,18 +513,16 @@ export default function MailProcessPage() {
                     <td>{formatCurrency(Number(r.balance) || 0)}</td>
                     {showReceiptColumn ? (
                       <td>
-                        {r.type === "clearing" ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void toggleReceipts(r);
-                            }}
-                            style={{ border: "none", background: "transparent", color: "#2563eb", textDecoration: "underline", cursor: "pointer", padding: 0 }}
-                          >
-                            {isExpanded ? "Belege ausblenden" : "Belege"}
-                            {selectedCount > 0 ? ` (${selectedCount})` : ""}
-                          </button>
-                        ) : "-"}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void toggleReceipts(r);
+                          }}
+                          style={{ border: "none", background: "transparent", color: "#2563eb", textDecoration: "underline", cursor: "pointer", padding: 0 }}
+                        >
+                          {isExpanded ? "Belege ausblenden" : "Belege"}
+                          {selectedCount > 0 ? ` (${selectedCount})` : ""}
+                        </button>
                       </td>
                     ) : null}
                   </tr>

@@ -63,9 +63,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "recipients.ids leer" }, { status: 400 });
   }
 
-  let receiptSelectionsByClearingId: Record<number, number[]> = {};
-  if (body.recipients.type === "clearing" && Array.isArray(body.receiptSelections)) {
-    receiptSelectionsByClearingId = body.receiptSelections.reduce<Record<number, number[]>>((acc, item) => {
+  let receiptSelectionsByRecipientId: Record<number, number[]> = {};
+  if (Array.isArray(body.receiptSelections)) {
+    receiptSelectionsByRecipientId = body.receiptSelections.reduce<Record<number, number[]>>((acc, item) => {
       const recipientId = Number(item?.recipientId);
       if (!Number.isFinite(recipientId)) return acc;
       const txIds = Array.isArray(item?.transactionIds)
@@ -157,7 +157,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     initiatorName,
     initiatorEmail,
     body.subject,
-    receiptSelectionsByClearingId
+    receiptSelectionsByRecipientId
   );
 
   // 2) Fälligkeiten erzeugen: nur für Konten mit negativem Kontostand
