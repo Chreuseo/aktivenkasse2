@@ -1,0 +1,44 @@
+/* Theme Management
+   Unterstützt: auto (Browser), light, dark
+   Die HTML-Klasse wird durch ClientHeader gesetzt
+*/
+
+/* Default: Browser-Einstellung (auto) */
+html {
+  color-scheme: light dark;
+}
+
+/* Light Mode Erzwingung */
+html.light {
+  color-scheme: light;
+}
+
+html.light {
+  --background: #ffffff !important;
+  --foreground: #171717 !important;
+}
+
+/* Dark Mode Erzwingung */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark {
+  --background: #0a0a0a !important;
+  --foreground: #ededed !important;
+}
+
+/* Fallback Media Query für Auto-Modus */
+@media (prefers-color-scheme: light) {
+  html:not(.dark) {
+    --background: #ffffff;
+    --foreground: #171717;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not(.light) {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}

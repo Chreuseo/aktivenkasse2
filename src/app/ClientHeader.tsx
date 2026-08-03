@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 
 type FilterMode = 'Standard' | 'Aktive' | 'Erweitert';
+type ThemeMode = 'light' | 'dark' | 'auto';
 
 type MenuLink = { type: 'link'; label: string; href: string };
 type MenuGroup = { type: 'group'; label: string; children: MenuGroupChild[] };
@@ -159,6 +160,7 @@ export default function ClientHeader() {
 
     const [filterMode, setFilterMode] = useState<FilterMode>('Standard');
     const [webTitle, setWebTitle] = useState<string>("");
+    const [theme, setTheme] = useState<ThemeMode>('auto');
 
     const headerRef = useRef<HTMLElement | null>(null);
 
@@ -170,6 +172,25 @@ export default function ClientHeader() {
 
     const handleLinkClick = () => {
         closeMenus();
+    };
+
+    // Funktion zum Anwenden des Themes
+    const applyTheme = (newTheme: ThemeMode) => {
+        const htmlEl = typeof document !== 'undefined' ? document.documentElement : null;
+        if (!htmlEl) return;
+
+        if (newTheme === 'auto') {
+            htmlEl.style.colorScheme = '';
+            htmlEl.classList.remove('light', 'dark');
+        } else if (newTheme === 'light') {
+            htmlEl.style.colorScheme = 'light';
+            htmlEl.classList.remove('dark');
+            htmlEl.classList.add('light');
+        } else if (newTheme === 'dark') {
+            htmlEl.style.colorScheme = 'dark';
+            htmlEl.classList.remove('light');
+            htmlEl.classList.add('dark');
+        }
     };
 
     // Filter-Auswahl aus localStorage laden
@@ -184,6 +205,22 @@ export default function ClientHeader() {
         }
     }, []);
 
+    // Theme aus localStorage laden
+    useEffect(() => {
+        try {
+            const saved = typeof window !== 'undefined' ? window.localStorage.getItem('themeMode') : null;
+            if (saved === 'light' || saved === 'dark' || saved === 'auto') {
+                setTheme(saved);
+                applyTheme(saved);
+            } else {
+                // Standard: auto
+                applyTheme('auto');
+            }
+        } catch {
+            applyTheme('auto');
+        }
+    }, []);
+
     // Filter-Auswahl speichern
     useEffect(() => {
         try {
@@ -194,6 +231,18 @@ export default function ClientHeader() {
             // ignore
         }
     }, [filterMode]);
+
+    // Theme speichern
+    useEffect(() => {
+        try {
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem('themeMode', theme);
+                applyTheme(theme);
+            }
+        } catch {
+            // ignore
+        }
+    }, [theme]);
 
     // Firmenname + Web-Titel zur Laufzeit laden
     useEffect(() => {
@@ -352,24 +401,42 @@ export default function ClientHeader() {
                     })}
                 </ul>
 
-                {/* Rechts im Desktop-Header: Auswahl der Ansicht */}
-                <div className="hidden md:flex items-center gap-2">
-                    <label htmlFor="header-filter" className="text-sm text-gray-300">Ansicht</label>
-                    <select
-                        id="header-filter"
-                        className="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 text-sm"
-                        value={filterMode}
-                        onChange={(e) => {
-                            setFilterMode(e.target.value as FilterMode);
-                            setOpenTop(null);
-                            setOpenSub(null);
-                        }}
-                        aria-label="Header-Ansicht auswählen"
-                    >
-                        <option value="Standard">Standard</option>
-                        <option value="Aktive">Aktive</option>
-                        <option value="Erweitert">Erweitert</option>
-                    </select>
+                {/* Rechts im Desktop-Header: Auswahl der Ansicht + Theme Toggle */}
+                <div className="hidden md:flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <label htmlFor="header-filter" className="text-sm text-gray-300">Ansicht</label>
+                        <select
+                            id="header-filter"
+                            className="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 text-sm"
+                            value={filterMode}
+                            onChange={(e) => {
+                                setFilterMode(e.target.value as FilterMode);
+                                setOpenTop(null);
+                                setOpenSub(null);
+                            }}
+                            aria-label="Header-Ansicht auswählen"
+                        >
+                            <option value="Standard">Standard</option>
+                            <option value="Aktive">Aktive</option>
+                            <option value="Erweitert">Erweitert</option>
+                        </select>
+                    </div>
+
+                    {/* Theme Toggle */}
+                    <div className="flex items-center gap-2 pl-4 border-l border-gray-600">
+                        <label htmlFor="theme-toggle" className="text-sm text-gray-300">Theme</label>
+                        <select
+                            id="theme-toggle"
+                            className="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 text-sm"
+                            value={theme}
+                            onChange={(e) => setTheme(e.target.value as ThemeMode)}
+                            aria-label="Theme auswählen"
+                        >
+                            <option value="auto">Auto</option>
+                            <option value="light">☀️ Light</option>
+                            <option value="dark">🌙 Dark</option>
+                        </select>
+                    </div>
                 </div>
 
                 {/* Mobile Hamburger */}
@@ -468,24 +535,40 @@ export default function ClientHeader() {
                     })}
                 </ul>
 
-                {/* Unten im mobilen Menü: Auswahl der Ansicht */}
-                <div className="p-4 border-t border-gray-700 flex items-center justify-between gap-3">
-                    <label htmlFor="header-filter-mobile" className="text-sm text-gray-300">Ansicht</label>
-                    <select
-                        id="header-filter-mobile"
-                        className="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 text-sm w-40"
-                        value={filterMode}
-                        onChange={(e) => {
-                            setFilterMode(e.target.value as FilterMode);
-                            setOpenTop(null);
-                            setOpenSub(null);
-                        }}
-                        aria-label="Header-Ansicht auswählen (mobil)"
-                    >
-                        <option value="Standard">Standard</option>
-                        <option value="Aktive">Aktive</option>
-                        <option value="Erweitert">Erweitert</option>
-                    </select>
+                {/* Unten im mobilen Menü: Auswahl der Ansicht + Theme Toggle */}
+                <div className="p-4 border-t border-gray-700 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                        <label htmlFor="header-filter-mobile" className="text-sm text-gray-300">Ansicht</label>
+                        <select
+                            id="header-filter-mobile"
+                            className="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 text-sm w-40"
+                            value={filterMode}
+                            onChange={(e) => {
+                                setFilterMode(e.target.value as FilterMode);
+                                setOpenTop(null);
+                                setOpenSub(null);
+                            }}
+                            aria-label="Header-Ansicht auswählen (mobil)"
+                        >
+                            <option value="Standard">Standard</option>
+                            <option value="Aktive">Aktive</option>
+                            <option value="Erweitert">Erweitert</option>
+                        </select>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                        <label htmlFor="theme-toggle-mobile" className="text-sm text-gray-300">Theme</label>
+                        <select
+                            id="theme-toggle-mobile"
+                            className="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 text-sm w-40"
+                            value={theme}
+                            onChange={(e) => setTheme(e.target.value as ThemeMode)}
+                            aria-label="Theme auswählen (mobil)"
+                        >
+                            <option value="auto">Auto</option>
+                            <option value="light">☀️ Light</option>
+                            <option value="dark">🌙 Dark</option>
+                        </select>
+                    </div>
                 </div>
             </div>
         </header>
