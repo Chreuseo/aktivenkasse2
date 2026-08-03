@@ -13,10 +13,22 @@
 
 .kc-muted { color: var(--muted); }
 
+@media (prefers-color-scheme: light) {
+    .kc-muted { 
+        color: #6b7280;
+    }
+}
+
 /* Kleiner Hinweistext (z. B. in Formularen) */
 .kc-hint {
   font-size: 0.85rem;
   color: var(--muted);
+}
+
+@media (prefers-color-scheme: light) {
+  .kc-hint {
+      color: #6b7280;
+  }
 }
 
 .kc-section-title {
@@ -39,6 +51,12 @@
 .kc-infobox-subtitle {
   color: var(--muted);
   margin-bottom: 4px;
+}
+
+@media (prefers-color-scheme: light) {
+  .kc-infobox-subtitle {
+      color: #6b7280;
+  }
 }
 
 .kc-kv {

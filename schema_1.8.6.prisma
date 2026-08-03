@@ -1,0 +1,251 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Account {
+  id               Int               @id @default(autoincrement())
+  balance          Decimal
+  interest         Boolean
+  type             AccountType
+  users            User[]
+  bankAccounts     BankAccount[]
+  clearingAccounts ClearingAccount[]
+  transactions     Transaction[]
+  transactionBulks TransactionBulk[]
+  dues             Dues[]
+}
+
+model User {
+  id                          Int                     @id @default(autoincrement())
+  first_name                  String
+  last_name                   String
+  mail                        String                  @unique
+  keycloak_id                 String                  @unique
+  enabled                     Boolean                 @default(true)
+  accountId                   Int
+  account                     Account                 @relation(fields: [accountId], references: [id])
+  roles                       Role[]
+  clearingAccounts            ClearingAccountMember[]
+  responsibleClearingAccounts ClearingAccount[]       @relation("responsible")
+  advancesFrom                Advances[]              @relation("FromUser")
+  advancesReviewed            Advances[]              @relation("Reviewer")
+  mails                       Mail[]
+  TransactionCreated          Transaction[]
+}
+
+model Role {
+  id                Int               @id @default(autoincrement())
+  name              String?           @unique
+  keycloak_id       String?           @unique
+  userId            Int?
+  user              User?             @relation(fields: [userId], references: [id])
+  overview          AuthorizationType @default(none)
+  mails             AuthorizationType @default(none)
+  budget_plan       AuthorizationType @default(none)
+  userAuth          AuthorizationType @default(none)
+  clearing_accounts AuthorizationType @default(none)
+  bank_accounts     AuthorizationType @default(none)
+  transactions      AuthorizationType @default(none)
+  advances          AuthorizationType @default(none)
+}
+
+model BankAccount {
+  id              Int     @id @default(autoincrement())
+  name            String
+  owner           String  @default("")
+  bank            String
+  iban            String  @unique
+  bic             String?
+  accountId       Int
+  account         Account @relation(fields: [accountId], references: [id])
+  payment_method  Boolean @default(false)
+  create_girocode Boolean @default(false)
+}
+
+model ClearingAccount {
+  id                    Int                     @id @default(autoincrement())
+  name                  String
+  responsibleId         Int?
+  responsible           User?                   @relation("responsible", fields: [responsibleId], references: [id])
+  accountId             Int
+  account               Account                 @relation(fields: [accountId], references: [id])
+  reimbursementEligible Boolean
+  members               ClearingAccountMember[]
+  advances              Advances[]
+}
+
+model ClearingAccountMember {
+  clearingAccountId Int
+  userId            Int
+  clearingAccount   ClearingAccount @relation(fields: [clearingAccountId], references: [id])
+  user              User            @relation(fields: [userId], references: [id])
+
+  @@id([clearingAccountId, userId])
+}
+
+model BudgetPlan {
+  id                 Int             @id @default(autoincrement())
+  name               String
+  description        String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  state              budgetPlanState @default(draft)
+  firstCostCenter    Int?
+  firstCostCenterObj CostCenter?     @relation("FirstCostCenter", fields: [firstCostCenter], references: [id])
+  costCenters        CostCenter[]
+}
+
+model CostCenter {
+  id                 Int           @id @default(autoincrement())
+  name               String
+  description        String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  earnings_expected  Decimal
+  costs_expected     Decimal
+  earnings_actual    Decimal       @default(0)
+  costs_actual       Decimal       @default(0)
+  budget_planId      Int
+  budget_plan        BudgetPlan    @relation(fields: [budget_planId], references: [id])
+  budgetPlanFirst    BudgetPlan[]  @relation("FirstCostCenter")
+  nextCostCenter     Int?
+  nextCostCenterObj  CostCenter?   @relation("NextCostCenter", fields: [nextCostCenter], references: [id])
+  previousCostCenter CostCenter[]  @relation("NextCostCenter")
+  Transaction        Transaction[]
+}
+
+model Transaction {
+  id                    Int              @id @default(autoincrement())
+  amount                Decimal
+  date                  DateTime         @default(now())
+  date_valued           DateTime         @default(now())
+  description           String
+  reference             String?
+  accountId             Int
+  account               Account          @relation(fields: [accountId], references: [id])
+  createdById           Int
+  createdBy             User             @relation(fields: [createdById], references: [id])
+  accountValueAfter     Decimal
+  counter_transactionId Int?
+  counter_transaction   Transaction?     @relation("CounterTransaction", fields: [counter_transactionId], references: [id])
+  counter_transactions  Transaction[]    @relation("CounterTransaction")
+  costCenterId          Int?
+  costCenter            CostCenter?      @relation(fields: [costCenterId], references: [id])
+  attachmentId          Int?
+  attachment            Attachment?      @relation(fields: [attachmentId], references: [id])
+  transactionBulkId     Int?
+  transactionBulk       TransactionBulk? @relation("BulkTransactions", fields: [transactionBulkId], references: [id])
+  bulkMain              TransactionBulk? @relation("BulkMainTransaction")
+  advances              Advances[]
+  dues                  Dues[]
+}
+
+model TransactionBulk {
+  id              Int                 @id @default(autoincrement())
+  date            DateTime            @default(now())
+  date_valued     DateTime?
+  transactionId   Int                 @unique
+  mainTransaction Transaction         @relation("BulkMainTransaction", fields: [transactionId], references: [id])
+  description     String
+  reference       String?
+  accountId       Int
+  attachmentId    Int?
+  attachment      Attachment?         @relation(fields: [attachmentId], references: [id])
+  account         Account             @relation(fields: [accountId], references: [id])
+  transactions    Transaction[]       @relation("BulkTransactions")
+  type            BulkTransactionType
+}
+
+model Advances {
+  id                Int              @id @default(autoincrement())
+  amount            Decimal
+  date              DateTime         @default(now())
+  date_advance      DateTime         @default(now())
+  description       String
+  userId            Int
+  user              User             @relation("FromUser", fields: [userId], references: [id])
+  clearingAccountId Int?
+  clearingAccount   ClearingAccount? @relation(fields: [clearingAccountId], references: [id])
+  transactionId     Int?
+  transaction       Transaction?     @relation(fields: [transactionId], references: [id])
+  reviewerId        Int?
+  reviewer          User?            @relation("Reviewer", fields: [reviewerId], references: [id])
+  state             advanceState     @default(open)
+  reason            String?
+  decidedAt         DateTime?
+  attachmentId      Int?
+  attachment        Attachment?      @relation(fields: [attachmentId], references: [id])
+}
+
+model Attachment {
+  id               Int               @id @default(autoincrement())
+  name             String
+  mimeType         String
+  data             Bytes
+  transactions     Transaction[]
+  transactionBulks TransactionBulk[]
+  Advances         Advances[]
+}
+
+model Mail {
+  id          Int      @id @default(autoincrement())
+  subject     String
+  body        String   @db.Text
+  sentAt      DateTime @default(now())
+  userId      Int?
+  user        User?    @relation(fields: [userId], references: [id])
+  addressedTo String
+  attachment  String?
+}
+
+model Dues {
+  id             Int          @id @default(autoincrement())
+  amount         Decimal
+  createdAt      DateTime     @default(now())
+  dueDate        DateTime
+  paid           Boolean      @default(false)
+  paidAt         DateTime?
+  interestBilled Boolean      @default(false)
+  interest       Transaction? @relation(fields: [transactionId], references: [id])
+  accountId      Int
+  account        Account      @relation(fields: [accountId], references: [id])
+  transactionId  Int?
+}
+
+enum AccountType {
+  user
+  bank
+  clearing_account
+}
+
+enum AuthorizationType {
+  none
+  read_own
+  read_all
+  write_all
+}
+
+enum budgetPlanState {
+  draft
+  active
+  closed
+}
+
+enum advanceState {
+  open
+  cancelled
+  accepted
+  rejected
+}
+
+enum BulkTransactionType {
+  collection
+  deposit
+  payout
+}
+

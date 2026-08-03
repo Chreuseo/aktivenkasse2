@@ -103,10 +103,22 @@
   border-top: 1px solid #333;
 }
 
+@media (prefers-color-scheme: light) {
+  .kc-section {
+      border-top-color: #e5e7eb;
+  }
+}
+
 .kc-section--light {
   border-top-color: #ddd;
   margin-top: 1rem;
   padding-top: 1rem;
+}
+
+@media (prefers-color-scheme: light) {
+  .kc-section--light {
+      border-top-color: #e5e7eb;
+  }
 }
 
 h1, h2 {

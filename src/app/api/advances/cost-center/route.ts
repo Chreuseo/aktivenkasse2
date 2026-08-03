@@ -47,7 +47,7 @@ export async function GET(req: Request) {
     include: { attachment: true, clearingAccount: true, user: true, reviewer: true },
   });
 
-  const res = advances.map(a => ({
+  const res = advances.map((a: typeof advances[0]) => ({
     id: a.id,
     amount: Number(a.amount),
     date_advance: (a.date_advance ?? a.date).toISOString(),

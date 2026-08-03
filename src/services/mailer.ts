@@ -40,6 +40,8 @@ export type BuiltMail = {
   attachments?: { filename: string; content: Buffer; cid?: string; contentType?: string }[];
   replyTo?: string;
   recipientUserId?: number | null;
+  cc?: string[];
+  bcc?: string[];
 };
 
 export interface MailTransport {
@@ -57,6 +59,8 @@ export class ConsoleTransport implements MailTransport {
       "\nFrom:",
       mail.from,
       mail.replyTo ? `\nReply-To: ${mail.replyTo}` : "",
+      mail.cc?.length ? `\nCC: ${mail.cc.join("; ")}` : "",
+      mail.bcc?.length ? `\nBCC: ${mail.bcc.join("; ")}` : "",
       mail.html ? "\n[HTML content present]" : "",
       mail.attachments?.length ? `\nAttachments: ${mail.attachments.length}` : "",
       "\nrecipientUserId:", mail.recipientUserId,
@@ -96,6 +100,8 @@ export class SmtpTransport implements MailTransport {
     await this.transporter.sendMail({
       from: mail.from,
       to: mail.to,
+      cc: mail.cc?.length ? mail.cc : undefined,
+      bcc: mail.bcc?.length ? mail.bcc : undefined,
       subject: mail.subject,
       text: mail.text,
       html: mail.html,
@@ -653,7 +659,9 @@ export async function buildMail(
   initiatorName: string,
   initiatorEmail?: string | null,
   subjectOverride?: string | null,
-  selectedReceiptTransactionIds?: number[]
+  selectedReceiptTransactionIds?: number[],
+  ccAddresses?: string[],
+  bccAddresses?: string[]
 ): Promise<BuiltMail> {
   const salutation = getEnvMulti(["MAIL_SALUTATION", "mail.salutation"], "Hallo");
   const closing = getEnvMulti(["MAIL_CLOSING", "mail.closing"], "Viele Grüße");
@@ -724,7 +732,7 @@ export async function buildMail(
     if (receiptAttachments?.length) attachments = [...(attachments || []), ...receiptAttachments];
   }
 
-  return { to, subject, text, from, replyTo, recipientUserId, html, attachments };
+  return { to, subject, text, from, replyTo, recipientUserId, html, attachments, cc: ccAddresses, bcc: bccAddresses };
 }
 
 export async function sendMails(
@@ -733,8 +741,10 @@ export async function sendMails(
   initiatorName: string,
   initiatorEmail?: string | null,
   subjectOverride?: string | null,
-  receiptSelectionsByRecipientId?: Record<number, number[]>
-): Promise<{ success: number; errors: { to: string; error: string }[] }>{
+  receiptSelectionsByRecipientId?: Record<number, number[]>,
+  ccAddresses?: string[],
+  bccAddresses?: string[]
+): Promise<{ success: number; errors: { to: string; error: string }[] }> {
   const transport = getTransport();
   let success = 0;
   const errors: { to: string; error: string }[] = [];
@@ -743,7 +753,7 @@ export async function sendMails(
     try {
       const recipientId = inp.kind === "user" ? inp.user.id : inp.clearing.id;
       const selectedReceiptIds = receiptSelectionsByRecipientId?.[recipientId] || [];
-      const mail = await buildMail(inp, remark, initiatorName, initiatorEmail, subjectOverride || undefined, selectedReceiptIds);
+      const mail = await buildMail(inp, remark, initiatorName, initiatorEmail, subjectOverride || undefined, selectedReceiptIds, ccAddresses, bccAddresses);
       await transport.send(mail);
       success += 1;
     } catch (e: any) {

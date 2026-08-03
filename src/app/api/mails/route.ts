@@ -19,7 +19,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: perm.error || "Nicht erlaubt" }, { status: 403 });
   }
 
-  let body: { recipients?: Recipients; remark?: string; subject?: string; receiptSelections?: ReceiptSelection[] };
+  let body: {
+    recipients?: Recipients;
+    remark?: string;
+    subject?: string;
+    receiptSelections?: ReceiptSelection[];
+    cc?: string[];
+    bcc?: string[];
+  };
   try {
     body = await req.json();
   } catch {
@@ -100,7 +107,9 @@ export async function POST(req: NextRequest) {
     initiatorName,
     initiatorEmail,
     body.subject,
-    receiptSelectionsByRecipientId
+    receiptSelectionsByRecipientId,
+    body.cc,
+    body.bcc
   );
 
   return NextResponse.json({ total: inputs.length, success, failed: errors.length, errors });

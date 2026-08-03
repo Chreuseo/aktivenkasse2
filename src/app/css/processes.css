@@ -78,6 +78,12 @@
   padding: 0;
 }
 
+@media (prefers-color-scheme: light) {
+  .kc-link-button {
+      color: #1d4ed8;
+  }
+}
+
 .kc-table--mt-8 {
   margin-top: 8px;
 }

@@ -10,6 +10,14 @@
     -webkit-overflow-scrolling: touch;
 }
 
+@media (prefers-color-scheme: light) {
+    .form-container {
+        background: #f9fafb;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        color: #171717;
+    }
+}
+
 .form-container.kc-form-container--upload {
     max-width: 620px;
 }
@@ -75,6 +83,12 @@
     color: #ededed;
 }
 
+@media (prefers-color-scheme: light) {
+    .form label {
+        color: #374151;
+    }
+}
+
 .form input, form textarea {
     padding: 0.5rem;
     border: 1px solid #444;
@@ -82,6 +96,14 @@
     font-size: 1rem;
     background: #18181b;
     color: #ededed;
+}
+
+@media (prefers-color-scheme: light) {
+    .form input, form textarea {
+        background: #ffffff;
+        color: #171717;
+        border-color: #d1d5db;
+    }
 }
 
 /* Klarere Optik für deaktivierte bzw. schreibgeschützte Felder */
@@ -93,6 +115,15 @@
     cursor: not-allowed;
 }
 
+@media (prefers-color-scheme: light) {
+    .form input:disabled,
+    .form input[readonly] {
+        background: #f3f4f6;
+        color: #9ca3af;
+        border: 1px dashed #d1d5db;
+    }
+}
+
 .form-select {
     padding: 0.5rem;
     border: 1px solid #444;
@@ -102,6 +133,14 @@
     color: #ededed;
     margin-top: 0.3rem;
     margin-bottom: 0.3rem;
+}
+
+@media (prefers-color-scheme: light) {
+    .form-select {
+        background: #ffffff;
+        color: #171717;
+        border-color: #d1d5db;
+    }
 }
 
 .form-select-max {
@@ -116,11 +155,24 @@
     background: #23232a;
 }
 
+@media (prefers-color-scheme: light) {
+    .form-select:focus {
+        background: #f9fafb;
+    }
+}
+
 .form-select:disabled, .form-select-max:disabled {
     background-color: #23232a;
     color: #888;
     cursor: not-allowed;
     opacity: 0.7;
+}
+
+@media (prefers-color-scheme: light) {
+    .form-select:disabled, .form-select-max:disabled {
+        background-color: #f3f4f6;
+        color: #9ca3af;
+    }
 }
 
 .form button {
@@ -214,6 +266,17 @@
     box-sizing: border-box;
 }
 
+@media (prefers-color-scheme: light) {
+    .advances-table input[type="text"],
+    .advances-table input[type="number"],
+    .advances-table select,
+    .advances-table input[type="file"] {
+        background: #ffffff;
+        color: #171717;
+        border-color: #d1d5db;
+    }
+}
+
 .advances-table input[type="text"]:focus,
 .advances-table input[type="number"]:focus,
 .advances-table select:focus,
@@ -221,6 +284,15 @@
     outline: none;
     border-color: #facc15;
     box-shadow: 0 0 0 3px rgba(250,204,21,0.08);
+}
+
+@media (prefers-color-scheme: light) {
+    .advances-table input[type="text"]:focus,
+    .advances-table input[type="number"]:focus,
+    .advances-table select:focus,
+    .advances-table input[type="file"]:focus {
+        box-shadow: 0 0 0 3px rgba(250,204,21,0.14);
+    }
 }
 
 /* Narrow file input appearance */
@@ -294,6 +366,15 @@
     font-style: italic;
 }
 
+@media (prefers-color-scheme: light) {
+    .advances-table select:disabled,
+    .advances-table select[disabled] {
+        background: #f3f4f6;
+        color: #9ca3af;
+        border: 1px dashed #d1d5db;
+    }
+}
+
 /* Disabled file input appearance */
 .advances-table input[type="file"]:disabled {
     background: #1f1f22;
@@ -301,6 +382,14 @@
     border: 1px dashed #3a3a3f;
     cursor: not-allowed;
     font-style: italic;
+}
+
+@media (prefers-color-scheme: light) {
+    .advances-table input[type="file"]:disabled {
+        background: #f3f4f6;
+        color: #9ca3af;
+        border: 1px dashed #d1d5db;
+    }
 }
 
 /* Slightly stronger contrast for placeholder / muted value in disabled selects */
@@ -327,6 +416,12 @@
 .form input[type="checkbox"]:checked::after {
     left: 24px;
     background: #111827; /* Knopf dunkel auf hellem Track */
+}
+
+@media (prefers-color-scheme: light) {
+    .form input[type="checkbox"]:checked::after {
+        background: #ffffff;
+    }
 }
 
 .form input[type="checkbox"]:disabled {

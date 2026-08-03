@@ -84,6 +84,10 @@ export default function MailProcessPage() {
   const [receiptLoadingByRow, setReceiptLoadingByRow] = useState<Record<string, boolean>>({});
   const [receiptErrorByRow, setReceiptErrorByRow] = useState<Record<string, string | null>>({});
   const [selectedReceiptsByRow, setSelectedReceiptsByRow] = useState<Record<string, Record<number, boolean>>>({});
+  const [useCc, setUseCc] = useState<boolean>(false);
+  const [ccAddresses, setCcAddresses] = useState<string>("");
+  const [useBcc, setUseBcc] = useState<boolean>(false);
+  const [bccAddresses, setBccAddresses] = useState<string>("");
 
   // Hilfsfunktionen
   const parseAmount = useCallback(() => {
@@ -312,6 +316,9 @@ export default function MailProcessPage() {
               })
               .filter((entry) => Number.isFinite(entry.recipientId) && entry.transactionIds.length > 0)
           : undefined;
+      const ccList = useCc ? ccAddresses.split(";").map(e => e.trim()).filter(e => e.length > 0) : undefined;
+      const bccList = useBcc ? bccAddresses.split(";").map(e => e.trim()).filter(e => e.length > 0) : undefined;
+
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -320,6 +327,8 @@ export default function MailProcessPage() {
           remark: remark?.trim() || undefined,
           subject: subject?.trim() || undefined,
           receiptSelections,
+          cc: ccList,
+          bcc: bccList,
         }),
       });
       const data: { success?: number; total?: number; failed?: number; errors?: { to: string; error: string }[]; duesCreated?: number; error?: string } = await res.json().catch(() => ({} as any));
@@ -345,7 +354,7 @@ export default function MailProcessPage() {
     } finally {
       setLoading(false);
     }
-  }, [canSend, rows, selected, mode, remark, subject, setDues, attachReceipts, selectedReceiptsByRow]);
+  }, [canSend, rows, selected, mode, remark, subject, setDues, attachReceipts, selectedReceiptsByRow, useCc, ccAddresses, useBcc, bccAddresses]);
 
   const showNegHint = op === "kleiner" && parseAmount() > 0;
 
@@ -448,6 +457,48 @@ export default function MailProcessPage() {
           />
           <span>Belege anfügen</span>
         </div>
+
+        <div className="kc-checkline u-mt-2">
+          <input
+            type="checkbox"
+            checked={useCc}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUseCc(e.target.checked)}
+          />
+          <span>CC</span>
+        </div>
+        {useCc && (
+          <label className="form kc-form--tight u-mt-1">
+            <span>CC-Adressen (durch Semikolon getrennt)</span>
+            <input
+              className="form-select form-select-max"
+              type="text"
+              value={ccAddresses}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCcAddresses(e.target.value)}
+              placeholder="email1@example.com; email2@example.com"
+            />
+          </label>
+        )}
+
+        <div className="kc-checkline u-mt-2">
+          <input
+            type="checkbox"
+            checked={useBcc}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUseBcc(e.target.checked)}
+          />
+          <span>BCC</span>
+        </div>
+        {useBcc && (
+          <label className="form kc-form--tight u-mt-1">
+            <span>BCC-Adressen (durch Semikolon getrennt)</span>
+            <input
+              className="form-select form-select-max"
+              type="text"
+              value={bccAddresses}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBccAddresses(e.target.value)}
+              placeholder="email1@example.com; email2@example.com"
+            />
+          </label>
+        )}
 
         <div className="u-mt-2">
           <button className="button" disabled={!canSend} onClick={handleSend}>

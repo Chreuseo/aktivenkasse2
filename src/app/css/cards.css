@@ -8,6 +8,12 @@
   border-radius: 6px;
 }
 
+@media (prefers-color-scheme: light) {
+  .kc-panel {
+      border-color: #e5e7eb;
+  }
+}
+
 .kc-panel--spaced {
   margin-top: 0.5rem;
 }
