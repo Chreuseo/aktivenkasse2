@@ -1,0 +1,638 @@
+/* Datei: src/app/css/theme-overrides.css
+   Zweck: Vollständige Theme-Overrides für Light/Dark Mode
+   Diese Datei stellt sicher, dass alle Komponenten auf html.light und html.dark reagieren
+*/
+
+/* =====================
+   Form Container & Boxes
+   ===================== */
+html.light .form-container {
+  background: #f9fafb;
+  color: #171717;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+html.dark .form-container {
+  background: #23232a;
+  color: #ededed;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+html.light .edit-form-container {
+  background: #f9fafb;
+  color: #171717;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+html.dark .edit-form-container {
+  background: #23232a;
+  color: #ededed;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* =====================
+   Form Labels & Text
+   ===================== */
+html.light .form label {
+  color: #374151;
+}
+
+html.dark .form label {
+  color: #ededed;
+}
+
+html.light .edit-form label {
+  color: #374151;
+}
+
+html.dark .edit-form label {
+  color: #ededed;
+}
+
+/* =====================
+   Form Inputs
+   ===================== */
+html.light .form input,
+html.light form textarea {
+  background: #ffffff;
+  color: #171717;
+  border-color: #d1d5db;
+}
+
+html.dark .form input,
+html.dark form textarea {
+  background: #18181b;
+  color: #ededed;
+  border-color: #444;
+}
+
+html.light .edit-form input,
+html.light .edit-form-select {
+  background: #ffffff;
+  color: #171717;
+  border-color: #d1d5db;
+}
+
+html.dark .edit-form input,
+html.dark .edit-form-select {
+  background: #18181b;
+  color: #ededed;
+  border-color: #444;
+}
+
+/* =====================
+   Form Selects
+   ===================== */
+html.light .form-select {
+  background: #ffffff;
+  color: #171717;
+  border-color: #d1d5db;
+}
+
+html.dark .form-select {
+  background: #18181b;
+  color: #ededed;
+  border-color: #444;
+}
+
+html.light .form-select:focus {
+  background: #f9fafb;
+}
+
+html.dark .form-select:focus {
+  background: #23232a;
+}
+
+html.light .kc-select {
+  background-color: #ffffff;
+  color: #111827;
+  border-color: #d1d5db;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7l5 6 5-6' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 14px 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+html.dark .kc-select {
+  background-color: transparent;
+  background-image: linear-gradient(90deg, #23272e 78%, #23232a 100%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7l5 6 5-6' stroke='%23cbd5e1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat;
+  background-position: 0 0, right 0.7rem center;
+  background-size: auto, 14px 14px;
+  color: #f3f3f3;
+  border-color: #444;
+}
+
+html.light .kc-select:hover {
+  border-color: #9ca3af;
+}
+
+html.dark .kc-select:hover {
+  border-color: #575b66;
+}
+
+html.light .kc-select:focus,
+html.light .kc-select:focus-visible {
+  background: #f9fafb;
+}
+
+html.dark .kc-select:focus,
+html.dark .kc-select:focus-visible {
+  background: #23232a;
+}
+
+html.light .kc-select:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border-color: #d1d5db;
+  opacity: 1;
+}
+
+html.dark .kc-select:disabled {
+  background: repeating-linear-gradient(135deg, #2d2d36 0 10px, #292933 10px 20px);
+  color: #8b8fa1;
+  border-color: #4b4f5a;
+  opacity: 0.7;
+}
+
+/* =====================
+   Table Inputs & Selects
+   ===================== */
+html.light .kc-table .kc-input {
+  background: #ffffff;
+  color: #171717;
+  border-color: #d1d5db;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+html.dark .kc-table .kc-input {
+  background: linear-gradient(90deg, #23272e 80%, #23232a 100%);
+  color: #f3f3f3;
+  border-color: #444;
+}
+
+html.light .kc-table .kc-input:focus {
+  background: #f9fafb;
+}
+
+html.dark .kc-table .kc-input:focus {
+  background: #23232a;
+}
+
+html.light .kc-table .kc-input:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border-color: #d1d5db;
+  opacity: 1;
+}
+
+html.dark .kc-table .kc-input:disabled {
+  background: repeating-linear-gradient(135deg, #2d2d36 0 10px, #292933 10px 20px);
+  color: #888;
+  border-color: #555;
+  opacity: 0.7;
+}
+
+/* =====================
+   Advance Grid Inputs
+   ===================== */
+html.light .advance-grid input[type="text"],
+html.light .advance-grid input[type="number"],
+html.light .advance-grid select,
+html.light .advance-grid input[type="file"] {
+  background: #ffffff;
+  color: #171717;
+  border-color: #d1d5db;
+}
+
+html.dark .advance-grid input[type="text"],
+html.dark .advance-grid input[type="number"],
+html.dark .advance-grid select,
+html.dark .advance-grid input[type="file"] {
+  background: rgba(15, 23, 42, 0.15);
+  color: inherit;
+  border-color: rgba(148, 163, 184, 0.55);
+}
+
+html.light .advance-grid input[type="text"]:focus,
+html.light .advance-grid input[type="number"]:focus,
+html.light .advance-grid select:focus,
+html.light .advance-grid input[type="file"]:focus {
+  background: #f9fafb;
+}
+
+html.dark .advance-grid input[type="text"]:focus,
+html.dark .advance-grid input[type="number"]:focus,
+html.dark .advance-grid select:focus,
+html.dark .advance-grid input[type="file"]:focus {
+  background: rgba(15, 23, 42, 0.25);
+}
+
+html.light .advance-grid input:disabled,
+html.light .advance-grid select:disabled,
+html.light .advance-grid input[type="file"]:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border-color: #d1d5db;
+  opacity: 1;
+}
+
+html.dark .advance-grid input:disabled,
+html.dark .advance-grid select:disabled,
+html.dark .advance-grid input[type="file"]:disabled {
+  background: repeating-linear-gradient(135deg, rgba(148,163,184,0.08) 0 10px, rgba(148,163,184,0.03) 10px 20px);
+  color: rgba(148, 163, 184, 0.85);
+  border-color: rgba(148, 163, 184, 0.45);
+  opacity: 0.75;
+}
+
+/* =====================
+   Advances Table Inputs
+   ===================== */
+html.light .advances-table input[type="text"],
+html.light .advances-table input[type="number"],
+html.light .advances-table select,
+html.light .advances-table input[type="file"] {
+  background: #ffffff;
+  color: #171717;
+  border-color: #d1d5db;
+}
+
+html.dark .advances-table input[type="text"],
+html.dark .advances-table input[type="number"],
+html.dark .advances-table select,
+html.dark .advances-table input[type="file"] {
+  background: #141416;
+  color: #e6e6e6;
+  border-color: #3b3b44;
+}
+
+html.light .advances-table input[type="text"]:focus,
+html.light .advances-table input[type="number"]:focus,
+html.light .advances-table select:focus,
+html.light .advances-table input[type="file"]:focus {
+  box-shadow: 0 0 0 3px rgba(250,204,21,0.14);
+}
+
+html.dark .advances-table input[type="text"]:focus,
+html.dark .advances-table input[type="number"]:focus,
+html.dark .advances-table select:focus,
+html.dark .advances-table input[type="file"]:focus {
+  box-shadow: 0 0 0 3px rgba(250,204,21,0.08);
+}
+
+html.light .advances-table select:disabled,
+html.light .advances-table select[disabled] {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border: 1px dashed #d1d5db;
+}
+
+html.dark .advances-table select:disabled,
+html.dark .advances-table select[disabled] {
+  background: linear-gradient(180deg, #1f1f22 0%, #252528 100%);
+  color: #9ca3af;
+  border: 1px dashed #3a3a3f;
+}
+
+html.light .advances-table input[type="file"]:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border: 1px dashed #d1d5db;
+}
+
+html.dark .advances-table input[type="file"]:disabled {
+  background: #1f1f22;
+  color: #9ca3af;
+  border: 1px dashed #3a3a3f;
+}
+
+/* =====================
+   Edit Form Special Elements
+   ===================== */
+html.light .edit-form-description {
+  background: #ffffff;
+  color: #171717;
+  border-color: #d1d5db;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+html.dark .edit-form-description {
+  background: #18181b;
+  color: #ededed;
+  border-color: #444;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+}
+
+html.light .edit-form-description:focus {
+  background: #f9fafb;
+}
+
+html.dark .edit-form-description:focus {
+  background: #23232a;
+}
+
+html.light .edit-members-section {
+  background: #f3f4f6;
+}
+
+html.dark .edit-members-section {
+  background: #18181b;
+}
+
+html.light .edit-members-none {
+  color: #6b7280;
+}
+
+html.dark .edit-members-none {
+  color: #888;
+}
+
+/* =====================
+   Buttons (comprehensive)
+   ===================== */
+html.light .button {
+  background: #ffffff;
+  color: #1e293b;
+  border-color: #d1d5db;
+}
+
+html.dark .button {
+  background: #1e293b;
+  color: #facc15;
+  border-color: #334155;
+}
+
+html.light .button:hover,
+html.light .button:focus {
+  background: #fef3c7;
+  color: #1f2937;
+  border-color: #fbbf24;
+}
+
+html.dark .button:hover,
+html.dark .button:focus {
+  background: #facc15;
+  color: #222;
+  border-color: #facc15;
+}
+
+html.light .button:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border-color: #d1d5db;
+  opacity: 1;
+}
+
+html.dark .button:disabled {
+  background: #1f2f3d;
+  color: #6b7280;
+  border-color: #4b5563;
+  opacity: 0.6;
+}
+
+html.light .form button {
+  background-color: #ffffff;
+  color: #1e293b;
+  border: 1px solid #d1d5db;
+}
+
+html.dark .form button {
+  background-color: #1e293b;
+  color: #facc15;
+}
+
+html.light .form button:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+html.dark .form button:hover {
+  background-color: #334155;
+}
+
+html.light .form button:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  border-color: #d1d5db;
+  opacity: 1;
+}
+
+html.dark .form button:disabled {
+  background-color: #0f172a;
+  color: #6b7280;
+  opacity: 0.6;
+}
+
+html.light .advances-table .button {
+  background-color: #ffffff;
+  color: #1e293b;
+  border-color: #d1d5db;
+}
+
+html.dark .advances-table .button {
+  background-color: #1e293b;
+  color: #facc15;
+  border: 1px solid transparent;
+}
+
+html.light .advances-table .button:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+html.dark .advances-table .button:hover {
+  background-color: #263248;
+}
+
+html.light .edit-member-add-btn {
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #d1d5db;
+}
+
+html.dark .edit-member-add-btn {
+  background: #1e293b;
+  color: #facc15;
+}
+
+html.light .edit-member-add-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+html.dark .edit-member-add-btn:hover {
+  background: #334155;
+}
+
+html.light .edit-member-add-btn:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border-color: #d1d5db;
+  opacity: 1;
+}
+
+html.dark .edit-member-add-btn:disabled {
+  background: #0f172a;
+  color: #6b7280;
+  opacity: 0.6;
+}
+
+html.light .form-sign-toggle {
+  background-color: #ffffff;
+  color: #1e293b;
+  border: 1px solid #d1d5db;
+}
+
+html.dark .form-sign-toggle {
+  background-color: #334155;
+  color: #facc15;
+}
+
+html.light .form-sign-toggle:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  border-color: #d1d5db;
+  opacity: 1;
+}
+
+html.dark .form-sign-toggle:disabled {
+  background-color: #0f172a;
+  color: #6b7280;
+  opacity: 0.6;
+}
+
+html.light .kc-link-button {
+  color: #1d4ed8;
+}
+
+html.dark .kc-link-button {
+  color: #3b82f6;
+}
+
+html.light .edit-member-remove {
+  color: #dc2626;
+}
+
+html.dark .edit-member-remove {
+  color: #f87171;
+}
+
+html.light .edit-member-remove:hover {
+  background: #fecaca;
+}
+
+html.dark .edit-member-remove:hover {
+  background: #fee2e2;
+}
+
+/* =====================
+   Note & Status Elements
+   ===================== */
+html.light .kc-note {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+html.dark .kc-note {
+  background: rgba(15, 23, 42, 0.1);
+  color: #9aa4b2;
+}
+
+html.light .kc-status {
+  color: #6b7280;
+}
+
+html.dark .kc-status {
+  color: #9aa4b2;
+}
+
+html.light .kc-table-note--muted {
+  color: #6b7280;
+}
+
+html.dark .kc-table-note--muted {
+  color: #9aa4b2;
+}
+
+/* =====================
+   Disabled Input States
+   ===================== */
+html.light .form input:disabled,
+html.light .form input[readonly] {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border: 1px dashed #d1d5db;
+}
+
+html.dark .form input:disabled,
+html.dark .form input[readonly] {
+  background: #23232a;
+  color: #9ca3af;
+  border: 1px dashed #3a3a3f;
+}
+
+html.light .form-select:disabled,
+html.light .form-select-max:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+}
+
+html.dark .form-select:disabled,
+html.dark .form-select-max:disabled {
+  background-color: #23232a;
+  color: #888;
+  opacity: 0.7;
+}
+
+/* =====================
+   Sections & Borders
+   ===================== */
+html.light .kc-section {
+  border-top-color: #e5e7eb;
+}
+
+html.dark .kc-section {
+  border-top-color: #333;
+}
+
+html.light .kc-section--light {
+  border-top-color: #e5e7eb;
+}
+
+html.dark .kc-section--light {
+  border-top-color: #333;
+}
+
+html.light .kc-panel {
+  border-color: #e5e7eb;
+}
+
+html.dark .kc-panel {
+  border-color: #222;
+}
+
+html.light .kc-muted {
+  color: #6b7280;
+}
+
+html.dark .kc-muted {
+  color: #9aa4b2;
+}
+
+html.light .kc-hint {
+  color: #6b7280;
+}
+
+html.dark .kc-hint {
+  color: #9aa4b2;
+}
+
+html.light .kc-infobox-subtitle {
+  color: #6b7280;
+}
+
+html.dark .kc-infobox-subtitle {
+  color: #9aa4b2;
+}

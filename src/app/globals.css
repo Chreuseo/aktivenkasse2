@@ -2,6 +2,7 @@
 @tailwind utilities;
 @import "./css/theme.css";
 @import "./css/buttons.css";
+@import "./css/theme-overrides.css";
 
 :root {
   --background: #ffffff;
