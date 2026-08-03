@@ -1,0 +1,335 @@
+/* Datei: src/app/css/buttons.css
+   Zweck: Konsistente Button-Styling für alle Varianten in Light und Dark Mode
+*/
+
+/* =====================
+   Basis Button Styling
+   ===================== */
+.button {
+  padding: 0.5em 1.2em;
+  background: #1e293b;
+  color: #facc15;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+@media (prefers-color-scheme: light) {
+  .button {
+    background: #ffffff;
+    color: #1e293b;
+    border-color: #d1d5db;
+  }
+}
+
+.button:hover, .button:focus {
+  background: #facc15;
+  color: #222;
+  border-color: #facc15;
+  outline: none;
+}
+
+@media (prefers-color-scheme: light) {
+  .button:hover, .button:focus {
+    background: #fef3c7;
+    color: #1f2937;
+    border-color: #fbbf24;
+  }
+}
+
+.button:disabled {
+  background: #1f2f3d;
+  color: #6b7280;
+  cursor: not-allowed;
+  border-color: #4b5563;
+  opacity: 0.6;
+}
+
+@media (prefers-color-scheme: light) {
+  .button:disabled {
+    background: #f3f4f6;
+    color: #9ca3af;
+    border-color: #d1d5db;
+    opacity: 1;
+  }
+}
+
+/* =====================
+   Light Button Variante
+   ===================== */
+.button.kc-button--light {
+  background: #f8fafc;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  .button.kc-button--light {
+    background: #f8fafc;
+    color: #111827;
+    border: 1px solid #e5e7eb;
+  }
+}
+
+.button.kc-button--light:hover,
+.button.kc-button--light:focus {
+  background: #e5e7eb;
+  color: #111827;
+  border-color: #9ca3af;
+}
+
+/* =====================
+   Form Buttons
+   ===================== */
+.form button {
+  padding: 0.7rem;
+  font-size: 1rem;
+  border: none;
+  background-color: #1e293b;
+  color: #facc15;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease-in-out;
+}
+
+@media (prefers-color-scheme: light) {
+  .form button {
+    background-color: #ffffff;
+    color: #1e293b;
+    border: 1px solid #d1d5db;
+  }
+}
+
+.form button:hover {
+  background-color: #334155;
+}
+
+@media (prefers-color-scheme: light) {
+  .form button:hover {
+    background-color: #f3f4f6;
+    border-color: #9ca3af;
+  }
+}
+
+.form button:disabled {
+  background-color: #0f172a;
+  color: #6b7280;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (prefers-color-scheme: light) {
+  .form button:disabled {
+    background-color: #f3f4f6;
+    color: #9ca3af;
+    border-color: #d1d5db;
+    opacity: 1;
+  }
+}
+
+/* =====================
+   Compact Buttons (Tabellen)
+   ===================== */
+.button.kc-btn--compact {
+  padding: 0.2rem 0.8rem;
+  font-size: 0.9rem;
+}
+
+/* =====================
+   Advances Table Buttons
+   ===================== */
+.advances-table .button {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.95rem;
+  border-radius: 6px;
+  background-color: #1e293b;
+  color: #facc15;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+@media (prefers-color-scheme: light) {
+  .advances-table .button {
+    background-color: #ffffff;
+    color: #1e293b;
+    border-color: #d1d5db;
+  }
+}
+
+.advances-table .button:hover {
+  background-color: #263248;
+}
+
+@media (prefers-color-scheme: light) {
+  .advances-table .button:hover {
+    background-color: #f3f4f6;
+    border-color: #9ca3af;
+  }
+}
+
+/* Accept / Decline visual cues */
+.advances-table button[title="Annehmen"] {
+  background-color: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.advances-table button[title="Annehmen"]:hover {
+  background-color: #0ea46d;
+  border-color: #0ea46d;
+}
+
+.advances-table button[title="Ablehnen"] {
+  background-color: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+.advances-table button[title="Ablehnen"]:hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
+}
+
+/* =====================
+   Edit Form Buttons
+   ===================== */
+.edit-member-add-btn {
+  padding: 0.5rem 1.1rem;
+  background: #1e293b;
+  color: #facc15;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+  min-width: 110px;
+}
+
+@media (prefers-color-scheme: light) {
+  .edit-member-add-btn {
+    background: #ffffff;
+    color: #1e293b;
+    border: 1px solid #d1d5db;
+  }
+}
+
+.edit-member-add-btn:hover {
+  background: #334155;
+}
+
+@media (prefers-color-scheme: light) {
+  .edit-member-add-btn:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+  }
+}
+
+.edit-member-add-btn:disabled {
+  background: #0f172a;
+  color: #6b7280;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (prefers-color-scheme: light) {
+  .edit-member-add-btn:disabled {
+    background: #f3f4f6;
+    color: #9ca3af;
+    border-color: #d1d5db;
+    opacity: 1;
+  }
+}
+
+/* =====================
+   Sign Toggle Button
+   ===================== */
+.form-sign-toggle {
+  padding: 0.3rem 0.7rem;
+  font-size: 1.2rem;
+  border: none;
+  background-color: #334155;
+  color: #facc15;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+  transition: background 0.2s ease-in-out;
+}
+
+@media (prefers-color-scheme: light) {
+  .form-sign-toggle {
+    background-color: #ffffff;
+    color: #1e293b;
+    border: 1px solid #d1d5db;
+  }
+}
+
+.form-sign-toggle:disabled {
+  background-color: #0f172a;
+  color: #6b7280;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (prefers-color-scheme: light) {
+  .form-sign-toggle:disabled {
+    background-color: #f3f4f6;
+    color: #9ca3af;
+    border-color: #d1d5db;
+    opacity: 1;
+  }
+}
+
+/* =====================
+   Link Button
+   ===================== */
+.kc-link-button {
+  border: none;
+  background: transparent;
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+@media (prefers-color-scheme: light) {
+  .kc-link-button {
+    color: #1d4ed8;
+  }
+}
+
+.kc-link-button:hover {
+  text-decoration: underline;
+  opacity: 0.8;
+}
+
+/* =====================
+   Remove Button (Edit Member)
+   ===================== */
+.edit-member-remove {
+  background: none;
+  border: none;
+  color: #f87171;
+  font-size: 1.1rem;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 0.3rem;
+  transition: background 0.15s;
+}
+
+@media (prefers-color-scheme: light) {
+  .edit-member-remove {
+    color: #dc2626;
+  }
+}
+
+.edit-member-remove:hover {
+  background: #fee2e2;
+}
+
+@media (prefers-color-scheme: light) {
+  .edit-member-remove:hover {
+    background: #fecaca;
+  }
+}

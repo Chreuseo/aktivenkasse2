@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @tailwind utilities;
 @import "./css/theme.css";
+@import "./css/buttons.css";
 
 :root {
   --background: #ffffff;
@@ -60,30 +61,6 @@ body {
 .menu-dropdown {
   background: #222; /* oder jede gewünschte Farbe */
   color: #fff;
-}
-
-.button {
-  padding: 0.5em 1.2em;
-  background: var(--background, #ededed);
-  color: var(--foreground, #222);
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.button:hover, .button:focus {
-  background: #facc15;
-  color: #222;
-  outline: none;
-}
-.button:disabled {
-  background: #181818;
-  color: #444;
-  cursor: not-allowed;
-  border-color: #181818;
-  opacity: 1;
-  font-weight: 400;
 }
 
 /* Utility: erzwingt horizontales Scrollen für einzelne Container */
