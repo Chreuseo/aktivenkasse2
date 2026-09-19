@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { AuthorizationType, ResourceType } from "@/app/types/authorization";
 import { checkPermission } from "@/services/authService";
 import type { Transaction } from "@/app/types/transaction";
+import { SEPAHelper} from "@/lib/sepaHelper";
 
 type IdRouteContext = { params: Promise<{ id: string }> };
 
@@ -166,6 +167,10 @@ export async function PATCH(req: NextRequest, ctx: IdRouteContext) {
     if (!sepa_iban) missing.push("sepa_iban");
     if (missing.length) {
       return NextResponse.json({ error: "SEPA-Mandat aktiv: Pflichtfelder fehlen", missing }, { status: 400 });
+    }
+
+    if (! await SEPAHelper.validateIban(sepa_iban)) {
+      return NextResponse.json({ error: "IBAN- Prüfzifferfehler" }, { status: 400 });
     }
   }
 

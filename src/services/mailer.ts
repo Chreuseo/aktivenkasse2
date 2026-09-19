@@ -226,6 +226,51 @@ function sanitizeFilenamePart(input: string): string {
     .slice(0, 80) || "beleg";
 }
 
+// Entfernt Leerzeichen komplett (statt sie zu Unterstrichen zu machen) und
+// säubert übrige unzulässige Zeichen für den Dateinamen.
+function sanitizeDescriptionForFilename(input: string): string {
+  return (
+    (input || "")
+      .replace(/\s+/g, "")
+      .replace(/[^a-zA-Z0-9._-]+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 80) || "Beleg"
+  );
+}
+
+// Formatiert einen Betrag für den Dateinamen als z.B. "-12.50EUR" bzw. "12.50EUR".
+function formatAmountForFilename(value: number | null): string {
+  const amount = value ?? 0;
+  const sign = amount < 0 ? "-" : "";
+  const abs = Math.abs(amount);
+  return `${sign}${abs.toFixed(2)}EUR`;
+}
+
+function getFileExtension(name?: string | null): string {
+  if (!name) return "";
+  const match = /\.[a-zA-Z0-9]+$/.exec(name);
+  return match ? match[0] : "";
+}
+
+// Einheitliches Namensschema für Belege beim Mailversand:
+// <date_valued yyyy-mm-dd>_<Betrag als (-)xxx.xxEUR>_<Beschreibung ohne Leerzeichen>
+function buildReceiptFilename(tx: {
+  id: number;
+  date: Date;
+  date_valued?: Date | null;
+  amount: unknown;
+  description?: string | null;
+  attachment?: { name?: string | null } | null;
+}): string {
+  const valuedDate = tx.date_valued ?? tx.date;
+  const dateStr = valuedDate.toISOString().slice(0, 10);
+  const amountStr = formatAmountForFilename(decimalToNumber(tx.amount));
+  const descStr = sanitizeDescriptionForFilename(tx.description || `Transaktion_${tx.id}`);
+  const ext = getFileExtension(tx.attachment?.name);
+  return `${dateStr}_${amountStr}_${descStr}${ext}`;
+}
+
 function escapeHtml(input: string): string {
   return (input || "")
     .replace(/&/g, "&amp;")
@@ -402,7 +447,7 @@ async function loadRelevantTransactionsForAccount(accountId: number, selectedTra
       subject: sanitizeSingleLine((tx as any).description || "-"),
       counterAccount: sanitizeSingleLine(counter),
       amount: formatCurrency(amountNumber),
-      attachmentName: tx.attachment?.name ? sanitizeSingleLine(tx.attachment.name) : "kein Beleg",
+      attachmentName: tx.attachment ? buildReceiptFilename(tx as any) : "kein Beleg",
     };
   });
 }
@@ -630,12 +675,19 @@ async function buildReceiptAttachmentsForAccount(accountId: number, zipLabel: st
     orderBy: { date: "desc" },
   });
 
+  const usedNames = new Set<string>();
   const files = rows
     .filter((tx) => !!tx.attachment)
     .map((tx) => {
-      const name = sanitizeFilenamePart(tx.attachment?.name || `beleg_${tx.id}`);
+      let filename = buildReceiptFilename(tx as any);
+      if (usedNames.has(filename)) {
+        const ext = getFileExtension(filename);
+        const base = ext ? filename.slice(0, -ext.length) : filename;
+        filename = `${base}_${tx.id}${ext}`;
+      }
+      usedNames.add(filename);
       return {
-        filename: `${String(tx.date.toISOString().slice(0, 10))}_${tx.id}_${name}`,
+        filename,
         content: Buffer.from(tx.attachment!.data as unknown as Uint8Array),
         contentType: tx.attachment?.mimeType || undefined,
       };
