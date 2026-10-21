@@ -69,12 +69,16 @@ export async function GET(req: NextRequest) {
     else merged.push({ ...r });
   }
 
+  const today = ymd(new Date());
   const existing = await prisma.dues.findMany({ where: { accountId }, select: { dueDate: true, amount: true } });
   const existingKeys = new Set(existing.map((d) => `${ymd(d.dueDate)}|${Number(d.amount).toFixed(2)}`));
 
   const rows = merged
-    .filter((r) => r.amount > 0)
-    .map((r) => ({ ...r, exists: existingKeys.has(`${r.from}|${r.amount.toFixed(2)}`) }));
+    .filter((r) => r.amount > 0 && r.from <= today)
+    .map((r) => {
+      const to = r.to && r.to > today ? null : r.to;
+      return { ...r, to, exists: existingKeys.has(`${r.from}|${r.amount.toFixed(2)}`) };
+    });
   return NextResponse.json({ rows });
 }
 
@@ -92,13 +96,22 @@ export async function POST(req: NextRequest) {
   if (!account) return NextResponse.json({ error: "Konto nicht gefunden" }, { status: 404 });
 
   const data: { accountId: number; amount: string; dueDate: Date; paid: boolean; paidAt: Date | null }[] = [];
+  const today = parseYmd(ymd(new Date()))!;
   for (const it of body.items) {
     const from = parseYmd(it?.from);
-    const to = it?.to ? parseYmd(it.to) : null;
+    const requestedTo = it?.to ? parseYmd(it.to) : null;
     const amount = Number(it?.amount);
-    if (!from || (it?.to && !to) || !Number.isFinite(amount) || amount <= 0) {
+    if (
+      !from ||
+      (it?.to && !requestedTo) ||
+      from > today ||
+      (requestedTo && requestedTo <= from) ||
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
       return NextResponse.json({ error: "Ungültiger Eintrag" }, { status: 400 });
     }
+    const to = requestedTo && requestedTo <= today ? requestedTo : null;
     data.push({ accountId, amount: amount.toFixed(2), dueDate: from, paid: !!to, paidAt: to });
   }
   if (!data.length) return NextResponse.json({ created: 0 });
