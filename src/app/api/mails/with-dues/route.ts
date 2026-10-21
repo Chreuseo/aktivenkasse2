@@ -163,7 +163,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // 2) Fälligkeiten erzeugen: nur für Konten mit negativem Kontostand
   const defaultDaysStr = getEnvMulti(["DUE_DEFAULT_DAYS", "DUES_DEFAULT_DAYS", "due.default.days"], "14");
   const defaultDays = Number.parseInt(defaultDaysStr, 10);
-  const days = Number.isFinite(defaultDays) && defaultDays > 0 ? defaultDays : 14;
+  const days = Number.isFinite(defaultDays) && defaultDays >= 0 ? defaultDays : 14;
   const now = new Date();
   const dueDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
