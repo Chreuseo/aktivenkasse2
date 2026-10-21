@@ -103,6 +103,44 @@ export async function POST(req: NextRequest) {
   }
   if (!data.length) return NextResponse.json({ created: 0 });
 
-  const res = await prisma.dues.createMany({ data: data as any });
+  const res = await prisma.$transaction(async (p) => {
+    const existing = await p.dues.findMany({
+      where: { accountId, interestBilled: false },
+      select: { id: true, amount: true, dueDate: true, paid: true, paidAt: true },
+    });
+    const now = new Date();
+
+    for (const due of existing) {
+      const dueStart = new Date(due.dueDate);
+      dueStart.setHours(0, 0, 0, 0);
+      const dueEndDate = due.paid ? due.paidAt ?? now : null;
+      const dueEnd = dueEndDate ? new Date(dueEndDate) : null;
+      dueEnd?.setHours(0, 0, 0, 0);
+
+      const supersededAt = data
+        .filter((item) => Number(item.amount) > Number(due.amount))
+        .map((item) => {
+          const itemStart = new Date(item.dueDate);
+          const itemEnd = item.paidAt ? new Date(item.paidAt) : null;
+          const overlapStart = itemStart > dueStart ? itemStart : dueStart;
+          const overlaps =
+            (!dueEnd || overlapStart < dueEnd) &&
+            (!itemEnd || overlapStart < itemEnd) &&
+            (!dueEnd || itemStart < dueEnd);
+          return overlaps ? overlapStart : null;
+        })
+        .filter((date): date is Date => date !== null)
+        .sort((a, b) => a.getTime() - b.getTime())[0];
+
+      if (supersededAt && (!due.paid || !due.paidAt || due.paidAt > supersededAt)) {
+        await p.dues.update({
+          where: { id: due.id },
+          data: { paid: true, paidAt: supersededAt },
+        });
+      }
+    }
+
+    return p.dues.createMany({ data: data as any });
+  });
   return NextResponse.json({ created: res.count });
 }
