@@ -115,7 +115,10 @@ const menu: MenuItem[] = [
             {
                 type: 'group',
                 label: 'Zinsen',
-                children: [{ label: 'Zinsrechnung', href: '/interests' }],
+                children: [
+                    { label: 'Zinsrechnung', href: '/interests' },
+                    { label: 'Fälligkeiten nachtragen', href: '/interests/backfill' },
+                ],
             },
             {
                 type: 'group',
