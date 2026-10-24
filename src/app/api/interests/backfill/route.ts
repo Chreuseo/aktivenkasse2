@@ -118,42 +118,114 @@ export async function POST(req: NextRequest) {
 
   const res = await prisma.$transaction(async (p) => {
     const existing = await p.dues.findMany({
-      where: { accountId, interestBilled: false },
-      select: { id: true, amount: true, dueDate: true, paid: true, paidAt: true },
+      where: { accountId },
+      select: { id: true, amount: true, dueDate: true, paid: true, paidAt: true, interestBilled: true },
     });
-    const now = new Date();
+    type Interval = { start: Date; end: Date | null };
+    const dayStart = (date: Date) => {
+      const day = new Date(date);
+      day.setHours(0, 0, 0, 0);
+      return day;
+    };
+    const overlaps = (a: Interval, b: Interval) =>
+      (!a.end || b.start < a.end) && (!b.end || a.start < b.end);
+    const earlierEnd = (a: Date | null, b: Date | null) =>
+      a && b ? (a < b ? a : b) : a ?? b;
+    const subtract = (interval: Interval, cuts: Interval[]): Interval[] => {
+      let cursor: Date | null = interval.start;
+      const fragments: Interval[] = [];
+      const orderedCuts = cuts
+        .filter((cut) => overlaps(interval, cut))
+        .sort((a, b) => a.start.getTime() - b.start.getTime());
 
-    for (const due of existing) {
-      const dueStart = new Date(due.dueDate);
-      dueStart.setHours(0, 0, 0, 0);
-      const dueEndDate = due.paid ? due.paidAt ?? now : null;
-      const dueEnd = dueEndDate ? new Date(dueEndDate) : null;
-      dueEnd?.setHours(0, 0, 0, 0);
+      for (const cut of orderedCuts) {
+        if (!cursor) break;
+        if (cut.start > cursor) {
+          const end = earlierEnd(interval.end, cut.start);
+          if (end && end > cursor) fragments.push({ start: cursor, end });
+        }
+        if (!cut.end) {
+          cursor = null;
+          break;
+        }
+        if (cut.end > cursor) cursor = cut.end;
+        if (interval.end && cursor >= interval.end) {
+          cursor = null;
+          break;
+        }
+      }
+      if (cursor && (!interval.end || cursor < interval.end)) {
+        fragments.push({ start: cursor, end: interval.end });
+      }
+      return fragments;
+    };
 
-      const supersededAt = data
-        .filter((item) => Number(item.amount) > Number(due.amount))
-        .map((item) => {
-          const itemStart = new Date(item.dueDate);
-          const itemEnd = item.paidAt ? new Date(item.paidAt) : null;
-          const overlapStart = itemStart > dueStart ? itemStart : dueStart;
-          const overlaps =
-            (!dueEnd || overlapStart < dueEnd) &&
-            (!itemEnd || overlapStart < itemEnd) &&
-            (!dueEnd || itemStart < dueEnd);
-          return overlaps ? overlapStart : null;
-        })
-        .filter((date): date is Date => date !== null)
-        .sort((a, b) => a.getTime() - b.getTime())[0];
+    const existingIntervals = existing.map((due) => ({
+      due,
+      interval: {
+        start: dayStart(due.dueDate),
+        end: due.paid && due.paidAt ? dayStart(due.paidAt) : null,
+      },
+    }));
+    const itemIntervals = data.map((item) => ({
+      item,
+      interval: { start: dayStart(item.dueDate), end: item.paidAt ? dayStart(item.paidAt) : null },
+    }));
+    const additions: typeof data = [];
+    const incomingIntervals = itemIntervals.map(({ interval }) => interval);
 
-      if (supersededAt && (!due.paid || !due.paidAt || due.paidAt > supersededAt)) {
-        await p.dues.update({
-          where: { id: due.id },
-          data: { paid: true, paidAt: supersededAt },
+    for (const { due, interval } of existingIntervals) {
+      if (!incomingIntervals.some((itemInterval) => overlaps(interval, itemInterval))) continue;
+
+      if (!due.interestBilled) {
+        const fragments = subtract(interval, incomingIntervals);
+        for (const fragment of fragments) {
+          additions.push({
+            accountId,
+            amount: Number(due.amount).toFixed(2),
+            dueDate: fragment.start,
+            paid: due.paid || !!fragment.end,
+            paidAt: fragment.end,
+          });
+        }
+      }
+
+      const overlappingEnds = incomingIntervals
+        .filter((itemInterval) => overlaps(interval, itemInterval))
+        .map((itemInterval) => earlierEnd(interval.end, itemInterval.end))
+        .filter((end): end is Date => !!end)
+        .sort((a, b) => b.getTime() - a.getTime());
+      await p.dues.update({
+        where: { id: due.id },
+        data: {
+          paid: true,
+          paidAt: overlappingEnds[0] ?? today,
+          interestBilled: true,
+        },
+      });
+    }
+
+    const occupied = [
+      ...existingIntervals.map(({ interval }) => interval),
+      ...additions.map(({ dueDate, paidAt }) => ({
+        start: dueDate,
+        end: paidAt,
+      })),
+    ];
+    for (const { item, interval } of itemIntervals) {
+      for (const fragment of subtract(interval, occupied)) {
+        additions.push({
+          ...item,
+          dueDate: fragment.start,
+          paid: !!fragment.end,
+          paidAt: fragment.end,
         });
+        occupied.push(fragment);
       }
     }
 
-    return p.dues.createMany({ data: data as any });
+    const created = additions.length ? await p.dues.createMany({ data: additions }) : { count: 0 };
+    return created;
   });
   return NextResponse.json({ created: res.count });
 }
