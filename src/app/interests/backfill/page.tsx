@@ -23,11 +23,20 @@ function fmtMoney(v: number) {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(v);
 }
 
+function toInputDateValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function DuesBackfillPage() {
   const { data: session } = useSession();
   const token = extractToken(session as any);
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
+  const [dateFrom, setDateFrom] = useState(() => toInputDateValue(new Date(new Date().getFullYear(), 0, 1)));
+  const [dateTo, setDateTo] = useState(() => toInputDateValue(new Date()));
   const [type, setType] = useState("");
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [accountId, setAccountId] = useState("");
@@ -54,7 +63,7 @@ export default function DuesBackfillPage() {
     setLoading(true);
     try {
       const d = await fetchJson(`/api/interests/backfill?accountId=${id}`, { headers, cache: "no-store" });
-      setRows((d.rows as any[]).map((r) => ({ ...r, set: !r.exists })));
+      setRows((d.rows as any[]).map((r) => ({ ...r, set: false })));
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
@@ -67,7 +76,9 @@ export default function DuesBackfillPage() {
   }
 
   async function save() {
-    const items = rows.filter((r) => r.set).map((r) => ({ from: r.from, to: r.to, amount: r.amount }));
+    const items = visibleRows
+      .filter(({ row }) => row.set)
+      .map(({ row }) => ({ from: row.from, to: row.to, amount: row.amount }));
     if (!items.length) return;
     setError(null);
     setStatus(null);
@@ -84,7 +95,17 @@ export default function DuesBackfillPage() {
     }
   }
 
-  const selectedCount = rows.filter((r) => r.set).length;
+  const visibleRows = rows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => (!dateFrom || row.from >= dateFrom) && (!dateTo || row.from <= dateTo));
+  const selectedCount = visibleRows.filter(({ row }) => row.set).length;
+  const allSelected = visibleRows.length > 0 && selectedCount === visibleRows.length;
+
+  function toggleAll() {
+    const select = !allSelected;
+    const visibleIndexes = new Set(visibleRows.map(({ index }) => index));
+    setRows((rs) => rs.map((row, index) => visibleIndexes.has(index) ? { ...row, set: select } : row));
+  }
 
   return (
     <div className="kc-page">
@@ -115,6 +136,14 @@ export default function DuesBackfillPage() {
               ))}
             </select>
           </label>
+          <label className="kc-label-col">
+            <span className="kc-fieldlabel">Datum von</span>
+            <input className="kc-input" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          </label>
+          <label className="kc-label-col">
+            <span className="kc-fieldlabel">Datum bis</span>
+            <input className="kc-input" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          </label>
           <button className="button" onClick={save} disabled={!selectedCount}>
             Ausgewählte setzen ({selectedCount})
           </button>
@@ -132,22 +161,26 @@ export default function DuesBackfillPage() {
               <th>Von</th>
               <th>Bis</th>
               <th>Betrag</th>
-              <th>Setzen</th>
+              <th>
+                <button type="button" className="button" onClick={toggleAll} disabled={!visibleRows.length}>
+                  {allSelected ? "Alle abwählen" : "Alle auswählen"}
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
+            {visibleRows.length === 0 && (
               <tr><td colSpan={4} className="kc-table-note kc-table-note--muted">Keine Zeiträume mit negativem Kontostand.</td></tr>
             )}
-            {rows.map((r, i) => (
-              <tr key={`${r.from}-${i}`} className="kc-row">
+            {visibleRows.map(({ row: r, index }) => (
+              <tr key={`${r.from}-${index}`} className="kc-row">
                 <td>
-                  <input className="kc-input" type="date" value={r.from} onChange={(e) => update(i, { from: e.target.value })} />
+                  <input className="kc-input" type="date" value={r.from} onChange={(e) => update(index, { from: e.target.value })} />
                 </td>
                 <td>{fmtDate(r.to)}</td>
                 <td>{fmtMoney(r.amount)}</td>
                 <td className="kc-checkbox">
-                  <input type="checkbox" checked={r.set} onChange={(e) => update(i, { set: e.target.checked })} />
+                  <input type="checkbox" checked={r.set} onChange={(e) => update(index, { set: e.target.checked })} />
                   {r.exists && <span className="kc-muted"> bereits vorhanden</span>}
                 </td>
               </tr>
